@@ -546,6 +546,92 @@ function renderizarPost(post, container, currentUserId) {
 }
 
 // --- INTERAÇÕES ---
+function renderizarServicos(servicos) {
+    const container = document.getElementById('servicos-container');
+    if (!container) return;
+
+    if (!servicos || servicos.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 text-sm">Nenhum serviço disponível.</p>';
+        return;
+    }
+
+    container.innerHTML = "";
+
+    servicos.forEach(servico => {
+        const el = document.createElement('div');
+
+        el.className = "bg-white p-4 rounded-xl shadow mb-3";
+
+        el.innerHTML = `
+            <h3 class="font-bold text-sm">${escaparHTML(servico.title)}</h3>
+            <p class="text-xs text-gray-500">${escaparHTML(servico.bairro)}</p>
+            <p class="text-sm text-gray-600 mt-2">${escaparHTML(servico.description || '')}</p>
+
+            <button onclick="contatarServico('${servico.telefone}')"
+                class="mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold">
+                Falar agora
+            </button>
+        `;
+
+        container.appendChild(el);
+    });
+}
+
+async function carregarServicos() {
+    const { data } = await _supabase
+        .from('services')
+        .select('*')
+        .limit(10);
+
+    renderizarServicos(data);
+}
+
+window.contatarServico = (telefone) => {
+    window.open(`https://wa.me/${telefone}`, '_blank');
+};
+function renderizarEmpregos(empregos) {
+    const container = document.getElementById('empregos-container');
+    if (!container) return;
+
+    if (!empregos || empregos.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 text-sm">Nenhuma vaga encontrada.</p>';
+        return;
+    }
+
+    container.innerHTML = "";
+
+    empregos.forEach(job => {
+        const el = document.createElement('div');
+
+        el.className = "bg-white p-4 rounded-xl shadow mb-3";
+
+        el.innerHTML = `
+            <h3 class="font-bold text-sm">${escaparHTML(job.title)}</h3>
+            <p class="text-xs text-gray-500">${escaparHTML(job.bairro)}</p>
+            <p class="text-sm text-gray-600 mt-2">${escaparHTML(job.description || '')}</p>
+
+            <button onclick="candidatar('${job.contato}')"
+                class="mt-3 bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-bold">
+                Candidatar
+            </button>
+        `;
+
+        container.appendChild(el);
+    });
+}
+
+async function carregarEmpregos() {
+    const { data } = await _supabase
+        .from('jobs')
+        .select('*')
+        .limit(10);
+
+    renderizarEmpregos(data);
+}
+
+window.candidatar = (contato) => {
+    window.open(`https://wa.me/${contato}`, '_blank');
+};
 window.reagir = async (postId, emoji) => {
     const { data: { session } } = await _supabase.auth.getSession();
     const { error } = await _supabase.from('reactions').insert({ post_id: postId, user_id: session.user.id, emoji_type: emoji });
