@@ -1,85 +1,67 @@
-const CACHE_NAME = 'gente-da-feira-v2';
-const BASE_PATH = '/gente-da-feira';
+// Nome do cache (mude a versão quando atualizar arquivos)
+const CACHE_NAME = "gente-da-feira-v1";
 
-// Arquivos essenciais para precaching
-const ASSETS = [
-  `${BASE_PATH}/`,
-  `${BASE_PATH}/index.html`,
-  `${BASE_PATH}/app.js`,
-  `${BASE_PATH}/manifest.json`,
-  `${BASE_PATH}/icon-192.png`,
-  `${BASE_PATH}/icon-512.png`,
-  `${BASE_PATH}/icon-maskable-192.png`,
-  `${BASE_PATH}/icon-maskable-512.png`
+// Arquivos essenciais para funcionar offline
+const urlsToCache = [
+  "/",
+  "/index.html",
+  "/manifest.json",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png"
 ];
 
-// Instala e precacheia os arquivos essenciais
-self.addEventListener('install', (event) => {
+// INSTALAÇÃO
+self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(ASSETS).catch(err => {
-        console.error('Erro ao cachear assets:', err);
-      });
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log("Cache aberto");
+      return cache.addAll(urlsToCache);
     })
   );
   self.skipWaiting();
 });
 
-// Ativa e remove caches antigos
-self.addEventListener('activate', (event) => {
+// ATIVAÇÃO (limpa caches antigos)
+self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys.map(key => {
-          if (key !== CACHE_NAME) {
-            console.log('Deletando cache antigo:', key);
-            return caches.delete(key);
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME) {
+            console.log("Removendo cache antigo:", cache);
+            return caches.delete(cache);
           }
         })
-      )
-    )
+      );
+    })
   );
   self.clients.claim();
 });
 
-// Intercepta requests com estratégia Network First para dados dinâmicos
-self.addEventListener('fetch', (event) => {
-  const request = event.request;
-  
-  // 🚫 Nunca cachear chamadas da API Supabase
-  if (request.url.includes('supabase.co')) {
-    return;
-  }
-  
-  // 🚫 Só cachear GET requests
-  if (request.method !== 'GET') {
-    return;
-  }
-  
-  // Estratégia Network First com Cache Fallback
+// FETCH (estratégia: cache primeiro, depois rede)
+self.addEventListener("fetch", (event) => {
   event.respondWith(
-    fetch(request)
-      .then(response => {
-        // Cachear resposta bem-sucedida
-        if (response && response.status === 200) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(request, clone);
-          });
-        }
+    caches.match(event.request).then((response) => {
+      // Se tiver no cache → retorna
+      if (response) {
         return response;
-      })
-      .catch(() => {
-        // Se falhou, tenta buscar do cache
-        return caches.match(request).then(cached => {
-          if (cached) {
-            return cached;
-          }
-          // Fallback para página offline
-          if (request.mode === 'navigate') {
-            return caches.match(`${BASE_PATH}/index.html`);
+      }
+
+      // Se não tiver → busca na internet
+      return fetch(event.request)
+        .then((networkResponse) => {
+          // Opcional: salva no cache
+          return caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, networkResponse.clone());
+            return networkResponse;
+          });
+        })
+        .catch(() => {
+          // fallback offline simples
+          if (event.request.destination === "document") {
+            return caches.match("/index.html");
           }
         });
-      })
+    })
   );
 });
