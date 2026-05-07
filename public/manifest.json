@@ -1,0 +1,20 @@
+{
+  "name": "GDF Chat",
+  "short_name": "GDF Chat",
+  "description": "A rede social de Feira de Santana",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f0f11",
+  "theme_color": "#d97706",
+  "lang": "pt-BR",
+  "categories": ["social", "communication"],
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
