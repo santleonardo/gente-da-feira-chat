@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useState, useEffect, useCallback } from "react";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,105 +9,76 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Heart, MessageCircle, Trash2 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
+import { useRealtimeMessages } from "@/hooks/use-realtime";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import type { Post } from "@/lib/types";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+
+interface PostWithAuthor {
+  id: string;
+  content: string;
+  neighborhood?: string | null;
+  created_at: string;
+  author_id: string;
+  author: {
+    id: string;
+    display_name: string;
+    username: string;
+    avatar?: string | null;
+    neighborhood?: string | null;
+  };
+  reactions: { user_id: string; type: string }[];
+}
 
 export function FeedView() {
   const { profile } = useStore();
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<PostWithAuthor[]>([]);
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!profile) return;
+  const fetchPosts = useCallback(async () => {
+    const nb = profile?.neighborhood || "all";
+    try {
+      const res = await fetch(`/api/posts?neighborhood=${nb}&limit=30`);
+      const data = await res.json();
+      setPosts(data.posts || []);
+    } catch { /* silent */ }
+    setLoading(false);
+  }, [profile?.neighborhood]);
 
-    const nb = profile.neighborhood || "all";
-    const fetchPosts = async () => {
-      try {
-        const res = await fetch(
-          `/api/posts?neighborhood=${nb}&limit=30`
-        );
-        const data = await res.json();
-        setPosts(data.posts || []);
-      } catch (err) {
-        console.error("[FeedView] fetchPosts", err);
-      } finally {
-        setLoading(false);
-      }
+  useEffect(() => { fetchPosts(); }, [fetchPosts]);
+
+  const handleNewPost = useCallback((payload: any) => {
+    const fetchAuthor = async () => {
+      const supabase = createClient();
+      const { data: author } = await supabase
+        .from("profiles")
+        .select("id, display_name, username, avatar, neighborhood")
+        .eq("id", payload.author_id)
+        .single();
+
+      const { data: reactions } = await supabase
+        .from("reactions")
+        .select("user_id, type")
+        .eq("post_id", payload.id);
+
+      const newPost: PostWithAuthor = {
+        ...payload,
+        author: author || { id: payload.author_id, display_name: "Usuário", username: "" },
+        reactions: reactions || [],
+      };
+      setPosts((prev) => {
+        if (prev.some((p) => p.id === newPost.id)) return prev;
+        return [newPost, ...prev];
+      });
     };
+    fetchAuthor();
+  }, []);
 
-    fetchPosts();
-
-    // Supabase Realtime: escutar novos posts e reações
-    const supabase = createClient();
-    let channel: RealtimeChannel;
-
-    const setupRealtime = () => {
-      channel = supabase
-        .channel("feed-realtime")
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "posts",
-          },
-          async (payload) => {
-            // Buscar o post completo com author
-            const { data: newPost } = await supabase
-              .from("posts")
-              .select(
-                `*, author:profiles(id, display_name, username, avatar, neighborhood), reactions(user_id, type)`
-              )
-              .eq("id", payload.new.id)
-              .single();
-
-            if (newPost && !newPost.is_deleted) {
-              setPosts((prev) => [newPost as Post, ...prev]);
-            }
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "posts",
-            filter: "is_deleted=eq.true",
-          },
-          (payload) => {
-            setPosts((prev) =>
-              prev.filter((p) => p.id !== payload.new.id)
-            );
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "reactions",
-          },
-          async () => {
-            // Refetch posts para atualizar contagem de reações
-            const res = await fetch(
-              `/api/posts?neighborhood=${nb}&limit=30`
-            );
-            const data = await res.json();
-            setPosts(data.posts || []);
-          }
-        )
-        .subscribe();
-    };
-
-    setupRealtime();
-
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, [profile?.neighborhood, profile]);
+  useRealtimeMessages({
+    table: "posts",
+    onInsert: handleNewPost,
+    enabled: !!profile,
+  });
 
   const handlePost = async () => {
     if (!content.trim() || !profile) return;
@@ -114,22 +86,18 @@ export function FeedView() {
       const res = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: content.trim(),
-          neighborhood: profile.neighborhood,
-        }),
+        body: JSON.stringify({ content: content.trim(), neighborhood: profile.neighborhood }),
       });
       const data = await res.json();
-      if (res.ok && data.post) {
-        setPosts((prev) => [data.post as Post, ...prev]);
+      if (data.post) {
+        setPosts((prev) => {
+          if (prev.some((p) => p.id === data.post.id)) return prev;
+          return [data.post, ...prev];
+        });
         setContent("");
         toast.success("Post publicado!");
-      } else {
-        toast.error(data.error || "Erro ao publicar");
       }
-    } catch {
-      toast.error("Erro ao publicar");
-    }
+    } catch { toast.error("Erro ao publicar"); }
   };
 
   const handleLike = async (postId: string) => {
@@ -155,34 +123,25 @@ export function FeedView() {
           )
         );
       }
-    } catch {
-      // silent — realtime vai atualizar
-    }
+    } catch { /* silent */ }
   };
 
   const handleDelete = async (postId: string) => {
     try {
-      const res = await fetch(`/api/posts?id=${postId}`, { method: "DELETE" });
-      if (res.ok) {
-        setPosts((prev) => prev.filter((p) => p.id !== postId));
-        toast.success("Post excluído");
-      }
-    } catch {
-      toast.error("Erro ao excluir");
-    }
+      await fetch(`/api/posts?id=${postId}`, { method: "DELETE" });
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      toast.success("Post excluído");
+    } catch { toast.error("Erro ao excluir"); }
   };
 
   if (loading) return <FeedSkeleton />;
 
   return (
     <div className="space-y-4">
-      {/* Composer */}
       <div className="rounded-xl border bg-card p-4">
         <div className="flex items-start gap-3">
           <Avatar className="h-9 w-9 shrink-0">
-            <AvatarFallback
-              className={`${getAvatarColor(profile?.id || "")} text-xs text-white`}
-            >
+            <AvatarFallback className={`${getAvatarColor(profile?.id || "")} text-xs text-white`}>
               {getInitials(profile?.display_name || "?")}
             </AvatarFallback>
           </Avatar>
@@ -195,13 +154,7 @@ export function FeedView() {
               rows={2}
             />
             <div className="flex items-center justify-between">
-              <span
-                className={`text-xs ${
-                  content.length > 450
-                    ? "text-destructive"
-                    : "text-muted-foreground"
-                }`}
-              >
+              <span className={`text-xs ${content.length > 450 ? "text-destructive" : "text-muted-foreground"}`}>
                 {content.length}/500
               </span>
               <Button
@@ -217,7 +170,6 @@ export function FeedView() {
         </div>
       </div>
 
-      {/* Posts */}
       {posts.length === 0 && (
         <p className="py-12 text-center text-sm text-muted-foreground">
           Nenhum post ainda. Seja o primeiro a publicar!
@@ -225,59 +177,40 @@ export function FeedView() {
       )}
 
       {posts.map((post) => {
-        const liked = post.reactions?.some(
-          (r) => r.user_id === profile?.id
-        );
+        const liked = post.reactions?.some((r) => r.user_id === profile?.id);
         const likeCount = post.reactions?.length || 0;
 
         return (
           <div key={post.id} className="rounded-xl border bg-card p-4">
             <div className="flex items-start gap-3">
               <Avatar className="h-9 w-9 shrink-0">
-                <AvatarFallback
-                  className={`${getAvatarColor(post.author.id)} text-xs text-white`}
-                >
+                <AvatarFallback className={`${getAvatarColor(post.author.id)} text-xs text-white`}>
                   {getInitials(post.author.display_name)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold">
-                    {post.author.display_name}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    @{post.author.username}
-                  </span>
+                  <span className="text-sm font-semibold">{post.author.display_name}</span>
+                  <span className="text-xs text-muted-foreground">@{post.author.username}</span>
                   {post.author.neighborhood && (
-                    <Badge
-                      variant="secondary"
-                      className="text-[10px] px-1.5 py-0"
-                    >
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                       {post.author.neighborhood}
                     </Badge>
                   )}
                 </div>
-                <p className="mt-1.5 text-sm leading-relaxed whitespace-pre-wrap">
-                  {post.content}
-                </p>
+                <p className="mt-1.5 text-sm leading-relaxed">{post.content}</p>
                 <div className="mt-3 flex items-center gap-4 text-muted-foreground">
                   <button
                     onClick={() => handleLike(post.id)}
                     className="flex items-center gap-1.5 text-xs transition-colors hover:text-rose-500"
                   >
-                    <Heart
-                      className={`h-4 w-4 ${
-                        liked ? "fill-rose-500 text-rose-500" : ""
-                      }`}
-                    />
+                    <Heart className={`h-4 w-4 ${liked ? "fill-rose-500 text-rose-500" : ""}`} />
                     {likeCount > 0 && likeCount}
                   </button>
                   <button className="flex items-center gap-1.5 text-xs hover:text-primary">
                     <MessageCircle className="h-4 w-4" />
                   </button>
-                  <span className="text-xs">
-                    {timeAgo(post.created_at)}
-                  </span>
+                  <span className="text-xs">{timeAgo(post.created_at)}</span>
                   {post.author_id === profile?.id && (
                     <button
                       onClick={() => handleDelete(post.id)}
@@ -300,10 +233,7 @@ function FeedSkeleton() {
   return (
     <div className="space-y-4">
       {[1, 2, 3].map((i) => (
-        <div
-          key={i}
-          className="rounded-xl border bg-card p-4 animate-pulse"
-        >
+        <div key={i} className="rounded-xl border bg-card p-4 animate-pulse">
           <div className="flex gap-3">
             <div className="h-9 w-9 rounded-full bg-muted" />
             <div className="flex-1 space-y-2">
