@@ -6,24 +6,9 @@ import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 const themes = [
-  {
-    value: "light",
-    label: "Claro",
-    icon: Sun,
-    description: "Fundo branco com detalhes quentes",
-  },
-  {
-    value: "dark",
-    label: "Escuro",
-    icon: Moon,
-    description: "Fundo escuro com neon",
-  },
-  {
-    value: "auto",
-    label: "Mesclado",
-    icon: Palette,
-    description: "Segue o sistema",
-  },
+  { value: "light", label: "Claro", icon: Sun, description: "Fundo branco com detalhes claros" },
+  { value: "dark", label: "Escuro", icon: Moon, description: "Fundo escuro com neon" },
+  { value: "auto", label: "Mesclado", icon: Palette, description: "Segue o sistema" },
 ];
 
 export function ThemeToggle() {
@@ -33,13 +18,10 @@ export function ThemeToggle() {
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", handleClick);
-    return () =>
-      document.removeEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
   const current = themes.find((t) => t.value === theme) || themes[2];
@@ -53,7 +35,6 @@ export function ThemeToggle() {
           "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
           "bg-secondary text-secondary-foreground hover:bg-secondary/80"
         )}
-        aria-label="Alternar tema"
       >
         <CurrentIcon className="h-4 w-4" />
         <span className="hidden sm:inline">{current.label}</span>
@@ -61,9 +42,7 @@ export function ThemeToggle() {
 
       {open && (
         <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border bg-popover p-1.5 shadow-lg">
-          <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-            Tema do app
-          </p>
+          <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">Tema do app</p>
           {themes.map((t) => {
             const Icon = t.icon;
             return (
@@ -83,14 +62,10 @@ export function ThemeToggle() {
                 <Icon className="h-4 w-4 shrink-0" />
                 <div>
                   <div className="font-medium">{t.label}</div>
-                  <div
-                    className={cn(
-                      "text-xs",
-                      theme === t.value
-                        ? "text-primary-foreground/70"
-                        : "text-muted-foreground"
-                    )}
-                  >
+                  <div className={cn(
+                    "text-xs",
+                    theme === t.value ? "text-primary-foreground/70" : "text-muted-foreground"
+                  )}>
                     {t.description}
                   </div>
                 </div>
