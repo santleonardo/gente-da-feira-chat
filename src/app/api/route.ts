@@ -1,9 +1,8 @@
-import { NextResponse } from "next/server";
+import { createBrowserClient } from '@supabase/ssr'
 
-export async function GET() {
-  return NextResponse.json({
-    status: "ok",
-    app: "GDF Chat",
-    version: "0.3.0",
-  });
+export function createClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 }
