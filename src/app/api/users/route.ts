@@ -5,7 +5,6 @@ export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
     const q = searchParams.get("q");
 
     let query = supabase
@@ -14,22 +13,18 @@ export async function GET(req: NextRequest) {
       .limit(15);
 
     if (q) {
-      // Sanitizar input para evitar injection no filtro PostgREST
-      const sanitized = q.replace(/[%_.,]/g, "\\$&");
-      query = query.or(
-        `display_name.ilike.%${sanitized}%,username.ilike.%${sanitized}%`
-      );
-      if (userId) query = query.neq("id", userId);
+      const sanitized = q.replace(/[^\w\s@.-]/g, "").slice(0, 50);
+      if (sanitized) {
+        query = query.or(`display_name.ilike.%${sanitized}%,username.ilike.%${sanitized}%`);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) query = query.neq("id", user.id);
+      }
     }
 
     const { data: users, error } = await query;
     if (error) throw error;
     return NextResponse.json({ users: users || [] });
-  } catch (error) {
-    console.error("[GET /api/users]", error);
-    return NextResponse.json(
-      { error: "Erro ao buscar usuários" },
-      { status: 500 }
-    );
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
