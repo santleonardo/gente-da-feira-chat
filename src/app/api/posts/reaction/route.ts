@@ -20,27 +20,30 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { postId, type } = reactionSchema.parse(body);
 
-    // Verificar se já reagiu
-    const { data: existing } = await supabase
+    // Upsert atômico — evita race condition (TOCTOU)
+    const { error: upsertError } = await supabase
       .from("reactions")
-      .select("id")
-      .eq("post_id", postId)
-      .eq("user_id", user.id)
-      .maybeSingle();
+      .upsert(
+        { post_id: postId, user_id: user.id, type },
+        { onConflict: "post_id,user_id" }
+      );
 
-    if (existing) {
-      const { error } = await supabase.from("reactions").delete().eq("id", existing.id);
-      if (error) throw error;
-      return NextResponse.json({ reacted: false });
-    } else {
-      const { error } = await supabase.from("reactions").insert({
-        post_id: postId,
-        user_id: user.id,
-        type,
-      });
-      if (error) throw error;
+    if (!upsertError) {
       return NextResponse.json({ reacted: true });
     }
+
+    // Se conflito (já existe), faz toggle off (remove)
+    if (upsertError && (upsertError as any).code === "23505") {
+      const { error: deleteError } = await supabase
+        .from("reactions")
+        .delete()
+        .eq("post_id", postId)
+        .eq("user_id", user.id);
+      if (deleteError) throw deleteError;
+      return NextResponse.json({ reacted: false });
+    }
+
+    throw upsertError;
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
