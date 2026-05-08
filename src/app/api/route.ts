@@ -1,8 +1,6 @@
-import { createBrowserClient } from '@supabase/ssr'
+import { NextResponse } from "next/server";
 
-export function createClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+// Health check endpoint
+export async function GET() {
+  return NextResponse.json({ status: "ok", version: "1.0.0" });
 }
