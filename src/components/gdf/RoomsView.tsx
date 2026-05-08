@@ -92,6 +92,7 @@ export function RoomsView() {
 }
 
 function RoomCard({ room, onClick }: { room: any; onClick: () => void }) {
+  const memberCount = room.memberCount || room.member_count || room._count?.members || 0;
   return (
     <button
       onClick={onClick}
@@ -113,7 +114,7 @@ function RoomCard({ room, onClick }: { room: any; onClick: () => void }) {
       </div>
       <div className="flex items-center gap-1 text-xs text-muted-foreground">
         <Users className="h-3.5 w-3.5" />
-        {room.memberCount || room._count?.members || 0}
+        {memberCount}
       </div>
     </button>
   );
@@ -236,6 +237,27 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
   const [membersLoading, setMembersLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // ✅ FIX: Buscar membros SEMPRE ao entrar na sala (não só ao abrir painel)
+  const fetchMembers = useCallback(async () => {
+    setMembersLoading(true);
+    try {
+      const res = await fetch(`/api/rooms/${room.id}/members`);
+      const data = await res.json();
+      if (data.error) {
+        console.error("Erro ao buscar membros:", data.error);
+      } else {
+        setMembers(data.members || []);
+      }
+    } catch (err) {
+      console.error("Falha ao buscar membros:", err);
+    }
+    setMembersLoading(false);
+  }, [room.id]);
+
+  useEffect(() => {
+    fetchMembers();
+  }, [fetchMembers]);
+
   const fetchMessages = useCallback(async () => {
     try {
       const res = await fetch(`/api/rooms/${room.id}/messages?limit=50`);
@@ -266,6 +288,7 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
     checkMembership();
   }, [room.id, profile]);
 
+  // Realtime: novas mensagens
   const handleNewMessage = useCallback((payload: any) => {
     const fetchSender = async () => {
       const supabase = createClient();
@@ -291,6 +314,38 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
     enabled: !!profile && isMember,
   });
 
+  // ✅ Realtime: membros entram/saem
+  const handleMemberJoin = useCallback((payload: any) => {
+    const fetchNewMember = async () => {
+      const supabase = createClient();
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("id, display_name, username, avatar, neighborhood")
+        .eq("id", payload.user_id)
+        .single();
+
+      if (prof) {
+        setMembers((prev) => {
+          if (prev.some((m) => m.user_id === payload.user_id)) return prev;
+          return [...prev, { id: payload.id, user_id: payload.user_id, joined_at: payload.created_at, profile: prof }];
+        });
+      }
+    };
+    fetchNewMember();
+  }, []);
+
+  const handleMemberLeave = useCallback((payload: any) => {
+    setMembers((prev) => prev.filter((m) => m.user_id !== payload.user_id));
+  }, []);
+
+  useRealtimeMessages({
+    table: "room_members",
+    filter: `room_id=eq.${room.id}`,
+    onInsert: handleMemberJoin,
+    onDelete: handleMemberLeave,
+    enabled: !!profile,
+  });
+
   useEffect(() => {
     setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }), 100);
   }, [messages, loading]);
@@ -299,9 +354,16 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
     try {
       const res = await fetch(`/api/rooms/${room.id}/join`, { method: "POST" });
       const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
       if (data.joined) {
         setIsMember(true);
         toast.success("Você entrou na sala!");
+        // ✅ FIX: Recarregar membros após entrar
+        fetchMembers();
+        onRefreshRooms();
       }
     } catch {
       toast.error("Erro ao entrar na sala");
@@ -322,16 +384,6 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
       toast.error("Erro ao sair da sala");
     }
   };
-
-  const fetchMembers = useCallback(async () => {
-    setMembersLoading(true);
-    try {
-      const res = await fetch(`/api/rooms/${room.id}/members`);
-      const data = await res.json();
-      setMembers(data.members || []);
-    } catch { /* silent */ }
-    setMembersLoading(false);
-  }, [room.id]);
 
   useEffect(() => {
     if (showMembers) fetchMembers();
@@ -361,6 +413,8 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
     } catch { toast.error("Erro ao enviar mensagem"); }
   };
 
+  const memberCount = members.length || room.memberCount || room.member_count || 0;
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-3 border-b pb-3 mb-3">
@@ -371,7 +425,7 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-bold">{room.name}</h3>
           <p className="text-xs text-muted-foreground">
-            {room.description || `${room.memberCount || members.length || 0} membros`}
+            {room.description || `${memberCount} membro${memberCount !== 1 ? "s" : ""}`}
           </p>
         </div>
         <Button
@@ -381,7 +435,7 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
           className="gap-1 text-xs"
         >
           <Users className="h-4 w-4" />
-          <span className="hidden sm:inline">{members.length || room.memberCount || 0}</span>
+          <span>{memberCount}</span>
           {showMembers ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </Button>
       </div>
@@ -406,7 +460,24 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
             <div className="space-y-1">
               {members.map((m: any) => {
                 const memberProfile = m.profile;
-                if (!memberProfile) return null;
+                if (!memberProfile) {
+                  return (
+                    <div
+                      key={m.id || m.user_id}
+                      className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-accent transition-colors"
+                    >
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="bg-muted text-[10px] text-muted-foreground">?</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-medium text-muted-foreground">Usuário</span>
+                      </div>
+                      {m.user_id === profile?.id && (
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0">Você</Badge>
+                      )}
+                    </div>
+                  );
+                }
                 return (
                   <div
                     key={m.id || m.user_id}
@@ -420,9 +491,7 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
                     <div className="flex-1 min-w-0">
                       <span className="text-xs font-medium">{memberProfile.display_name}</span>
                       {memberProfile.neighborhood && (
-                        <span className="text-[10px] text-muted-foreground ml-1">
-                          · {memberProfile.neighborhood}
-                        </span>
+                        <span className="text-[10px] text-muted-foreground ml-1">· {memberProfile.neighborhood}</span>
                       )}
                     </div>
                     {m.user_id === profile?.id && (
