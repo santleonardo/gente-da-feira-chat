@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
     if (q) {
       // Sanitizar input para evitar injection no filtro PostgREST
-      const sanitized = q.replace(/[.%_]/g, "\\$&");
+      const sanitized = q.replace(/[%_.,]/g, "\\$&");
       query = query.or(
         `display_name.ilike.%${sanitized}%,username.ilike.%${sanitized}%`
       );
