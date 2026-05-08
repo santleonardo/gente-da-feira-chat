@@ -8,6 +8,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
+    const { data: room } = await supabase
+      .from("rooms")
+      .select("id, is_active")
+      .eq("id", roomId)
+      .single();
+
+    if (!room || !room.is_active) {
+      return NextResponse.json({ error: "Sala não encontrada" }, { status: 404 });
+    }
+
     const { data: existing } = await supabase
       .from("room_members")
       .select("id")
