@@ -42,7 +42,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const data = await req.json();
-
     const updates: Record<string, any> = {};
 
     if (data.name !== undefined) {
