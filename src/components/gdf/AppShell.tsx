@@ -11,7 +11,7 @@ import { DiscoverView } from "@/components/gdf/DiscoverView";
 import { ThemeToggle } from "@/components/gdf/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
 import { Home, Users, MessageSquare, Compass, User, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils/cn";
+import { cn } from "@/lib/utils";
 
 const tabs = [
   { id: "feed" as const, label: "Feed", icon: Home },
