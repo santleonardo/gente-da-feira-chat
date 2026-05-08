@@ -32,8 +32,13 @@ export function DMsView() {
   const fetchDMs = useCallback(async () => {
     if (!profile) return;
     try {
-      const res = await fetch(`/api/dm?userId=${profile.id}`);
+      // O servidor obtém o userId da sessão autenticada (C1 fix)
+      const res = await fetch("/api/dm");
       const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Erro ao buscar conversas");
+        return;
+      }
       setConversations(data.conversations || []);
     } catch (err) {
       console.error("[DMsView] fetchDMs", err);
