@@ -5,29 +5,10 @@ import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { BAIRROS } from "@/lib/constants";
 import { toast } from "sonner";
-import type { Profile } from "@/lib/types";
-
-interface LoginData {
-  email: string;
-  password: string;
-}
-
-interface RegisterData {
-  name: string;
-  username: string;
-  email: string;
-  password: string;
-  neighborhood: string;
-}
 
 export function AuthForm() {
   const { setProfile } = useStore();
@@ -35,11 +16,8 @@ export function AuthForm() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [loading, setLoading] = useState(false);
 
-  const [loginData, setLoginData] = useState<LoginData>({
-    email: "",
-    password: "",
-  });
-  const [regData, setRegData] = useState<RegisterData>({
+  const [loginData, setLoginData] = useState({ email: "", password: "" });
+  const [regData, setRegData] = useState({
     name: "",
     username: "",
     email: "",
@@ -58,10 +36,7 @@ export function AuthForm() {
         email: loginData.email,
         password: loginData.password,
       });
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
+      if (error) { toast.error(error.message); return; }
 
       const { data: profile } = await supabase
         .from("profiles")
@@ -70,36 +45,19 @@ export function AuthForm() {
         .single();
 
       if (profile) {
-        setProfile(profile as Profile);
+        setProfile(profile);
         toast.success(`Bem-vindo, ${profile.display_name}!`);
       }
-    } catch (err) {
-      console.error("[handleLogin]", err);
+    } catch {
       toast.error("Erro ao fazer login");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const handleRegister = async () => {
-    if (
-      !regData.name ||
-      !regData.username ||
-      !regData.email ||
-      !regData.password
-    ) {
+    if (!regData.name || !regData.username || !regData.email || !regData.password) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
-    if (regData.password.length < 6) {
-      toast.error("Senha deve ter ao menos 6 caracteres");
-      return;
-    }
-    if (!/^[a-z0-9_]+$/.test(regData.username)) {
-      toast.error("Usuário deve conter apenas letras minúsculas, números e _");
-      return;
-    }
-
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -113,36 +71,24 @@ export function AuthForm() {
           },
         },
       });
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
+      if (error) { toast.error(error.message); return; }
 
       if (data.user) {
-        // Atualizar perfil com neighborhood
-        await supabase
-          .from("profiles")
-          .update({
-            neighborhood: regData.neighborhood || null,
-          })
-          .eq("id", data.user.id);
+        await supabase.from("profiles").update({
+          neighborhood: regData.neighborhood || null,
+        }).eq("id", data.user.id);
 
-        // Auto-entrar na sala Geral FSA
         const { data: geralRoom } = await supabase
           .from("rooms")
           .select("id")
           .eq("slug", "geral-fsa")
           .single();
 
-          if (geralRoom) {
-          try {
-            await supabase.from("room_members").insert({
-              room_id: geralRoom.id,
-              user_id: data.user.id,
-            });
-          } catch {
-            // Ignora erro de duplicata (já é membro)
-          }
+        if (geralRoom) {
+          await supabase.from("room_members").insert({
+            room_id: geralRoom.id,
+            user_id: data.user.id,
+          });
         }
 
         const { data: profile } = await supabase
@@ -152,16 +98,13 @@ export function AuthForm() {
           .single();
 
         if (profile) {
-          setProfile(profile as Profile);
+          setProfile(profile);
           toast.success("Conta criada com sucesso!");
         }
       }
-    } catch (err) {
-      console.error("[handleRegister]", err);
+    } catch {
       toast.error("Erro ao criar conta");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   return (
@@ -177,14 +120,11 @@ export function AuthForm() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Tab Switcher */}
           <div className="flex rounded-lg bg-muted p-1">
             <button
               onClick={() => setMode("login")}
               className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
-                mode === "login"
-                  ? "bg-background shadow-sm"
-                  : "text-muted-foreground"
+                mode === "login" ? "bg-background shadow-sm" : "text-muted-foreground"
               }`}
             >
               Entrar
@@ -192,9 +132,7 @@ export function AuthForm() {
             <button
               onClick={() => setMode("register")}
               className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
-                mode === "register"
-                  ? "bg-background shadow-sm"
-                  : "text-muted-foreground"
+                mode === "register" ? "bg-background shadow-sm" : "text-muted-foreground"
               }`}
             >
               Criar conta
@@ -210,9 +148,7 @@ export function AuthForm() {
                   type="email"
                   placeholder="seu@email.com"
                   value={loginData.email}
-                  onChange={(e) =>
-                    setLoginData({ ...loginData, email: e.target.value })
-                  }
+                  onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
@@ -222,17 +158,11 @@ export function AuthForm() {
                   type="password"
                   placeholder="••••••"
                   value={loginData.password}
-                  onChange={(e) =>
-                    setLoginData({ ...loginData, password: e.target.value })
-                  }
+                  onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                   onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                 />
               </div>
-              <Button
-                onClick={handleLogin}
-                disabled={loading}
-                className="w-full"
-              >
+              <Button onClick={handleLogin} disabled={loading} className="w-full">
                 {loading ? "Entrando..." : "Entrar"}
               </Button>
             </div>
@@ -244,9 +174,7 @@ export function AuthForm() {
                   id="reg-name"
                   placeholder="Seu nome completo"
                   value={regData.name}
-                  onChange={(e) =>
-                    setRegData({ ...regData, name: e.target.value })
-                  }
+                  onChange={(e) => setRegData({ ...regData, name: e.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
@@ -255,12 +183,7 @@ export function AuthForm() {
                   id="reg-username"
                   placeholder="seu_usuario"
                   value={regData.username}
-                  onChange={(e) =>
-                    setRegData({
-                      ...regData,
-                      username: e.target.value.toLowerCase().replace(/\s/g, ""),
-                    })
-                  }
+                  onChange={(e) => setRegData({ ...regData, username: e.target.value.toLowerCase().replace(/\s/g, "") })}
                 />
               </div>
               <div className="space-y-1.5">
@@ -270,9 +193,7 @@ export function AuthForm() {
                   type="email"
                   placeholder="seu@email.com"
                   value={regData.email}
-                  onChange={(e) =>
-                    setRegData({ ...regData, email: e.target.value })
-                  }
+                  onChange={(e) => setRegData({ ...regData, email: e.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
@@ -282,9 +203,7 @@ export function AuthForm() {
                   type="password"
                   placeholder="Mínimo 6 caracteres"
                   value={regData.password}
-                  onChange={(e) =>
-                    setRegData({ ...regData, password: e.target.value })
-                  }
+                  onChange={(e) => setRegData({ ...regData, password: e.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
@@ -293,23 +212,15 @@ export function AuthForm() {
                   id="reg-neighborhood"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   value={regData.neighborhood}
-                  onChange={(e) =>
-                    setRegData({ ...regData, neighborhood: e.target.value })
-                  }
+                  onChange={(e) => setRegData({ ...regData, neighborhood: e.target.value })}
                 >
                   <option value="">Selecione seu bairro</option>
                   {BAIRROS.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
+                    <option key={b} value={b}>{b}</option>
                   ))}
                 </select>
               </div>
-              <Button
-                onClick={handleRegister}
-                disabled={loading}
-                className="w-full"
-              >
+              <Button onClick={handleRegister} disabled={loading} className="w-full">
                 {loading ? "Criando conta..." : "Criar conta"}
               </Button>
             </div>
