@@ -9,11 +9,11 @@ const createDMchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
-
-    if (!userId) {
-      return NextResponse.json({ conversations: [] });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
     const { data: conversations, error } = await supabase
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
         receiver:profiles!direct_chats_receiver_id_fkey(id, display_name, username, avatar)
       `
       )
-      .or(`initiator_id.eq.${userId},receiver_id.eq.${userId}`)
+      .or(`initiator_id.eq.${user.id},receiver_id.eq.${user.id}`)
       .order("updated_at", { ascending: false });
 
     if (error) throw error;
