@@ -1,6 +1,5 @@
 "use client";
 
-/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from "react";
 import { useStore } from "@/lib/store";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
