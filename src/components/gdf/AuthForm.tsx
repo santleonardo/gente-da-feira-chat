@@ -134,11 +134,15 @@ export function AuthForm() {
           .eq("slug", "geral-fsa")
           .single();
 
-        if (geralRoom) {
-          await supabase.from("room_members").insert({
-            room_id: geralRoom.id,
-            user_id: data.user.id,
-          }).ignore();
+          if (geralRoom) {
+          try {
+            await supabase.from("room_members").insert({
+              room_id: geralRoom.id,
+              user_id: data.user.id,
+            });
+          } catch {
+            // Ignora erro de duplicata (já é membro)
+          }
         }
 
         const { data: profile } = await supabase
