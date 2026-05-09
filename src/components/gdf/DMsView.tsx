@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 
 export function DMsView() {
-  const { profile, selectedDM, setSelectedDM } = useStore();
+  const { profile, selectedDM, setSelectedDM, setViewingUser } = useStore();
   const [conversations, setConversations] = useState<any[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [searchUsers, setSearchUsers] = useState<any[]>([]);
@@ -108,8 +108,8 @@ export function DMsView() {
               onClick={() => setSelectedDM(conv)}
               className="group flex w-full items-center gap-3.5 rounded-2xl bg-card px-4 py-3.5 text-left transition-all duration-200 hover:bg-accent hover:shadow-sm active:scale-[0.98] border border-transparent hover:border-border/50"
             >
-              <div className="relative shrink-0">
-                <UserAvatar user={{ id: other.id, display_name: other.display_name, avatar_url: other.avatar_url }} className="h-12 w-12" />
+              <div className="relative shrink-0" onClick={(e) => { e.stopPropagation(); setViewingUser(other.id); }}>
+                <UserAvatar user={{ id: other.id, display_name: other.display_name, avatar_url: other.avatar_url }} className="h-12 w-12 hover:opacity-80 transition-opacity" />
                 <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-emerald-500" />
               </div>
               <div className="flex-1 min-w-0">
@@ -124,6 +124,7 @@ export function DMsView() {
         })}
       </div>
 
+      {/* Nova conversa dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
         <DialogContent className="max-w-sm rounded-2xl">
           <DialogHeader>
@@ -169,7 +170,7 @@ export function DMsView() {
 // DMChat — Redesenhado com visual de mensageiro moderno
 // ═══════════════════════════════════════════════════════════
 function DMChat({ conversation, onBack }: { conversation: any; onBack: () => void }) {
-  const { profile } = useStore();
+  const { profile, setViewingUser } = useStore();
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -253,20 +254,22 @@ function DMChat({ conversation, onBack }: { conversation: any; onBack: () => voi
 
   return (
     <div className="flex h-full flex-col -mx-4 -mt-4 md:-mx-0 md:-mt-0">
+      {/* Header */}
       <div className="flex items-center gap-3 border-b px-4 py-3 bg-card/80 backdrop-blur-md sticky top-0 z-10">
         <Button variant="ghost" size="icon" onClick={onBack} className="h-9 w-9 rounded-full hover:bg-accent">
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="relative">
-          <UserAvatar user={{ id: other.id, display_name: other.display_name, avatar_url: other.avatar_url }} className="h-10 w-10" />
+        <div className="relative" onClick={() => setViewingUser(other.id)} style={{ cursor: "pointer" }}>
+          <UserAvatar user={{ id: other.id, display_name: other.display_name, avatar_url: other.avatar_url }} className="h-10 w-10 hover:opacity-80 transition-opacity" />
           <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background bg-emerald-500" />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0" onClick={() => setViewingUser(other.id)} style={{ cursor: "pointer" }}>
           <h3 className="text-sm font-bold truncate">{other.display_name}</h3>
           <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Online</p>
         </div>
       </div>
 
+      {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-1" style={{ maxHeight: "calc(100vh - 280px)" }}>
         {loading && (
           <div className="flex items-center justify-center py-12">
@@ -287,7 +290,6 @@ function DMChat({ conversation, onBack }: { conversation: any; onBack: () => voi
         )}
         {groupedMessages.map((msg) => {
           const isMine = msg.sender_id === profile?.id;
-
           return (
             <div key={msg.id} className={`flex ${msg.isGrouped ? "" : "mt-2"} ${isMine ? "justify-end" : "justify-start"}`}>
               <div className="flex items-end gap-1.5 max-w-[80%]">
@@ -310,6 +312,7 @@ function DMChat({ conversation, onBack }: { conversation: any; onBack: () => voi
         })}
       </div>
 
+      {/* Input */}
       <div className="border-t px-4 py-3 bg-card/80 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <div className="flex-1 relative">
