@@ -139,8 +139,8 @@ export function UserProfileView() {
         // Atualizar Set de "quem eu sigo"
         setMyFollowingIds((prev) => {
           const next = new Set(prev);
-          if (nowFollowing) next.add(idToFollow);
-          else next.delete(idToFollow);
+          if (nowFollowing && idToFollow) next.add(idToFollow);
+          else if (idToFollow) next.delete(idToFollow);
           return next;
         });
         toast.success(nowFollowing ? "Seguindo!" : "Deixou de seguir");
