@@ -3,11 +3,11 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useStore } from "@/lib/store";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Send, ArrowLeft, UserPlus } from "lucide-react";
-import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
+import { timeAgo } from "@/lib/constants";
+import { UserAvatar } from "./UserAvatar";
 import { useRealtimeMessages } from "@/hooks/use-realtime";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -93,11 +93,7 @@ export function DMsView() {
             onClick={() => setSelectedDM(conv)}
             className="flex w-full items-center gap-3 rounded-xl border bg-card p-3.5 text-left transition-colors hover:bg-accent mb-2"
           >
-            <Avatar className="h-11 w-11">
-              <AvatarFallback className={`${getAvatarColor(other.id)} text-sm text-white`}>
-                {getInitials(other.display_name)}
-              </AvatarFallback>
-            </Avatar>
+            <UserAvatar user={{ id: other.id, display_name: other.display_name, avatar_url: other.avatar_url }} className="h-11 w-11" />
             <div className="flex-1 min-w-0">
               <span className="text-sm font-semibold">{other.display_name}</span>
               <p className="text-xs text-muted-foreground truncate">@{other.username}</p>
@@ -124,11 +120,7 @@ export function DMsView() {
                 onClick={() => startConversation(u)}
                 className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left transition-colors hover:bg-accent"
               >
-                <Avatar className="h-9 w-9">
-                  <AvatarFallback className={`${getAvatarColor(u.id)} text-xs text-white`}>
-                    {getInitials(u.display_name)}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar user={{ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url }} className="h-9 w-9" />
                 <div>
                   <div className="text-sm font-medium">{u.display_name}</div>
                   <div className="text-xs text-muted-foreground">@{u.username}</div>
@@ -171,7 +163,7 @@ function DMChat({ conversation, onBack }: { conversation: any; onBack: () => voi
       const supabase = createClient();
       const { data: sender } = await supabase
         .from("profiles")
-        .select("id, display_name, username, avatar")
+        .select("id, display_name, username, avatar_url")
         .eq("id", payload.sender_id)
         .single();
 
@@ -225,11 +217,7 @@ function DMChat({ conversation, onBack }: { conversation: any; onBack: () => voi
         <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8">
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <Avatar className="h-9 w-9">
-          <AvatarFallback className={`${getAvatarColor(other.id)} text-xs text-white`}>
-            {getInitials(other.display_name)}
-          </AvatarFallback>
-        </Avatar>
+        <UserAvatar user={{ id: other.id, display_name: other.display_name, avatar_url: other.avatar_url }} className="h-9 w-9" />
         <div>
           <h3 className="text-sm font-bold">{other.display_name}</h3>
           <p className="text-xs text-muted-foreground">@{other.username}</p>
