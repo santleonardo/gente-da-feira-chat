@@ -1,28 +1,19 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { getInitials, getAvatarColor } from "@/lib/constants";
 
-/**
- * Avatar que funciona em TODO o app:
- * - Se tiver avatar_url (storage), usa a foto
- * - Se tiver avatar (campo antigo), usa como fallback
- * - Senão, mostra as iniciais com cor
- */
-export function UserAvatar({
-  user,
-  className,
-}: {
+interface UserAvatarProps {
   user: {
     id: string;
     display_name: string;
-    avatar?: string | null;
     avatar_url?: string | null;
   };
   className?: string;
-}) {
-  const src = user.avatar_url || user.avatar || null;
+}
 
+export function UserAvatar({ user, className }: UserAvatarProps) {
+  const src = user.avatar_url || null;
   return (
     <Avatar className={className}>
       {src && <AvatarImage src={src} alt={user.display_name} />}
