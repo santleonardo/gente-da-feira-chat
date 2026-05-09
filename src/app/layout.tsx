@@ -4,7 +4,8 @@ import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
   title: "Gente da Feira — Bate-papo do bairro",
-  description: "A rede social do seu bairro em Feira de Santana. Converse, publique e conecte-se com vizinhos.",
+  description:
+    "A rede social do seu bairro em Feira de Santana. Converse, publique e conecte-se com vizinhos.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -40,10 +41,13 @@ export default function RootLayout({
       <head>
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/icon.png" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" href="/icons/icon-180.png" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black-translucent"
+        />
         <meta name="apple-mobile-web-app-title" content="GDF" />
       </head>
       <body className="antialiased">
@@ -55,8 +59,16 @@ export default function RootLayout({
         >
           {children}
           <Toaster position="top-center" richColors />
+          {/* Registra o Service Worker e mostra prompt de instalação */}
+          <PWARegisterProxy />
         </NextThemesProvider>
       </body>
     </html>
   );
+}
+
+// Client component proxy (layout é server component)
+import { PWARegister } from "@/components/gdf/PWARegister";
+function PWARegisterProxy() {
+  return <PWARegister />;
 }
