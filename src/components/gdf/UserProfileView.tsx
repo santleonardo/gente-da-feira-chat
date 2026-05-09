@@ -412,4 +412,123 @@ export function UserProfileView() {
                             <>
                               <span>·</span>
                               <span className="flex items-center gap-0.5">
-                                <Heart className="h-2.5 w-2
+                                <Heart className="h-2.5 w-2.5" />
+                                {post._count.reactions}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Followers / Following Tabs */}
+            {(activeTab === "followers" || activeTab === "following") && (
+              <div>
+                {listLoading ? (
+                  <div className="space-y-2 py-2">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 animate-pulse"
+                      >
+                        <div className="h-10 w-10 rounded-full bg-muted" />
+                        <div className="flex-1 space-y-1.5">
+                          <div className="h-3.5 w-28 rounded bg-muted" />
+                          <div className="h-2.5 w-20 rounded bg-muted" />
+                        </div>
+                        <div className="h-7 w-20 rounded-full bg-muted" />
+                      </div>
+                    ))}
+                  </div>
+                ) : followList.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <Users className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      {activeTab === "followers"
+                        ? "Nenhum seguidor ainda"
+                        : "Não segue ninguém ainda"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {followList.map((u: any) => {
+                      const iFollowThem = myFollowingIds.has(u.id);
+                      const isMe = profile?.id === u.id;
+
+                      return (
+                        <button
+                          key={u.id}
+                          onClick={() => {
+                            if (!isMe) {
+                              setViewingUser(u.id);
+                            }
+                          }}
+                          className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-accent"
+                        >
+                          <UserAvatar
+                            user={{
+                              id: u.id,
+                              display_name: u.display_name,
+                              avatar_url: u.avatar_url,
+                            }}
+                            className="h-10 w-10"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold truncate">
+                              {u.display_name}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground truncate">
+                              @{u.username}
+                            </div>
+                            {u.neighborhood && (
+                              <div className="text-[10px] text-muted-foreground/60 flex items-center gap-0.5 mt-0.5">
+                                <MapPin className="h-2.5 w-2.5" />
+                                {u.neighborhood}
+                              </div>
+                            )}
+                          </div>
+                          {/* Botão Seguir de volta / Seguindo */}
+                          {!isMe && (
+                            <Button
+                              size="sm"
+                              variant={iFollowThem ? "outline" : "default"}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFollowToggle(u.id);
+                              }}
+                              className="rounded-full px-3 h-7 text-[11px] gap-1 shrink-0"
+                            >
+                              {iFollowThem ? (
+                                "Seguindo"
+                              ) : (
+                                <>
+                                  <UserPlus className="h-3 w-3" />
+                                  Seguir
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="py-12 text-center">
+          <Users className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">
+            Usuário não encontrado
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
