@@ -9,7 +9,7 @@ import { UserAvatar } from "./UserAvatar";
 import { toast } from "sonner";
 
 export function DiscoverView() {
-  const { profile } = useStore();
+  const { profile, setViewingUser } = useStore();
   const [query, setQuery] = useState("");
   const [users, setUsers] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
@@ -77,8 +77,10 @@ export function DiscoverView() {
             <div className="space-y-2">
               {users.map((u) => (
                 <div key={u.id} className="flex items-center gap-3 rounded-xl border bg-card p-3">
-                  <UserAvatar user={{ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url }} className="h-10 w-10" />
-                  <div className="flex-1 min-w-0">
+                  <button onClick={() => setViewingUser(u.id)} className="shrink-0">
+                    <UserAvatar user={{ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url }} className="h-10 w-10 hover:opacity-80 transition-opacity" />
+                  </button>
+                  <div className="flex-1 min-w-0" onClick={() => setViewingUser(u.id)} style={{ cursor: "pointer" }}>
                     <span className="text-sm font-semibold">{u.display_name}</span>
                     <p className="text-xs text-muted-foreground">@{u.username}</p>
                   </div>
