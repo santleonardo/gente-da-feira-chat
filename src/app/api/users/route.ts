@@ -7,10 +7,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const q = searchParams.get("q");
 
-    let query = supabase
-      .from("profiles")
-      .select("id, display_name, username, avatar, avatar_url, neighborhood, bio")
-      .limit(15);
+    let query = supabase.from("profiles").select("id, display_name, username, avatar_url, neighborhood, bio").limit(15);
 
     if (q) {
       const sanitized = q.replace(/[^\w\s@.-]/g, "").slice(0, 50);
