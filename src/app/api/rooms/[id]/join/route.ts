@@ -14,9 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .eq("id", roomId)
       .single();
 
-    if (!room || !room.is_active) {
-      return NextResponse.json({ error: "Sala não encontrada" }, { status: 404 });
-    }
+    if (!room) return NextResponse.json({ error: "Sala não encontrada" }, { status: 404 });
 
     const { data: existing } = await supabase
       .from("room_members")
