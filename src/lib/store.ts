@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Profile, Tab, Room, Conversation } from "@/lib/types";
-export interface Profile {
+
 interface AppState {
   // Auth
   profile: Profile | null;
@@ -10,7 +10,7 @@ interface AppState {
   tab: Tab;
   selectedRoom: Room | null;
   selectedDM: Conversation | null;
-  selectedUser: { id: string; display_name: string; username: string } | null;
+  selectedUser: any | null;
 
   // Actions
   setProfile: (profile: Profile | null) => void;
@@ -18,7 +18,7 @@ interface AppState {
   setTab: (tab: Tab) => void;
   setSelectedRoom: (room: Room | null) => void;
   setSelectedDM: (dm: Conversation | null) => void;
-  setSelectedUser: (user: { id: string; display_name: string; username: string } | null) => void;
+  setSelectedUser: (user: any | null) => void;
   updateProfile: (data: Partial<Profile>) => void;
 }
 
