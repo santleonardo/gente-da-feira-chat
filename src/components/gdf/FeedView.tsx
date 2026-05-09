@@ -32,6 +32,7 @@ interface Comment {
     display_name: string;
     username: string;
     avatar?: string | null;
+    avatar_url?: string | null;
     neighborhood?: string | null;
   };
   replies?: Comment[];
