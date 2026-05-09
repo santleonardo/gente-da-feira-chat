@@ -36,7 +36,7 @@ const ROOM_ICONS = [
 ];
 
 export function RoomsView() {
-  const { profile, selectedRoom, setSelectedRoom } = useStore();
+  const { profile, selectedRoom, setSelectedRoom, setViewingUser } = useStore();
   const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -239,7 +239,7 @@ function CreateRoomDialog({
 // RoomChat — Redesenhado com visual de chat moderno
 // ═══════════════════════════════════════════════════════════
 function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => void; onRefreshRooms: () => void }) {
-  const { profile } = useStore();
+  const { profile, setViewingUser } = useStore();
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -468,6 +468,7 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
 
   return (
     <div className="flex h-full flex-col -mx-4 -mt-4 md:-mx-0 md:-mt-0">
+      {/* Header */}
       <div className="flex items-center gap-3 border-b px-4 py-3 bg-card/80 backdrop-blur-md sticky top-0 z-10">
         <Button variant="ghost" size="icon" onClick={onBack} className="h-9 w-9 rounded-full hover:bg-accent">
           <ArrowLeft className="h-5 w-5" />
@@ -512,6 +513,7 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
         </div>
       </div>
 
+      {/* Members Panel */}
       {showMembers && (
         <div className="border-b bg-card/50 backdrop-blur-md px-4 py-3 max-h-56 overflow-y-auto custom-scrollbar">
           <div className="flex items-center justify-between mb-2.5">
@@ -541,7 +543,7 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
                   );
                 }
                 return (
-                  <div key={m.id || m.user_id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent/50 transition-colors">
+                  <div key={m.id || m.user_id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent/50 transition-colors cursor-pointer" onClick={() => setViewingUser(mp.id)}>
                     <UserAvatar user={{ id: mp.id, display_name: mp.display_name, avatar_url: mp.avatar_url }} className="h-7 w-7" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
@@ -560,6 +562,7 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
         </div>
       )}
 
+      {/* Join prompt */}
       {!isMember && (
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="text-center max-w-xs">
@@ -576,6 +579,7 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
         </div>
       )}
 
+      {/* Messages */}
       {isMember && (
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-1" style={{ maxHeight: "calc(100vh - 320px)" }}>
           {loading && (
@@ -604,15 +608,24 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
             return (
               <div key={msg.id} className={`flex gap-2.5 ${msg.isGrouped ? (isMine ? "pl-0 pr-0" : "pl-[38px]") : ""} ${isMine ? "justify-end" : ""}`}>
                 {!isMine && showAvatar && (
-                  <UserAvatar
-                    user={{ id: sender.id || msg.sender_id, display_name: sender.display_name || "Usuário", avatar_url: sender.avatar_url }}
-                    className="h-7 w-7 shrink-0 mt-0.5"
-                  />
+                  <button onClick={() => setViewingUser(sender.id || msg.sender_id)} className="shrink-0">
+                    <UserAvatar
+                      user={{ id: sender.id || msg.sender_id, display_name: sender.display_name || "Usuário", avatar_url: sender.avatar_url }}
+                      className="h-7 w-7 mt-0.5 hover:opacity-80 transition-opacity"
+                    />
+                  </button>
                 )}
+
                 <div className={`max-w-[80%] ${isMine ? "items-end" : "items-start"}`}>
                   {showName && (
-                    <span className="text-[11px] font-semibold text-muted-foreground mb-0.5 block">{sender.display_name || "Usuário"}</span>
+                    <button
+                      onClick={() => setViewingUser(sender.id || msg.sender_id)}
+                      className="text-[11px] font-semibold text-muted-foreground mb-0.5 block hover:underline underline-offset-2 transition-all"
+                    >
+                      {sender.display_name || "Usuário"}
+                    </button>
                   )}
+
                   <div className="flex items-end gap-1.5">
                     {isMine && (
                       <span className="text-[9px] text-muted-foreground/50 mb-1 shrink-0">{timeAgo(msg.created_at)}</span>
@@ -635,6 +648,7 @@ function RoomChat({ room, onBack, onRefreshRooms }: { room: any; onBack: () => v
         </div>
       )}
 
+      {/* Input */}
       <div className="border-t px-4 py-3 bg-card/80 backdrop-blur-md">
         {isMember ? (
           <div className="flex items-center gap-2">
