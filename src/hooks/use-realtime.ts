@@ -14,64 +14,32 @@ interface UseRealtimeMessagesOptions {
 }
 
 export function useRealtimeMessages({
-  table,
-  filter,
-  onInsert,
-  onDelete,
-  onUpdate,
-  enabled = true,
+  table, filter, onInsert, onDelete, onUpdate, enabled = true,
 }: UseRealtimeMessagesOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
-
     const supabase = createClient();
     let channelName = `realtime:${table}`;
     if (filter) channelName += `:${filter}`;
 
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table,
-          filter: filter || undefined,
-        },
-        (payload) => {
-          onInsert?.(payload.new);
-        }
-      );
+    const channel = supabase.channel(channelName).on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table, filter: filter || undefined },
+      (payload) => { onInsert?.(payload.new); }
+    );
 
     if (onDelete) {
-      channel.on(
-        "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table,
-          filter: filter || undefined,
-        },
-        (payload) => {
-          onDelete?.(payload.old);
-        }
+      channel.on("postgres_changes",
+        { event: "DELETE", schema: "public", table, filter: filter || undefined },
+        (payload) => { onDelete?.(payload.old); }
       );
     }
-
     if (onUpdate) {
-      channel.on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table,
-          filter: filter || undefined,
-        },
-        (payload) => {
-          onUpdate?.(payload.new);
-        }
+      channel.on("postgres_changes",
+        { event: "UPDATE", schema: "public", table, filter: filter || undefined },
+        (payload) => { onUpdate?.(payload.new); }
       );
     }
 
