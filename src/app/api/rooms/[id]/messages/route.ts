@@ -11,17 +11,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { searchParams } = new URL(req.url);
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 200);
 
-    const { data: messages, error } = await supabase
-      .from("messages")
-      .select(`
-        *,
-        sender:profiles(id, display_name, username, avatar)
-      `)
-      .eq("room_id", id)
-      .eq("target_type", "room")
-      .eq("is_deleted", false)
-      .order("created_at", { ascending: true })
-      .limit(limit);
+    const { data: messages, error } = await supabase.from("messages")
+      .select(`*, sender:profiles(id, display_name, username, avatar_url)`)
+      .eq("room_id", id).eq("target_type", "room").eq("is_deleted", false)
+      .order("created_at", { ascending: true }).limit(limit);
 
     if (error) throw error;
     return NextResponse.json({ messages: messages || [] });
@@ -38,26 +31,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
     const { content } = await req.json();
-    if (!content || !content.trim()) {
-      return NextResponse.json({ error: "Mensagem vazia" }, { status: 400 });
-    }
-    if (content.length > 2000) {
-      return NextResponse.json({ error: "Mensagem muito longa (máx 2000 chars)" }, { status: 400 });
-    }
+    if (!content || !content.trim()) return NextResponse.json({ error: "Mensagem vazia" }, { status: 400 });
+    if (content.length > 2000) return NextResponse.json({ error: "Mensagem muito longa (máx 2000 chars)" }, { status: 400 });
 
-    const { data: message, error } = await supabase
-      .from("messages")
-      .insert({
-        content: content.trim(),
-        sender_id: user.id,
-        room_id: id,
-        target_type: "room",
-      })
-      .select(`
-        *,
-        sender:profiles(id, display_name, username, avatar)
-      `)
-      .single();
+    const { data: message, error } = await supabase.from("messages")
+      .insert({ content: content.trim(), sender_id: user.id, room_id: id, target_type: "room" })
+      .select(`*, sender:profiles(id, display_name, username, avatar_url)`).single();
 
     if (error) throw error;
     return NextResponse.json({ message });
