@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       .from("posts")
       .select(`
         *,
-        author:profiles(id, display_name, username, avatar, avatar_url, neighborhood),
+        author:profiles(id, display_name, username, avatar_url, neighborhood),
         reactions(user_id, type)
       `)
       .eq("is_deleted", false)
@@ -40,13 +40,17 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
     const { content, neighborhood } = await req.json();
-    if (!content || !content.trim()) return NextResponse.json({ error: "Conteúdo obrigatório" }, { status: 400 });
-    if (content.trim().length > 500) return NextResponse.json({ error: "Máx 500 chars" }, { status: 400 });
+    if (!content || !content.trim()) return NextResponse.json({ error: "Conteúdo é obrigatório" }, { status: 400 });
+    if (content.trim().length > 500) return NextResponse.json({ error: "Post muito longo (máx 500 chars)" }, { status: 400 });
 
     const { data: post, error } = await supabase
       .from("posts")
       .insert({ content: content.trim(), neighborhood: neighborhood || null, author_id: user.id })
-      .select(`*, author:profiles(id, display_name, username, avatar, avatar_url, neighborhood), reactions(user_id, type)`)
+      .select(`
+        *,
+        author:profiles(id, display_name, username, avatar_url, neighborhood),
+        reactions(user_id, type)
+      `)
       .single();
 
     if (error) throw error;
@@ -66,12 +70,7 @@ export async function DELETE(req: NextRequest) {
     const postId = searchParams.get("id");
     if (!postId) return NextResponse.json({ error: "ID necessário" }, { status: 400 });
 
-    const { error } = await supabase
-      .from("posts")
-      .update({ is_deleted: true })
-      .eq("id", postId)
-      .eq("author_id", user.id);
-
+    const { error } = await supabase.from("posts").update({ is_deleted: true }).eq("id", postId).eq("author_id", user.id);
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error: any) {
