@@ -11,6 +11,9 @@ import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
 import { toast } from "sonner";
 
+// ═══════════════════════════════════════════════════════════
+// Emoji reactions padrão
+// ═══════════════════════════════════════════════════════════
 const REACTION_EMOJIS = [
   { type: "like", emoji: "❤️", label: "Curtir" },
   { type: "laugh", emoji: "😂", label: "Engraçado" },
@@ -33,6 +36,9 @@ function buildReactionGroups(reactions: { user_id: string; type: string }[]) {
   return Object.values(groups);
 }
 
+// ═══════════════════════════════════════════════════════════
+// Interfaces
+// ═══════════════════════════════════════════════════════════
 interface Comment {
   id: string;
   content: string;
@@ -66,8 +72,11 @@ interface PostWithAuthor {
   reactions: { user_id: string; type: string }[];
 }
 
+// ═══════════════════════════════════════════════════════════
+// FeedView
+// ═══════════════════════════════════════════════════════════
 export function FeedView() {
-  const { profile } = useStore();
+  const { profile, setViewingUser } = useStore();
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -148,6 +157,7 @@ export function FeedView() {
 
   return (
     <div className="space-y-4">
+      {/* Composer */}
       <div className="rounded-xl border bg-card p-4">
         <div className="flex items-start gap-3">
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-9 w-9 shrink-0" />
@@ -163,7 +173,12 @@ export function FeedView() {
               <span className={`text-xs ${content.length > 450 ? "text-destructive" : "text-muted-foreground"}`}>
                 {content.length}/500
               </span>
-              <Button size="sm" disabled={!content.trim()} onClick={handlePost} className="rounded-full px-4">
+              <Button
+                size="sm"
+                disabled={!content.trim()}
+                onClick={handlePost}
+                className="rounded-full px-4"
+              >
                 Publicar
               </Button>
             </div>
@@ -171,6 +186,7 @@ export function FeedView() {
         </div>
       </div>
 
+      {/* Posts */}
       {posts.length === 0 && (
         <p className="py-12 text-center text-sm text-muted-foreground">
           Nenhum post ainda. Seja o primeiro a publicar!
@@ -178,14 +194,37 @@ export function FeedView() {
       )}
 
       {posts.map((post) => (
-        <PostThread key={post.id} post={post} profile={profile} onReaction={handleReaction} onDelete={handleDelete} onUpdateCommentCount={updateCommentCount} />
+        <PostThread
+          key={post.id}
+          post={post}
+          profile={profile}
+          onReaction={handleReaction}
+          onDelete={handleDelete}
+          onUpdateCommentCount={updateCommentCount}
+          openUserProfile={setViewingUser}
+        />
       ))}
     </div>
   );
 }
 
-function PostThread({ post, profile, onReaction, onDelete, onUpdateCommentCount }: {
-  post: PostWithAuthor; profile: Profile | null; onReaction: (postId: string, type: string) => void; onDelete: (postId: string) => void; onUpdateCommentCount: (postId: string, delta: number) => void;
+// ═══════════════════════════════════════════════════════════
+// PostThread — Post com thread de comentários expansível
+// ═══════════════════════════════════════════════════════════
+function PostThread({
+  post,
+  profile,
+  onReaction,
+  onDelete,
+  onUpdateCommentCount,
+  openUserProfile,
+}: {
+  post: PostWithAuthor;
+  profile: Profile | null;
+  onReaction: (postId: string, type: string) => void;
+  onDelete: (postId: string) => void;
+  onUpdateCommentCount: (postId: string, delta: number) => void;
+  openUserProfile: (userId: string) => void;
 }) {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -209,7 +248,9 @@ function PostThread({ post, profile, onReaction, onDelete, onUpdateCommentCount 
   };
 
   const toggleComments = () => {
-    if (!showComments && comments.length === 0) fetchComments();
+    if (!showComments && comments.length === 0) {
+      fetchComments();
+    }
     setShowComments(!showComments);
   };
 
@@ -236,6 +277,7 @@ function PostThread({ post, profile, onReaction, onDelete, onUpdateCommentCount 
     try {
       const body: { content: string; parentId?: string } = { content: commentInput.trim() };
       if (replyTo) body.parentId = replyTo.id;
+
       const res = await fetch(`/api/posts/${post.id}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -251,7 +293,9 @@ function PostThread({ post, profile, onReaction, onDelete, onUpdateCommentCount 
       } else if (data.error) {
         toast.error(data.error);
       }
-    } catch { toast.error("Erro ao comentar"); }
+    } catch {
+      toast.error("Erro ao comentar");
+    }
     setSubmitting(false);
   };
 
@@ -308,14 +352,26 @@ function PostThread({ post, profile, onReaction, onDelete, onUpdateCommentCount 
 
   return (
     <div className="rounded-xl border bg-card">
+      {/* Post Content */}
       <div className="p-4">
         <div className="flex items-start gap-3">
-          <UserAvatar user={post.author} className="h-9 w-9 shrink-0" />
+          <button onClick={() => openUserProfile(post.author.id)} className="shrink-0">
+            <UserAvatar user={post.author} className="h-9 w-9 hover:opacity-80 transition-opacity" />
+          </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold">{post.author.display_name}</span>
+              <button
+                onClick={() => openUserProfile(post.author.id)}
+                className="text-sm font-semibold hover:underline underline-offset-2 transition-all"
+              >
+                {post.author.display_name}
+              </button>
               <span className="text-xs text-muted-foreground">@{post.author.username}</span>
-              {post.author.neighborhood && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{post.author.neighborhood}</Badge>}
+              {post.author.neighborhood && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                  {post.author.neighborhood}
+                </Badge>
+              )}
             </div>
             <p className="mt-1.5 text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
             <div className="mt-3 flex items-center gap-3 text-muted-foreground flex-wrap">
@@ -323,26 +379,43 @@ function PostThread({ post, profile, onReaction, onDelete, onUpdateCommentCount 
                 const isActive = post.reactions?.some((r) => r.user_id === profile?.id && r.type === type);
                 const count = post.reactions?.filter((r) => r.type === type).length || 0;
                 return (
-                  <button key={type} onClick={() => onReaction(post.id, type)} className={`flex items-center gap-0.5 text-xs transition-colors ${isActive ? "text-primary font-semibold" : "hover:text-primary"}`} title={label}>
+                  <button
+                    key={type}
+                    onClick={() => onReaction(post.id, type)}
+                    className={`flex items-center gap-0.5 text-xs transition-colors ${isActive ? "text-primary font-semibold" : "hover:text-primary"}`}
+                    title={label}
+                  >
                     <span className="text-sm">{emoji}</span>
                     {count > 0 && <span>{count}</span>}
                   </button>
                 );
               })}
+
               {reactionGroups.length > 0 && (
                 <div className="flex gap-1">
                   {reactionGroups.map((g, i) => (
-                    <span key={i} className="inline-flex items-center gap-0.5 rounded-full border bg-muted/50 px-1.5 py-0.5 text-[10px]">{g.emoji} {g.count}</span>
+                    <span key={i} className="inline-flex items-center gap-0.5 rounded-full border bg-muted/50 px-1.5 py-0.5 text-[10px]">
+                      {g.emoji} {g.count}
+                    </span>
                   ))}
                 </div>
               )}
-              <button onClick={openAndFocus} className="flex items-center gap-1.5 text-xs transition-colors hover:text-primary">
+
+              <button
+                onClick={openAndFocus}
+                className="flex items-center gap-1.5 text-xs transition-colors hover:text-primary"
+              >
                 <MessageCircle className="h-4 w-4" />
                 {commentCount > 0 && commentCount}
               </button>
+
               <span className="text-xs">{timeAgo(post.created_at)}</span>
+
               {post.author_id === profile?.id && (
-                <button onClick={() => onDelete(post.id)} className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive">
+                <button
+                  onClick={() => onDelete(post.id)}
+                  className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive"
+                >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               )}
@@ -351,27 +424,61 @@ function PostThread({ post, profile, onReaction, onDelete, onUpdateCommentCount 
         </div>
       </div>
 
+      {/* Toggle Comments */}
       {(commentCount > 0 || comments.length > 0) && (
-        <button onClick={toggleComments} className="flex w-full items-center justify-center gap-1.5 border-t py-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-primary">
-          {showComments ? (<>Ocultar comentários <ChevronUp className="h-3 w-3" /></>) : (<>{commentCount || comments.length} comentário{(commentCount || comments.length) !== 1 ? "s" : ""} <ChevronDown className="h-3 w-3" /></>)}
+        <button
+          onClick={toggleComments}
+          className="flex w-full items-center justify-center gap-1.5 border-t py-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
+        >
+          {showComments ? (
+            <>Ocultar comentários <ChevronUp className="h-3 w-3" /></>
+          ) : (
+            <>{commentCount || comments.length} comentário{(commentCount || comments.length) !== 1 ? "s" : ""} <ChevronDown className="h-3 w-3" }</>
+          )}
         </button>
       )}
 
+      {/* Comments Thread */}
       {showComments && (
         <div className="border-t bg-muted/20">
           <div className="max-h-64 overflow-y-auto px-4 py-3">
             {commentsLoading ? (
-              <div className="space-y-3">{[1, 2].map((i) => (<div key={i} className="flex gap-2.5 animate-pulse"><div className="h-6 w-6 rounded-full bg-muted" /><div className="flex-1 space-y-1.5"><div className="h-3 w-24 rounded bg-muted" /><div className="h-3 w-full rounded bg-muted" /></div></div>))}</div>
+              <div className="space-y-3">
+                {[1, 2].map((i) => (
+                  <div key={i} className="flex gap-2.5 animate-pulse">
+                    <div className="h-6 w-6 rounded-full bg-muted" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 w-24 rounded bg-muted" />
+                      <div className="h-3 w-full rounded bg-muted" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : comments.length === 0 ? (
-              <p className="text-center text-xs text-muted-foreground py-2">Nenhum comentário ainda. Seja o primeiro!</p>
+              <p className="text-center text-xs text-muted-foreground py-2">
+                Nenhum comentário ainda. Seja o primeiro!
+              </p>
             ) : (
               <div className="space-y-3">
                 {commentRoots.map((comment) => (
-                  <CommentItem key={comment.id} comment={comment} replies={commentMap.get(comment.id) || []} profile={profile} commentMap={commentMap} onDelete={deleteComment} onReply={handleReply} onReaction={handleCommentReaction} depth={0} />
+                  <CommentItem
+                    key={comment.id}
+                    comment={comment}
+                    replies={commentMap.get(comment.id) || []}
+                    profile={profile}
+                    commentMap={commentMap}
+                    onDelete={deleteComment}
+                    onReply={handleReply}
+                    onReaction={handleCommentReaction}
+                    openUserProfile={openUserProfile}
+                    depth={0}
+                  />
                 ))}
               </div>
             )}
           </div>
+
+          {/* Comment Input */}
           {profile && (
             <div className="border-t px-4 py-2.5">
               {replyTo && (
@@ -383,8 +490,20 @@ function PostThread({ post, profile, onReaction, onDelete, onUpdateCommentCount 
               )}
               <div className="flex items-center gap-2">
                 <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
-                <Input ref={commentInputRef} placeholder={replyTo ? `Responder @${replyTo.author.display_name}...` : "Escreva um comentário..."} value={commentInput} onChange={(e) => setCommentInput(e.target.value.slice(0, 300))} onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && submitComment()} className="h-8 text-xs border-0 bg-muted/50 focus-visible:ring-1" />
-                <Button size="icon" onClick={submitComment} disabled={!commentInput.trim() || submitting} className="h-8 w-8 shrink-0 rounded-full">
+                <Input
+                  ref={commentInputRef}
+                  placeholder={replyTo ? `Responder @${replyTo.author.display_name}...` : "Escreva um comentário..."}
+                  value={commentInput}
+                  onChange={(e) => setCommentInput(e.target.value.slice(0, 300))}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && submitComment()}
+                  className="h-8 text-xs border-0 bg-muted/50 focus-visible:ring-1"
+                />
+                <Button
+                  size="icon"
+                  onClick={submitComment}
+                  disabled={!commentInput.trim() || submitting}
+                  className="h-8 w-8 shrink-0 rounded-full"
+                >
                   <Send className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -393,58 +512,128 @@ function PostThread({ post, profile, onReaction, onDelete, onUpdateCommentCount 
         </div>
       )}
 
+      {/* Quick comment input (when thread is closed) */}
       {!showComments && profile && (
         <div className="flex items-center gap-2 border-t px-4 py-2.5">
           <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
-          <Input placeholder="Escreva um comentário..." value={commentInput} onChange={(e) => setCommentInput(e.target.value.slice(0, 300))} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { if (commentInput.trim()) openAndFocus(); } }} onFocus={openAndFocus} className="h-8 text-xs border-0 bg-muted/50 focus-visible:ring-1" />
+          <Input
+            placeholder="Escreva um comentário..."
+            value={commentInput}
+            onChange={(e) => setCommentInput(e.target.value.slice(0, 300))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                if (commentInput.trim()) {
+                  openAndFocus();
+                }
+              }
+            }}
+            onFocus={openAndFocus}
+            className="h-8 text-xs border-0 bg-muted/50 focus-visible:ring-1"
+          />
         </div>
       )}
     </div>
   );
 }
 
-function CommentItem({ comment, replies, profile, commentMap, onDelete, onReply, onReaction, depth }: {
-  comment: Comment; replies: Comment[]; profile: Profile | null; commentMap: Map<string, Comment[]>; onDelete: (commentId: string) => void; onReply: (comment: Comment) => void; onReaction: (commentId: string, type: string) => void; depth: number;
+// ═══════════════════════════════════════════════════════════
+// CommentItem — Comentário com replies aninhados
+// ═══════════════════════════════════════════════════════════
+function CommentItem({
+  comment,
+  replies,
+  profile,
+  commentMap,
+  onDelete,
+  onReply,
+  onReaction,
+  openUserProfile,
+  depth,
+}: {
+  comment: Comment;
+  replies: Comment[];
+  profile: Profile | null;
+  commentMap: Map<string, Comment[]>;
+  onDelete: (commentId: string) => void;
+  onReply: (comment: Comment) => void;
+  onReaction: (commentId: string, type: string) => void;
+  openUserProfile: (userId: string) => void;
+  depth: number;
 }) {
+  const commentReactionGroups = buildReactionGroups(comment.reactions || []);
+
   return (
     <div className={depth > 0 ? "ml-6 border-l-2 border-muted pl-3" : ""}>
       <div className="flex gap-2.5">
-        <UserAvatar user={comment.author} className="h-6 w-6 shrink-0" />
+        <button onClick={() => openUserProfile(comment.author.id)} className="shrink-0">
+          <UserAvatar user={comment.author} className="h-6 w-6 hover:opacity-80 transition-opacity" />
+        </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold">{comment.author.display_name}</span>
+            <button
+              onClick={() => openUserProfile(comment.author.id)}
+              className="text-xs font-semibold hover:underline underline-offset-2 transition-all"
+            >
+              {comment.author.display_name}
+            </button>
             <span className="text-[10px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
           </div>
           <p className="text-xs leading-relaxed">{comment.content}</p>
+
           <div className="mt-1 flex items-center gap-2 flex-wrap">
             {REACTION_EMOJIS.slice(0, 4).map(({ type, emoji }) => {
               const isActive = comment.reactions?.some((r) => r.user_id === profile?.id && r.type === type);
               const count = comment.reactions?.filter((r) => r.type === type).length || 0;
               if (count === 0 && !isActive) return null;
               return (
-                <button key={type} onClick={() => onReaction(comment.id, type)} className={`text-[10px] transition-colors ${isActive ? "text-primary font-semibold" : "hover:text-primary"}`}>
+                <button
+                  key={type}
+                  onClick={() => onReaction(comment.id, type)}
+                  className={`text-[10px] transition-colors ${isActive ? "text-primary font-semibold" : "hover:text-primary"}`}
+                >
                   {emoji}{count > 0 && ` ${count}`}
                 </button>
               );
             })}
-            <button onClick={() => onReply(comment)} className="text-[10px] text-muted-foreground hover:text-primary transition-colors">
+            <button
+              onClick={() => onReply(comment)}
+              className="text-[10px] text-muted-foreground hover:text-primary transition-colors"
+            >
               <Reply className="h-2.5 w-2.5 inline" /> Responder
             </button>
             {comment.author_id === profile?.id && (
-              <button onClick={() => onDelete(comment.id)} className="text-[10px] text-muted-foreground hover:text-destructive">
+              <button
+                onClick={() => onDelete(comment.id)}
+                className="text-[10px] text-muted-foreground hover:text-destructive"
+              >
                 <Trash2 className="h-2.5 w-2.5" />
               </button>
             )}
           </div>
         </div>
       </div>
+
       {replies.map((reply) => (
-        <CommentItem key={reply.id} comment={reply} replies={commentMap.get(reply.id) || []} profile={profile} commentMap={commentMap} onDelete={onDelete} onReply={onReply} onReaction={onReaction} depth={depth + 1} />
+        <CommentItem
+          key={reply.id}
+          comment={reply}
+          replies={commentMap.get(reply.id) || []}
+          profile={profile}
+          commentMap={commentMap}
+          onDelete={onDelete}
+          onReply={onReply}
+          onReaction={onReaction}
+          openUserProfile={openUserProfile}
+          depth={depth + 1}
+        />
       ))}
     </div>
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+// FeedSkeleton
+// ═══════════════════════════════════════════════════════════
 function FeedSkeleton() {
   return (
     <div className="space-y-4">
