@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
     const supabase = await createClient();
     const { searchParams } = new URL(req.url);
     const neighborhood = searchParams.get("neighborhood");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100);
+    const limit = parseInt(searchParams.get("limit") || "20");
     const authorId = searchParams.get("authorId");
 
     let query = supabase
@@ -22,15 +22,11 @@ export async function GET(req: NextRequest) {
 
     if (authorId) query = query.eq("author_id", authorId);
     if (neighborhood && neighborhood !== "all") {
-      const safeNb = neighborhood.replace(/[^\w\sÀ-ÿ-]/g, "").slice(0, 50);
-      if (safeNb) {
-        query = query.or(`neighborhood.eq.${safeNb},neighborhood.is.null`);
-      }
+      query = query.or(`neighborhood.eq.${neighborhood},neighborhood.is.null`);
     }
 
     const { data: posts, error } = await query;
     if (error) throw error;
-
     return NextResponse.json({ posts: posts || [] });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -43,25 +39,14 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-    const body = await req.json();
-    const content = (body.content || "").trim();
-    const neighborhood = body.neighborhood || null;
-
-    if (!content) return NextResponse.json({ error: "Conteúdo vazio" }, { status: 400 });
-    if (content.length > 500) return NextResponse.json({ error: "Post muito longo (máx 500 chars)" }, { status: 400 });
+    const { content, neighborhood } = await req.json();
+    if (!content || !content.trim()) return NextResponse.json({ error: "Conteúdo obrigatório" }, { status: 400 });
+    if (content.trim().length > 500) return NextResponse.json({ error: "Máx 500 chars" }, { status: 400 });
 
     const { data: post, error } = await supabase
       .from("posts")
-      .insert({
-        content,
-        neighborhood,
-        author_id: user.id,
-      })
-      .select(`
-        *,
-        author:profiles(id, display_name, username, avatar, neighborhood),
-        reactions(user_id, type)
-      `)
+      .insert({ content: content.trim(), neighborhood: neighborhood || null, author_id: user.id })
+      .select(`*, author:profiles(id, display_name, username, avatar, neighborhood), reactions(user_id, type)`)
       .single();
 
     if (error) throw error;
