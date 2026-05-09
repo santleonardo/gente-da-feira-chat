@@ -26,7 +26,7 @@ export function AppShell() {
   const { profile, tab, setTab, selectedRoom, selectedDM, setSelectedRoom, setSelectedDM, setProfile, logout, viewingUserId, setViewingUser } = useStore();
   const [checkedAuth, setCheckedAuth] = useState(false);
 
-  // Escutar evento customizado para abrir perfil de outro usuário
+  // Escutar evento customizado para abrir perfil de outro usuário (fallback)
   useEffect(() => {
     const handler = (e: any) => {
       const userId = e.detail?.userId;
@@ -36,10 +36,6 @@ export function AppShell() {
     };
     window.addEventListener("openUserProfile", handler);
     return () => window.removeEventListener("openUserProfile", handler);
-  }, [setViewingUser]);
-
-  const openUserProfile = useCallback((userId: string) => {
-    setViewingUser(userId);
   }, [setViewingUser]);
 
   useEffect(() => {
@@ -90,12 +86,11 @@ export function AppShell() {
 
   if (!profile) return <AuthForm />;
 
-  // Check if we're in a chat view (room or DM) for full-width layout
   const inChat = (tab === "rooms" && selectedRoom) || (tab === "dms" && selectedDM);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      {/* Desktop Header — Elegante com blur */}
+      {/* Desktop Header */}
       <header className="sticky top-0 z-40 hidden md:flex items-center justify-between border-b px-6 py-2.5 bg-background/70 backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-sm">
@@ -147,22 +142,21 @@ export function AppShell() {
           "mx-auto px-4 py-4 md:py-6",
           inChat ? "max-w-2xl" : "max-w-lg"
         )}>
-          {/* Perfil público de outro usuário (sobrepõe a tab atual) */}
           {viewingUserId ? (
             <UserProfileView />
           ) : (
             <>
-              {tab === "feed" && <FeedView openUserProfile={openUserProfile} />}
-              {tab === "rooms" && <RoomsView openUserProfile={openUserProfile} />}
-              {tab === "dms" && <DMsView openUserProfile={openUserProfile} />}
-              {tab === "discover" && <DiscoverView openUserProfile={openUserProfile} />}
+              {tab === "feed" && <FeedView />}
+              {tab === "rooms" && <RoomsView />}
+              {tab === "dms" && <DMsView />}
+              {tab === "discover" && <DiscoverView />}
               {tab === "profile" && <ProfileView />}
             </>
           )}
         </div>
       </main>
 
-      {/* Mobile Bottom Nav — Pill style */}
+      {/* Mobile Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden">
         <div className="mx-3 mb-3 flex items-center justify-around rounded-2xl border bg-background/90 backdrop-blur-xl shadow-lg px-1 py-1">
           {tabs.map((t) => (
