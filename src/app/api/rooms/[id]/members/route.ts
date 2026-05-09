@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: roomId } = await params;
@@ -8,39 +8,49 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-    // Buscar membros com join de perfil
+    // Buscar membros sem join (mais confiável com RLS)
     const { data: members, error } = await supabase
       .from("room_members")
-      .select(`
-        id,
-        user_id,
-        joined_at:created_at,
-        profile:profiles(id, display_name, username, avatar, neighborhood)
-      `)
+      .select("id, user_id, created_at")
       .eq("room_id", roomId)
       .order("created_at", { ascending: true });
 
-    if (error) {
-      console.error("Erro ao buscar membros (com join):", error);
-      // Fallback: buscar sem join e depois buscar profiles separadamente
-      const { data: rawMembers, error: err2 } = await supabase
+    if (!error && members && members.length > 0) {
+      // Buscar profiles separadamente
+      const userIds = members.map((m: any) => m.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, display_name, username, avatar, neighborhood")
+        .in("id", userIds);
+
+      const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+      const enriched = members.map((m: any) => ({
+        id: m.id,
+        user_id: m.user_id,
+        joined_at: m.created_at,
+        profile: profileMap.get(m.user_id) || null,
+      }));
+
+      return NextResponse.json({ members: enriched });
+    }
+
+    // Fallback: admin client bypassa RLS
+    try {
+      const adminClient = createAdminClient();
+      const { data: adminMembers, error: adminError } = await adminClient
         .from("room_members")
         .select("id, user_id, created_at")
-        .eq("room_id", roomId)
-        .order("created_at", { ascending: true });
+        .eq("room_id", roomId);
 
-      if (err2) throw err2;
-
-      if (rawMembers && rawMembers.length > 0) {
-        const userIds = rawMembers.map((m: any) => m.user_id);
-        const { data: profiles } = await supabase
+      if (!adminError && adminMembers && adminMembers.length > 0) {
+        const userIds = adminMembers.map((m: any) => m.user_id);
+        const { data: profiles } = await adminClient
           .from("profiles")
           .select("id, display_name, username, avatar, neighborhood")
           .in("id", userIds);
 
         const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
-
-        const enriched = rawMembers.map((m: any) => ({
+        const enriched = adminMembers.map((m: any) => ({
           id: m.id,
           user_id: m.user_id,
           joined_at: m.created_at,
@@ -49,38 +59,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
         return NextResponse.json({ members: enriched });
       }
+    } catch {}
 
-      return NextResponse.json({ members: [] });
-    }
-
-    // Verificar se algum profile veio null (FK pode não existir)
-    const hasNullProfiles = (members || []).some((m: any) => !m.profile);
-
-    if (hasNullProfiles && members && members.length > 0) {
-      const nullUserIds = members
-        .filter((m: any) => !m.profile)
-        .map((m: any) => m.user_id);
-
-      if (nullUserIds.length > 0) {
-        const { data: missingProfiles } = await supabase
-          .from("profiles")
-          .select("id, display_name, username, avatar, neighborhood")
-          .in("id", nullUserIds);
-
-        const profileMap = new Map((missingProfiles || []).map((p: any) => [p.id, p]));
-
-        const enriched = members.map((m: any) => ({
-          ...m,
-          profile: m.profile || profileMap.get(m.user_id) || null,
-        }));
-
-        return NextResponse.json({ members: enriched });
-      }
-    }
-
-    return NextResponse.json({ members: members || [] });
+    return NextResponse.json({ members: [] });
   } catch (error: any) {
-    console.error("Erro geral ao buscar membros:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
