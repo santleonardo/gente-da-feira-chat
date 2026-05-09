@@ -4,7 +4,7 @@ export interface Profile {
   id: string;
   username: string;
   display_name: string;
-  avatar: string | null;
+  avatar_url: string | null;
   bio: string;
   neighborhood: string | null;
   theme: string;
