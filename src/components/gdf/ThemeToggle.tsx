@@ -1,14 +1,13 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { Sun, Moon, Palette } from "lucide-react";
+import { Sun, Moon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 const themes = [
   { value: "light", label: "Claro", icon: Sun, description: "Fundo branco com detalhes claros" },
   { value: "dark", label: "Escuro", icon: Moon, description: "Fundo escuro com neon" },
-  { value: "auto", label: "Mesclado", icon: Palette, description: "Segue o sistema" },
 ];
 
 export function ThemeToggle() {
@@ -24,7 +23,7 @@ export function ThemeToggle() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const current = themes.find((t) => t.value === theme) || themes[2];
+  const current = themes.find((t) => t.value === theme) || themes[0];
   const CurrentIcon = current.icon;
 
   return (
