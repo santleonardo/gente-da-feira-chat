@@ -1,23 +1,36 @@
 "use client";
 
 /* eslint-disable react-hooks/set-state-in-effect */
-import { UserAvatar } from "./UserAvatar";
 import { useState, useEffect, useRef } from "react";
-import { useStore } from "@/lib/store";
-import type { Profile } from "@/lib/types";
+import { useStore, Profile } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { MessageCircle, Trash2, Send, ChevronDown, ChevronUp, Reply } from "lucide-react";
+import { Heart, MessageCircle, Trash2, Send, ChevronDown, ChevronUp, Reply } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
+import { UserAvatar } from "./UserAvatar";
 import { toast } from "sonner";
 
-const REACTION_EMOJIS = ["😂", "😔", "😲", "😡", "😍"];
+const REACTION_EMOJIS = [
+  { type: "like", emoji: "❤️", label: "Curtir" },
+  { type: "laugh", emoji: "😂", label: "Engraçado" },
+  { type: "sad", emoji: "😔", label: "Triste" },
+  { type: "wow", emoji: "😲", label: "Uau" },
+  { type: "angry", emoji: "😡", label: "Bravo" },
+  { type: "love", emoji: "😍", label: "Amei" },
+] as const;
 
-interface ReactionGroup {
-  type: string;
-  count: number;
-  reacted: boolean;
+function buildReactionGroups(reactions: { user_id: string; type: string }[]) {
+  const groups: Record<string, { emoji: string; count: number; types: string[] }> = {};
+  for (const r of reactions) {
+    const match = REACTION_EMOJIS.find((e) => e.type === r.type);
+    const emoji = match?.emoji || "❤️";
+    if (!groups[r.type]) {
+      groups[r.type] = { emoji, count: 0, types: [r.type] };
+    }
+    groups[r.type].count++;
+  }
+  return Object.values(groups);
 }
 
 interface Comment {
@@ -25,17 +38,15 @@ interface Comment {
   content: string;
   created_at: string;
   author_id: string;
-  parent_id: string | null;
-  reactions: { user_id: string; type: string }[];
+  parent_id?: string | null;
   author: {
     id: string;
     display_name: string;
     username: string;
-    avatar?: string | null;
     avatar_url?: string | null;
     neighborhood?: string | null;
   };
-  replies?: Comment[];
+  reactions: { user_id: string; type: string }[];
 }
 
 interface PostWithAuthor {
@@ -49,49 +60,10 @@ interface PostWithAuthor {
     id: string;
     display_name: string;
     username: string;
-    avatar?: string | null;
     avatar_url?: string | null;
     neighborhood?: string | null;
   };
   reactions: { user_id: string; type: string }[];
-}
-
-function buildReactionGroups(reactions: { user_id: string; type: string }[], userId?: string): ReactionGroup[] {
-  const map = new Map<string, { count: number; reacted: boolean }>();
-  for (const r of reactions) {
-    const existing = map.get(r.type) || { count: 0, reacted: false };
-    existing.count++;
-    if (r.user_id === userId) existing.reacted = true;
-    map.set(r.type, existing);
-  }
-  const groups: ReactionGroup[] = [];
-  for (const type of REACTION_EMOJIS) {
-    const data = map.get(type);
-    if (data) groups.push({ type, ...data });
-  }
-  for (const [type, data] of map) {
-    if (!REACTION_EMOJIS.includes(type)) {
-      groups.push({ type, ...data });
-    }
-  }
-  return groups;
-}
-
-function buildCommentTree(flatComments: Comment[]): Comment[] {
-  const map = new Map<string, Comment>();
-  const roots: Comment[] = [];
-  for (const c of flatComments) {
-    map.set(c.id, { ...c, replies: [] });
-  }
-  for (const c of flatComments) {
-    const node = map.get(c.id)!;
-    if (c.parent_id && map.has(c.parent_id)) {
-      map.get(c.parent_id)!.replies!.push(node);
-    } else {
-      roots.push(node);
-    }
-  }
-  return roots;
 }
 
 export function FeedView() {
@@ -139,31 +111,17 @@ export function FeedView() {
       const data = await res.json();
       if (data.reacted !== undefined) {
         setPosts((prev) =>
-          prev.map((p) => {
-            if (p.id !== postId) return p;
-            const reactions = data.reacted
-              ? [...p.reactions, { user_id: profile.id, type }]
-              : p.reactions.filter((r) => !(r.user_id === profile.id && r.type === type));
-            return { ...p, reactions };
-          })
+          prev.map((p) =>
+            p.id === postId
+              ? {
+                  ...p,
+                  reactions: data.reacted
+                    ? [...p.reactions, { user_id: profile.id, type }]
+                    : p.reactions.filter((r) => !(r.user_id === profile.id && r.type === type)),
+                }
+              : p
+          )
         );
-      }
-    } catch { /* silent */ }
-  };
-
-  const handleCommentReaction = async (commentId: string, type: string) => {
-    if (!profile) return;
-    try {
-      const res = await fetch("/api/comments/reaction", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ commentId, type }),
-      });
-      const data = await res.json();
-      if (data.reacted !== undefined) {
-        window.dispatchEvent(new CustomEvent("comment-reaction", {
-          detail: { commentId, type, reacted: data.reacted, userId: profile.id },
-        }));
       }
     } catch { /* silent */ }
   };
@@ -192,7 +150,7 @@ export function FeedView() {
     <div className="space-y-4">
       <div className="rounded-xl border bg-card p-4">
         <div className="flex items-start gap-3">
-          <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar: profile?.avatar, avatar_url: profile?.avatar_url }} className="h-9 w-9 shrink-0" />
+          <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-9 w-9 shrink-0" />
           <div className="flex-1 space-y-2">
             <textarea
               placeholder="O que está acontecendo no seu bairro?"
@@ -220,80 +178,32 @@ export function FeedView() {
       )}
 
       {posts.map((post) => (
-        <PostThread
-          key={post.id}
-          post={post}
-          profile={profile}
-          onReaction={handleReaction}
-          onCommentReaction={handleCommentReaction}
-          onDelete={handleDelete}
-          onUpdateCommentCount={updateCommentCount}
-        />
+        <PostThread key={post.id} post={post} profile={profile} onReaction={handleReaction} onDelete={handleDelete} onUpdateCommentCount={updateCommentCount} />
       ))}
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// PostThread
-// ═══════════════════════════════════════════════════════════
-function PostThread({
-  post,
-  profile,
-  onReaction,
-  onCommentReaction,
-  onDelete,
-  onUpdateCommentCount,
-}: {
-  post: PostWithAuthor;
-  profile: Profile | null;
-  onReaction: (postId: string, type: string) => void;
-  onCommentReaction: (commentId: string, type: string) => void;
-  onDelete: (postId: string) => void;
-  onUpdateCommentCount: (postId: string, delta: number) => void;
+function PostThread({ post, profile, onReaction, onDelete, onUpdateCommentCount }: {
+  post: PostWithAuthor; profile: Profile | null; onReaction: (postId: string, type: string) => void; onDelete: (postId: string) => void; onUpdateCommentCount: (postId: string, delta: number) => void;
 }) {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentInput, setCommentInput] = useState("");
-  const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [replyTo, setReplyTo] = useState<Comment | null>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
 
+  const reactionGroups = buildReactionGroups(post.reactions || []);
   const commentCount = post.comment_count || 0;
-  const reactionGroups = buildReactionGroups(post.reactions, profile?.id);
-  const hasReactions = reactionGroups.length > 0;
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { commentId, type, reacted, userId } = (e as CustomEvent).detail;
-      const updateComments = (comments: Comment[]): Comment[] =>
-        comments.map((c) => {
-          if (c.id === commentId) {
-            const reactions = reacted
-              ? [...c.reactions, { user_id: userId, type }]
-              : c.reactions.filter((r) => !(r.user_id === userId && r.type === type));
-            return { ...c, reactions };
-          }
-          if (c.replies && c.replies.length > 0) {
-            return { ...c, replies: updateComments(c.replies) };
-          }
-          return c;
-        });
-      setComments((prev) => updateComments(prev));
-    };
-    window.addEventListener("comment-reaction", handler);
-    return () => window.removeEventListener("comment-reaction", handler);
-  }, []);
 
   const fetchComments = async () => {
     setCommentsLoading(true);
     try {
       const res = await fetch(`/api/posts/${post.id}/comments`);
       const data = await res.json();
-      if (data.comments) {
-        setComments(buildCommentTree(data.comments));
-      }
+      if (data.comments) setComments(data.comments);
     } catch { /* silent */ }
     setCommentsLoading(false);
   };
@@ -311,27 +221,13 @@ function PostThread({
     setTimeout(() => commentInputRef.current?.focus(), 100);
   };
 
-  const startReply = (commentId: string, authorName: string) => {
-    setReplyTo({ id: commentId, name: authorName });
+  const handleReply = (comment: Comment) => {
+    setReplyTo(comment);
     if (!showComments) {
       if (comments.length === 0) fetchComments();
       setShowComments(true);
     }
     setTimeout(() => commentInputRef.current?.focus(), 100);
-  };
-
-  const cancelReply = () => setReplyTo(null);
-
-  const addReplyToTree = (comments: Comment[], parentId: string, newReply: Comment): Comment[] => {
-    return comments.map((c) => {
-      if (c.id === parentId) {
-        return { ...c, replies: [...(c.replies || []), newReply] };
-      }
-      if (c.replies && c.replies.length > 0) {
-        return { ...c, replies: addReplyToTree(c.replies, parentId, newReply) };
-      }
-      return c;
-    });
   };
 
   const submitComment = async () => {
@@ -347,12 +243,7 @@ function PostThread({
       });
       const data = await res.json();
       if (data.comment) {
-        const newComment: Comment = { ...data.comment, replies: [] };
-        if (replyTo) {
-          setComments((prev) => addReplyToTree(prev, replyTo.id, newComment));
-        } else {
-          setComments((prev) => [...prev, newComment]);
-        }
+        setComments((prev) => [...prev, data.comment]);
         setCommentInput("");
         setReplyTo(null);
         onUpdateCommentCount(post.id, 1);
@@ -360,9 +251,7 @@ function PostThread({
       } else if (data.error) {
         toast.error(data.error);
       }
-    } catch {
-      toast.error("Erro ao comentar");
-    }
+    } catch { toast.error("Erro ao comentar"); }
     setSubmitting(false);
   };
 
@@ -371,15 +260,51 @@ function PostThread({
       const res = await fetch(`/api/posts/${post.id}/comments?commentId=${commentId}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
-        const removeRecursive = (comments: Comment[]): Comment[] =>
-          comments
-            .filter((c) => c.id !== commentId)
-            .map((c) => ({ ...c, replies: c.replies ? removeRecursive(c.replies) : [] }));
-        setComments((prev) => removeRecursive(prev));
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
         onUpdateCommentCount(post.id, -1);
       }
     } catch { toast.error("Erro ao excluir comentário"); }
   };
+
+  const handleCommentReaction = async (commentId: string, type: string) => {
+    if (!profile) return;
+    try {
+      const res = await fetch("/api/comments/reaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commentId, type }),
+      });
+      const data = await res.json();
+      if (data.reacted !== undefined) {
+        setComments((prev) =>
+          prev.map((c) => {
+            if (c.id !== commentId) return c;
+            const reactions = data.reacted
+              ? [...(c.reactions || []), { user_id: profile.id, type }]
+              : (c.reactions || []).filter((r: any) => !(r.user_id === profile.id && r.type === type));
+            return { ...c, reactions };
+          })
+        );
+      }
+    } catch { /* silent */ }
+  };
+
+  const buildCommentTree = (flatComments: Comment[]) => {
+    const map = new Map<string, Comment[]>();
+    const roots: Comment[] = [];
+    for (const c of flatComments) {
+      if (c.parent_id) {
+        const children = map.get(c.parent_id) || [];
+        children.push(c);
+        map.set(c.parent_id, children);
+      } else {
+        roots.push(c);
+      }
+    }
+    return { roots, map };
+  };
+
+  const { roots: commentRoots, map: commentMap } = buildCommentTree(comments);
 
   return (
     <div className="rounded-xl border bg-card">
@@ -390,52 +315,32 @@ function PostThread({
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold">{post.author.display_name}</span>
               <span className="text-xs text-muted-foreground">@{post.author.username}</span>
-              {post.author.neighborhood && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {post.author.neighborhood}
-                </Badge>
-              )}
+              {post.author.neighborhood && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{post.author.neighborhood}</Badge>}
             </div>
             <p className="mt-1.5 text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
-
-            {hasReactions && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {reactionGroups.map((group) => (
-                  <button
-                    key={group.type}
-                    onClick={() => onReaction(post.id, group.type)}
-                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors ${
-                      group.reacted
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-muted bg-muted/50 text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <span className="text-sm">{group.type}</span>
-                    <span className="text-[10px]">{group.count}</span>
+            <div className="mt-3 flex items-center gap-3 text-muted-foreground flex-wrap">
+              {REACTION_EMOJIS.map(({ type, emoji, label }) => {
+                const isActive = post.reactions?.some((r) => r.user_id === profile?.id && r.type === type);
+                const count = post.reactions?.filter((r) => r.type === type).length || 0;
+                return (
+                  <button key={type} onClick={() => onReaction(post.id, type)} className={`flex items-center gap-0.5 text-xs transition-colors ${isActive ? "text-primary font-semibold" : "hover:text-primary"}`} title={label}>
+                    <span className="text-sm">{emoji}</span>
+                    {count > 0 && <span>{count}</span>}
                   </button>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-2 flex items-center gap-1 text-muted-foreground">
-              {profile && (
-                <div className="flex items-center gap-0.5">
-                  {REACTION_EMOJIS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      onClick={() => onReaction(post.id, emoji)}
-                      className="rounded p-1 text-base transition-transform hover:scale-125 hover:bg-muted"
-                    >
-                      {emoji}
-                    </button>
+                );
+              })}
+              {reactionGroups.length > 0 && (
+                <div className="flex gap-1">
+                  {reactionGroups.map((g, i) => (
+                    <span key={i} className="inline-flex items-center gap-0.5 rounded-full border bg-muted/50 px-1.5 py-0.5 text-[10px]">{g.emoji} {g.count}</span>
                   ))}
                 </div>
               )}
-              <button onClick={openAndFocus} className="flex items-center gap-1.5 text-xs transition-colors hover:text-primary ml-2">
+              <button onClick={openAndFocus} className="flex items-center gap-1.5 text-xs transition-colors hover:text-primary">
                 <MessageCircle className="h-4 w-4" />
                 {commentCount > 0 && commentCount}
               </button>
-              <span className="text-xs ml-2">{timeAgo(post.created_at)}</span>
+              <span className="text-xs">{timeAgo(post.created_at)}</span>
               {post.author_id === profile?.id && (
                 <button onClick={() => onDelete(post.id)} className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5" />
@@ -448,73 +353,37 @@ function PostThread({
 
       {(commentCount > 0 || comments.length > 0) && (
         <button onClick={toggleComments} className="flex w-full items-center justify-center gap-1.5 border-t py-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-primary">
-          {showComments ? (
-            <>Ocultar comentários <ChevronUp className="h-3 w-3" /></>
-          ) : (
-            <>{commentCount || comments.length} comentário{(commentCount || comments.length) !== 1 ? "s" : ""} <ChevronDown className="h-3 w-3" /></>
-          )}
+          {showComments ? (<>Ocultar comentários <ChevronUp className="h-3 w-3" /></>) : (<>{commentCount || comments.length} comentário{(commentCount || comments.length) !== 1 ? "s" : ""} <ChevronDown className="h-3 w-3" /></>)}
         </button>
       )}
 
       {showComments && (
         <div className="border-t bg-muted/20">
-          <div className="max-h-80 overflow-y-auto px-4 py-3">
+          <div className="max-h-64 overflow-y-auto px-4 py-3">
             {commentsLoading ? (
-              <div className="space-y-3">
-                {[1, 2].map((i) => (
-                  <div key={i} className="flex gap-2.5 animate-pulse">
-                    <div className="h-6 w-6 rounded-full bg-muted" />
-                    <div className="flex-1 space-y-1.5">
-                      <div className="h-3 w-24 rounded bg-muted" />
-                      <div className="h-3 w-full rounded bg-muted" />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-3">{[1, 2].map((i) => (<div key={i} className="flex gap-2.5 animate-pulse"><div className="h-6 w-6 rounded-full bg-muted" /><div className="flex-1 space-y-1.5"><div className="h-3 w-24 rounded bg-muted" /><div className="h-3 w-full rounded bg-muted" /></div></div>))}</div>
             ) : comments.length === 0 ? (
-              <p className="text-center text-xs text-muted-foreground py-2">
-                Nenhum comentário ainda. Seja o primeiro!
-              </p>
+              <p className="text-center text-xs text-muted-foreground py-2">Nenhum comentário ainda. Seja o primeiro!</p>
             ) : (
               <div className="space-y-3">
-                {comments.map((comment) => (
-                  <CommentItem
-                    key={comment.id}
-                    comment={comment}
-                    profile={profile}
-                    onDelete={deleteComment}
-                    onReply={startReply}
-                    onReaction={onCommentReaction}
-                    depth={0}
-                  />
+                {commentRoots.map((comment) => (
+                  <CommentItem key={comment.id} comment={comment} replies={commentMap.get(comment.id) || []} profile={profile} commentMap={commentMap} onDelete={deleteComment} onReply={handleReply} onReaction={handleCommentReaction} depth={0} />
                 ))}
               </div>
             )}
           </div>
-
           {profile && (
             <div className="border-t px-4 py-2.5">
               {replyTo && (
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Reply className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-[10px] text-muted-foreground">
-                    Respondendo a <strong>@{replyTo.name}</strong>
-                  </span>
-                  <button onClick={cancelReply} className="text-[10px] text-muted-foreground hover:text-destructive ml-1">
-                    Cancelar
-                  </button>
+                <div className="flex items-center gap-1.5 mb-1.5 text-xs text-muted-foreground">
+                  <Reply className="h-3 w-3" />
+                  <span>Respondendo a <strong>@{replyTo.author.display_name}</strong></span>
+                  <button onClick={() => setReplyTo(null)} className="text-destructive hover:underline ml-1">Cancelar</button>
                 </div>
               )}
               <div className="flex items-center gap-2">
-                <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar: profile.avatar, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
-                <Input
-                  ref={commentInputRef}
-                  placeholder={replyTo ? `Responder @${replyTo.name}...` : "Escreva um comentário..."}
-                  value={commentInput}
-                  onChange={(e) => setCommentInput(e.target.value.slice(0, 300))}
-                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && submitComment()}
-                  className="h-8 text-xs border-0 bg-muted/50 focus-visible:ring-1"
-                />
+                <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
+                <Input ref={commentInputRef} placeholder={replyTo ? `Responder @${replyTo.author.display_name}...` : "Escreva um comentário..."} value={commentInput} onChange={(e) => setCommentInput(e.target.value.slice(0, 300))} onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && submitComment()} className="h-8 text-xs border-0 bg-muted/50 focus-visible:ring-1" />
                 <Button size="icon" onClick={submitComment} disabled={!commentInput.trim() || submitting} className="h-8 w-8 shrink-0 rounded-full">
                   <Send className="h-3.5 w-3.5" />
                 </Button>
@@ -526,51 +395,20 @@ function PostThread({
 
       {!showComments && profile && (
         <div className="flex items-center gap-2 border-t px-4 py-2.5">
-          <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar: profile.avatar, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
-          <Input
-            placeholder="Escreva um comentário..."
-            value={commentInput}
-            onChange={(e) => setCommentInput(e.target.value.slice(0, 300))}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                if (commentInput.trim()) openAndFocus();
-              }
-            }}
-            onFocus={openAndFocus}
-            className="h-8 text-xs border-0 bg-muted/50 focus-visible:ring-1"
-          />
+          <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
+          <Input placeholder="Escreva um comentário..." value={commentInput} onChange={(e) => setCommentInput(e.target.value.slice(0, 300))} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { if (commentInput.trim()) openAndFocus(); } }} onFocus={openAndFocus} className="h-8 text-xs border-0 bg-muted/50 focus-visible:ring-1" />
         </div>
       )}
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// CommentItem
-// ═══════════════════════════════════════════════════════════
-function CommentItem({
-  comment,
-  profile,
-  onDelete,
-  onReply,
-  onReaction,
-  depth,
-}: {
-  comment: Comment;
-  profile: Profile | null;
-  onDelete: (commentId: string) => void;
-  onReply: (commentId: string, authorName: string) => void;
-  onReaction: (commentId: string, type: string) => void;
-  depth: number;
+function CommentItem({ comment, replies, profile, commentMap, onDelete, onReply, onReaction, depth }: {
+  comment: Comment; replies: Comment[]; profile: Profile | null; commentMap: Map<string, Comment[]>; onDelete: (commentId: string) => void; onReply: (comment: Comment) => void; onReaction: (commentId: string, type: string) => void; depth: number;
 }) {
-  const maxDepth = 1;
-  const indent = depth > 0 ? "ml-6 border-l-2 border-muted pl-3" : "";
-  const reactionGroups = buildReactionGroups(comment.reactions, profile?.id);
-  const hasReactions = reactionGroups.length > 0;
-
   return (
-    <div>
-      <div className={`flex gap-2.5 ${indent}`}>
+    <div className={depth > 0 ? "ml-6 border-l-2 border-muted pl-3" : ""}>
+      <div className="flex gap-2.5">
         <UserAvatar user={comment.author} className="h-6 w-6 shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -578,77 +416,31 @@ function CommentItem({
             <span className="text-[10px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
           </div>
           <p className="text-xs leading-relaxed">{comment.content}</p>
-
-          {hasReactions && (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {reactionGroups.map((group) => (
-                <button
-                  key={group.type}
-                  onClick={() => onReaction(comment.id, group.type)}
-                  className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0 text-[10px] transition-colors ${
-                    group.reacted
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-muted bg-muted/50 text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  <span className="text-xs">{group.type}</span>
-                  <span>{group.count}</span>
+          <div className="mt-1 flex items-center gap-2 flex-wrap">
+            {REACTION_EMOJIS.slice(0, 4).map(({ type, emoji }) => {
+              const isActive = comment.reactions?.some((r) => r.user_id === profile?.id && r.type === type);
+              const count = comment.reactions?.filter((r) => r.type === type).length || 0;
+              if (count === 0 && !isActive) return null;
+              return (
+                <button key={type} onClick={() => onReaction(comment.id, type)} className={`text-[10px] transition-colors ${isActive ? "text-primary font-semibold" : "hover:text-primary"}`}>
+                  {emoji}{count > 0 && ` ${count}`}
                 </button>
-              ))}
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            {profile && (
-              <div className="flex items-center gap-0">
-                {REACTION_EMOJIS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    onClick={() => onReaction(comment.id, emoji)}
-                    className="rounded p-0.5 text-sm transition-transform hover:scale-125 hover:bg-muted"
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            )}
-            {depth < maxDepth && profile && (
-              <button
-                onClick={() => onReply(comment.id, comment.author.display_name)}
-                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
-              >
-                <Reply className="h-2.5 w-2.5" />
-                Responder
-              </button>
-            )}
+              );
+            })}
+            <button onClick={() => onReply(comment)} className="text-[10px] text-muted-foreground hover:text-primary transition-colors">
+              <Reply className="h-2.5 w-2.5 inline" /> Responder
+            </button>
             {comment.author_id === profile?.id && (
-              <button
-                onClick={() => onDelete(comment.id)}
-                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-destructive transition-colors"
-              >
+              <button onClick={() => onDelete(comment.id)} className="text-[10px] text-muted-foreground hover:text-destructive">
                 <Trash2 className="h-2.5 w-2.5" />
-                Excluir
               </button>
             )}
           </div>
         </div>
       </div>
-
-      {comment.replies && comment.replies.length > 0 && (
-        <div className="mt-2 space-y-2">
-          {comment.replies.map((reply) => (
-            <CommentItem
-              key={reply.id}
-              comment={reply}
-              profile={profile}
-              onDelete={onDelete}
-              onReply={onReply}
-              onReaction={onReaction}
-              depth={depth + 1}
-            />
-          ))}
-        </div>
-      )}
+      {replies.map((reply) => (
+        <CommentItem key={reply.id} comment={reply} replies={commentMap.get(reply.id) || []} profile={profile} commentMap={commentMap} onDelete={onDelete} onReply={onReply} onReaction={onReaction} depth={depth + 1} />
+      ))}
     </div>
   );
 }
