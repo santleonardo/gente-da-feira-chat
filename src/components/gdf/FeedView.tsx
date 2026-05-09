@@ -433,7 +433,7 @@ function PostThread({
           {showComments ? (
             <>Ocultar comentários <ChevronUp className="h-3 w-3" /></>
           ) : (
-            <>{commentCount || comments.length} comentário{(commentCount || comments.length) !== 1 ? "s" : ""} <ChevronDown className="h-3 w-3" }</>
+           <>{commentCount || comments.length} comentário{(commentCount || comments.length) !== 1 ? "s" : ""} <ChevronDown className="h-3 w-3" /></>
           )}
         </button>
       )}
