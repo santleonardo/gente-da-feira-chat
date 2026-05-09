@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Profile, Tab, Room, Conversation } from "@/lib/types";
-
+export interface Profile {
 interface AppState {
   // Auth
   profile: Profile | null;
