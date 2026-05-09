@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       .from("posts")
       .select(`
         *,
-        author:profiles(id, display_name, username, avatar, neighborhood),
+        author:profiles(id, display_name, username, avatar, avatar_url, neighborhood),
         reactions(user_id, type)
       `)
       .eq("is_deleted", false)
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const { data: post, error } = await supabase
       .from("posts")
       .insert({ content: content.trim(), neighborhood: neighborhood || null, author_id: user.id })
-      .select(`*, author:profiles(id, display_name, username, avatar, neighborhood), reactions(user_id, type)`)
+      .select(`*, author:profiles(id, display_name, username, avatar, avatar_url, neighborhood), reactions(user_id, type)`)
       .single();
 
     if (error) throw error;
