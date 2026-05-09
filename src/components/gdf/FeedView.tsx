@@ -1,6 +1,7 @@
 "use client";
 
 /* eslint-disable react-hooks/set-state-in-effect */
+import { UserAvatar } from "./UserAvatar";
 import { useState, useEffect, useRef } from "react";
 import { useStore } from "@/lib/store";
 import type { Profile } from "@/lib/types";
