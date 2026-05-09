@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Users, MessageCircle } from "lucide-react";
+import { Search, Users, MessageCircle, User } from "lucide-react";
 import { getInitials, getAvatarColor } from "@/lib/constants";
 import { toast } from "sonner";
+import { PublicProfileView } from "./PublicProfileView";
 
 export function DiscoverView() {
   const { profile } = useStore();
@@ -15,6 +16,7 @@ export function DiscoverView() {
   const [users, setUsers] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [searched, setSearched] = useState(false);
+  const [viewingUserId, setViewingUserId] = useState<string | null>(null);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -47,6 +49,15 @@ export function DiscoverView() {
     } catch { toast.error("Erro"); }
   };
 
+  if (viewingUserId) {
+    return (
+      <PublicProfileView
+        userId={viewingUserId}
+        onBack={() => setViewingUserId(null)}
+      />
+    );
+  }
+
   const popularRooms = rooms.filter((r) => r.type === "official").slice(0, 5);
 
   return (
@@ -78,18 +89,24 @@ export function DiscoverView() {
             <div className="space-y-2">
               {users.map((u) => (
                 <div key={u.id} className="flex items-center gap-3 rounded-xl border bg-card p-3">
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback className={`${getAvatarColor(u.id)} text-xs text-white`}>
-                      {getInitials(u.display_name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-semibold">{u.display_name}</span>
-                    <p className="text-xs text-muted-foreground">@{u.username}</p>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => startDM(u)} className="gap-1">
-                    <MessageCircle className="h-3.5 w-3.5" /> Conversar
-                  </Button>
+                  <button onClick={() => setViewingUserId(u.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                    <Avatar className="h-10 w-10">
+                      {u.avatar_url ? <AvatarImage src={u.avatar_url} alt={u.display_name} /> : null}
+                      <AvatarFallback className={`${getAvatarColor(u.id)} text-xs text-white`}>
+                        {getInitials(u.display_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold">{u.display_name}</span>
+                      <p className="text-xs text-muted-foreground">@{u.username}</p>
+                    </div>
+                    <User className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                  {u.id !== profile?.id && (
+                    <Button variant="outline" size="sm" onClick={() => startDM(u)} className="gap-1 shrink-0">
+                      <MessageCircle className="h-3.5 w-3.5" /> Conversar
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
