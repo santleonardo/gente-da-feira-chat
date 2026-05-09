@@ -7,10 +7,7 @@ export async function GET() {
 
     const { data: rooms, error } = await supabase
       .from("rooms")
-      .select(`
-        *,
-        room_members(count)
-      `)
+      .select(`*, room_members(count)`)
       .eq("is_active", true)
       .order("type", { ascending: true })
       .order("name", { ascending: true });
@@ -42,37 +39,18 @@ export async function POST(req: NextRequest) {
     const icon = body.icon || "💬";
 
     if (!name) return NextResponse.json({ error: "Nome da sala é obrigatório" }, { status: 400 });
-    if (name.length > 50) return NextResponse.json({ error: "Nome muito longo (máx 50 chars)" }, { status: 400 });
-    if (description.length > 200) return NextResponse.json({ error: "Descrição muito longa (máx 200 chars)" }, { status: 400 });
+    if (name.length > 50) return NextResponse.json({ error: "Nome muito longo" }, { status: 400 });
 
-    const slug = name
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      + "-" + Date.now().toString(36);
+    const slug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Date.now().toString(36);
 
     const { data: room, error } = await supabase
       .from("rooms")
-      .insert({
-        name,
-        slug,
-        icon,
-        description: description || null,
-        type: "community",
-        is_active: true,
-        created_by: user.id,
-      })
-      .select()
-      .single();
+      .insert({ name, slug, icon, description: description || null, type: "community", is_active: true, created_by: user.id })
+      .select().single();
 
     if (error) throw error;
 
-    await supabase.from("room_members").insert({
-      room_id: room.id,
-      user_id: user.id,
-    });
+    await supabase.from("room_members").insert({ room_id: room.id, user_id: user.id });
 
     return NextResponse.json({ room: { ...room, memberCount: 1 } });
   } catch (error: any) {
