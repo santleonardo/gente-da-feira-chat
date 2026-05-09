@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         created_at,
         author_id,
         parent_id,
-        author:profiles(id, display_name, username, avatar, neighborhood),
+        author:profiles(id, display_name, username, avatar, avatar_url, neighborhood),
         reactions:user_id, type
       `)
       .eq("post_id", postId)
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         created_at,
         author_id,
         parent_id,
-        author:profiles(id, display_name, username, avatar, neighborhood)
+        author:profiles(id, display_name, username, avatar, avatar_url, neighborhood)
       `)
       .single();
 
