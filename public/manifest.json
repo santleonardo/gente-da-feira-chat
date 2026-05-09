@@ -3,12 +3,14 @@
   "short_name": "GDF",
   "description": "A rede social do seu bairro em Feira de Santana. Converse, publique e conecte-se com vizinhos.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0f0f11",
   "theme_color": "#d97706",
   "lang": "pt-BR",
   "categories": ["social", "communication"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -19,6 +21,12 @@
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-180.png",
+      "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     },
@@ -38,18 +46,24 @@
   "shortcuts": [
     {
       "name": "Feed",
+      "short_name": "Feed",
       "url": "/?tab=feed",
-      "description": "Ver o feed do bairro"
+      "description": "Ver o feed do bairro",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Salas",
+      "short_name": "Salas",
       "url": "/?tab=rooms",
-      "description": "Entrar nas salas de bate-papo"
+      "description": "Entrar nas salas de bate-papo",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Mensagens",
+      "short_name": "DMs",
       "url": "/?tab=dms",
-      "description": "Conversas privadas"
+      "description": "Conversas privadas",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
