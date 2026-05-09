@@ -7,7 +7,6 @@ import { useStore } from "@/lib/store";
 import type { Profile } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Trash2, Send, ChevronDown, ChevronUp, Reply } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
@@ -51,6 +50,7 @@ interface PostWithAuthor {
     display_name: string;
     username: string;
     avatar?: string | null;
+    avatar_url?: string | null;
     neighborhood?: string | null;
   };
   reactions: { user_id: string; type: string }[];
@@ -161,21 +161,6 @@ export function FeedView() {
       });
       const data = await res.json();
       if (data.reacted !== undefined) {
-        const updateComments = (comments: Comment[]): Comment[] =>
-          comments.map((c) => {
-            if (c.id === commentId) {
-              const reactions = data.reacted
-                ? [...c.reactions, { user_id: profile.id, type }]
-                : c.reactions.filter((r) => !(r.user_id === profile.id && r.type === type));
-              return { ...c, reactions };
-            }
-            if (c.replies && c.replies.length > 0) {
-              return { ...c, replies: updateComments(c.replies) };
-            }
-            return c;
-          });
-        // Atualizar o estado dos comments em todos os posts
-        // Como comments estão dentro de PostThread, usamos evento customizado
         window.dispatchEvent(new CustomEvent("comment-reaction", {
           detail: { commentId, type, reacted: data.reacted, userId: profile.id },
         }));
@@ -207,11 +192,7 @@ export function FeedView() {
     <div className="space-y-4">
       <div className="rounded-xl border bg-card p-4">
         <div className="flex items-start gap-3">
-          <Avatar className="h-9 w-9 shrink-0">
-            <AvatarFallback className={`${getAvatarColor(profile?.id || "")} text-xs text-white`}>
-              {getInitials(profile?.display_name || "?")}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar: profile?.avatar, avatar_url: profile?.avatar_url }} className="h-9 w-9 shrink-0" />
           <div className="flex-1 space-y-2">
             <textarea
               placeholder="O que está acontecendo no seu bairro?"
@@ -283,7 +264,6 @@ function PostThread({
   const reactionGroups = buildReactionGroups(post.reactions, profile?.id);
   const hasReactions = reactionGroups.length > 0;
 
-  // Escutar reações de comentários via evento customizado
   useEffect(() => {
     const handler = (e: Event) => {
       const { commentId, type, reacted, userId } = (e as CustomEvent).detail;
@@ -405,11 +385,7 @@ function PostThread({
     <div className="rounded-xl border bg-card">
       <div className="p-4">
         <div className="flex items-start gap-3">
-          <Avatar className="h-9 w-9 shrink-0">
-            <AvatarFallback className={`${getAvatarColor(post.author.id)} text-xs text-white`}>
-              {getInitials(post.author.display_name)}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar user={post.author} className="h-9 w-9 shrink-0" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold">{post.author.display_name}</span>
@@ -530,11 +506,7 @@ function PostThread({
                 </div>
               )}
               <div className="flex items-center gap-2">
-                <Avatar className="h-6 w-6 shrink-0">
-                  <AvatarFallback className={`${getAvatarColor(profile.id)} text-[8px] text-white`}>
-                    {getInitials(profile.display_name)}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar: profile.avatar, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
                 <Input
                   ref={commentInputRef}
                   placeholder={replyTo ? `Responder @${replyTo.name}...` : "Escreva um comentário..."}
@@ -554,11 +526,7 @@ function PostThread({
 
       {!showComments && profile && (
         <div className="flex items-center gap-2 border-t px-4 py-2.5">
-          <Avatar className="h-6 w-6 shrink-0">
-            <AvatarFallback className={`${getAvatarColor(profile.id)} text-[8px] text-white`}>
-              {getInitials(profile.display_name)}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar: profile.avatar, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
           <Input
             placeholder="Escreva um comentário..."
             value={commentInput}
@@ -575,137 +543,3 @@ function PostThread({
       )}
     </div>
   );
-}
-
-// ═══════════════════════════════════════════════════════════
-// CommentItem — Comentário com reações + respostas
-// ═══════════════════════════════════════════════════════════
-function CommentItem({
-  comment,
-  profile,
-  onDelete,
-  onReply,
-  onReaction,
-  depth,
-}: {
-  comment: Comment;
-  profile: Profile | null;
-  onDelete: (commentId: string) => void;
-  onReply: (commentId: string, authorName: string) => void;
-  onReaction: (commentId: string, type: string) => void;
-  depth: number;
-}) {
-  const maxDepth = 1;
-  const indent = depth > 0 ? "ml-6 border-l-2 border-muted pl-3" : "";
-  const reactionGroups = buildReactionGroups(comment.reactions, profile?.id);
-  const hasReactions = reactionGroups.length > 0;
-
-  return (
-    <div>
-      <div className={`flex gap-2.5 ${indent}`}>
-        <Avatar className="h-6 w-6 shrink-0">
-          <AvatarFallback className={`${getAvatarColor(comment.author.id)} text-[8px] text-white`}>
-            {getInitials(comment.author.display_name)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold">{comment.author.display_name}</span>
-            <span className="text-[10px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
-          </div>
-          <p className="text-xs leading-relaxed">{comment.content}</p>
-
-          {/* Reações do comentário */}
-          {hasReactions && (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {reactionGroups.map((group) => (
-                <button
-                  key={group.type}
-                  onClick={() => onReaction(comment.id, group.type)}
-                  className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0 text-[10px] transition-colors ${
-                    group.reacted
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-muted bg-muted/50 text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  <span className="text-xs">{group.type}</span>
-                  <span>{group.count}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Ações */}
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            {profile && (
-              <div className="flex items-center gap-0">
-                {REACTION_EMOJIS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    onClick={() => onReaction(comment.id, emoji)}
-                    className="rounded p-0.5 text-sm transition-transform hover:scale-125 hover:bg-muted"
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            )}
-            {depth < maxDepth && profile && (
-              <button
-                onClick={() => onReply(comment.id, comment.author.display_name)}
-                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
-              >
-                <Reply className="h-2.5 w-2.5" />
-                Responder
-              </button>
-            )}
-            {comment.author_id === profile?.id && (
-              <button
-                onClick={() => onDelete(comment.id)}
-                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-destructive transition-colors"
-              >
-                <Trash2 className="h-2.5 w-2.5" />
-                Excluir
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {comment.replies && comment.replies.length > 0 && (
-        <div className="mt-2 space-y-2">
-          {comment.replies.map((reply) => (
-            <CommentItem
-              key={reply.id}
-              comment={reply}
-              profile={profile}
-              onDelete={onDelete}
-              onReply={onReply}
-              onReaction={onReaction}
-              depth={depth + 1}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function FeedSkeleton() {
-  return (
-    <div className="space-y-4">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="rounded-xl border bg-card p-4 animate-pulse">
-          <div className="flex gap-3">
-            <div className="h-9 w-9 rounded-full bg-muted" />
-            <div className="flex-1 space-y-2">
-              <div className="h-4 w-32 rounded bg-muted" />
-              <div className="h-3 w-full rounded bg-muted" />
-              <div className="h-3 w-3/4 rounded bg-muted" />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
