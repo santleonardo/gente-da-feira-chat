@@ -99,7 +99,7 @@ export function UserProfileView() {
           const myFollowsRes = await fetch(`/api/follows?userId=${profile.id}`);
           const myFollowsData = await myFollowsRes.json();
           if (!myFollowsData.error && myFollowsData.following) {
-            const ids = new Set(myFollowsData.following.map((f: any) => f.following?.id).filter(Boolean));
+            const ids = new Set<string>(myFollowsData.following.map((f: any) => f.following?.id).filter(Boolean) as string[]);
             setMyFollowingIds(ids);
           }
         }
