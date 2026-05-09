@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
 
     let query = supabase
       .from("profiles")
-      .select("id, display_name, username, avatar, neighborhood, bio")
+      .select("id, display_name, username, avatar, avatar_url, neighborhood, bio")
       .limit(15);
 
     if (q) {
