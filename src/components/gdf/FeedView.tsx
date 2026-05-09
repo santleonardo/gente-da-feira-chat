@@ -543,3 +543,131 @@ function PostThread({
       )}
     </div>
   );
+}
+
+// ═══════════════════════════════════════════════════════════
+// CommentItem
+// ═══════════════════════════════════════════════════════════
+function CommentItem({
+  comment,
+  profile,
+  onDelete,
+  onReply,
+  onReaction,
+  depth,
+}: {
+  comment: Comment;
+  profile: Profile | null;
+  onDelete: (commentId: string) => void;
+  onReply: (commentId: string, authorName: string) => void;
+  onReaction: (commentId: string, type: string) => void;
+  depth: number;
+}) {
+  const maxDepth = 1;
+  const indent = depth > 0 ? "ml-6 border-l-2 border-muted pl-3" : "";
+  const reactionGroups = buildReactionGroups(comment.reactions, profile?.id);
+  const hasReactions = reactionGroups.length > 0;
+
+  return (
+    <div>
+      <div className={`flex gap-2.5 ${indent}`}>
+        <UserAvatar user={comment.author} className="h-6 w-6 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold">{comment.author.display_name}</span>
+            <span className="text-[10px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
+          </div>
+          <p className="text-xs leading-relaxed">{comment.content}</p>
+
+          {hasReactions && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {reactionGroups.map((group) => (
+                <button
+                  key={group.type}
+                  onClick={() => onReaction(comment.id, group.type)}
+                  className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0 text-[10px] transition-colors ${
+                    group.reacted
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-muted bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <span className="text-xs">{group.type}</span>
+                  <span>{group.count}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            {profile && (
+              <div className="flex items-center gap-0">
+                {REACTION_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => onReaction(comment.id, emoji)}
+                    className="rounded p-0.5 text-sm transition-transform hover:scale-125 hover:bg-muted"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            )}
+            {depth < maxDepth && profile && (
+              <button
+                onClick={() => onReply(comment.id, comment.author.display_name)}
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
+              >
+                <Reply className="h-2.5 w-2.5" />
+                Responder
+              </button>
+            )}
+            {comment.author_id === profile?.id && (
+              <button
+                onClick={() => onDelete(comment.id)}
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <Trash2 className="h-2.5 w-2.5" />
+                Excluir
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {comment.replies && comment.replies.length > 0 && (
+        <div className="mt-2 space-y-2">
+          {comment.replies.map((reply) => (
+            <CommentItem
+              key={reply.id}
+              comment={reply}
+              profile={profile}
+              onDelete={onDelete}
+              onReply={onReply}
+              onReaction={onReaction}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FeedSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="rounded-xl border bg-card p-4 animate-pulse">
+          <div className="flex gap-3">
+            <div className="h-9 w-9 rounded-full bg-muted" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-32 rounded bg-muted" />
+              <div className="h-3 w-full rounded bg-muted" />
+              <div className="h-3 w-3/4 rounded bg-muted" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
