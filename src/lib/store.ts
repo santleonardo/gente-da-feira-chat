@@ -1,23 +1,31 @@
 import { create } from "zustand";
-import type { Profile, Tab, Room, Conversation } from "@/lib/types";
+
+export interface Profile {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  bio: string;
+  neighborhood: string | null;
+  theme: string;
+  created_at: string;
+  updated_at: string;
+}
+
+type Tab = "feed" | "rooms" | "dms" | "discover" | "profile";
 
 interface AppState {
-  // Auth
   profile: Profile | null;
   isLoggedIn: boolean;
-
-  // Navigation
   tab: Tab;
-  selectedRoom: Room | null;
-  selectedDM: Conversation | null;
+  selectedRoom: any | null;
+  selectedDM: any | null;
   selectedUser: any | null;
-
-  // Actions
   setProfile: (profile: Profile | null) => void;
   logout: () => void;
   setTab: (tab: Tab) => void;
-  setSelectedRoom: (room: Room | null) => void;
-  setSelectedDM: (dm: Conversation | null) => void;
+  setSelectedRoom: (room: any | null) => void;
+  setSelectedDM: (dm: any | null) => void;
   setSelectedUser: (user: any | null) => void;
   updateProfile: (data: Partial<Profile>) => void;
 }
@@ -31,10 +39,7 @@ export const useStore = create<AppState>((set) => ({
   selectedUser: null,
 
   setProfile: (profile) => {
-    set({
-      profile,
-      isLoggedIn: !!profile,
-    });
+    set({ profile, isLoggedIn: !!profile });
   },
 
   logout: () => {
