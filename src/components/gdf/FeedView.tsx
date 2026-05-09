@@ -191,7 +191,7 @@ function PostThread({
   onUpdateCommentCount,
 }: {
   post: PostWithAuthor;
-  profile: Profile | null;
+  profile: ReturnType<typeof useStore>["profile"];
   onLike: (postId: string) => void;
   onDelete: (postId: string) => void;
   onUpdateCommentCount: (postId: string, delta: number) => void;
