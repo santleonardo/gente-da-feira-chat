@@ -1,6 +1,7 @@
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { Toaster } from "sonner";
 import type { Metadata, Viewport } from "next";
+import { PWARegister } from "@/components/gdf/PWARegister";
 
 export const metadata: Metadata = {
   title: "Gente da Feira — Bate-papo do bairro",
@@ -59,16 +60,9 @@ export default function RootLayout({
         >
           {children}
           <Toaster position="top-center" richColors />
-          {/* Registra o Service Worker e mostra prompt de instalação */}
-          <PWARegisterProxy />
+          <PWARegister />
         </NextThemesProvider>
       </body>
     </html>
   );
-}
-
-// Client component proxy (layout é server component)
-import { PWARegister } from "@/components/gdf/PWARegister";
-function PWARegisterProxy() {
-  return <PWARegister />;
 }
