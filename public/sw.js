@@ -1,30 +1,16 @@
 // ============================================
-// GDF Chat — Service Worker
-// Cache-first para assets, network-first para dados
+// GDF Chat — Service Worker v2
+// Network-first para tudo (nunca serve stale)
 // ============================================
 
-const CACHE_NAME = 'gdf-v1';
-const STATIC_ASSETS = [
-  '/',
-  '/manifest.json',
-  '/icon.png',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/icon-maskable-192.png',
-  '/icons/icon-maskable-512.png',
-];
+const CACHE_NAME = 'gdf-v2';
 
-// Instalar — cachear assets estáticos
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    })
-  );
+// Instalar — não pré-cachear nada (evita falhas)
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
-// Ativar — limpar caches antigos
+// Ativar — limpar caches antigos imediatamente
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -38,62 +24,22 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Buscar — estratégia baseada no tipo de recurso
+// Buscar — Network First para TUDO
+// Sempre busca na rede primeiro. Só usa cache se offline.
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+
+  // Não interceptar non-GET
+  if (request.method !== 'GET') return;
+
+  // Não interceptar auth ou realtime
   const url = new URL(request.url);
+  if (url.pathname.startsWith('/api/auth')) return;
 
-  // Não cachear requisições de autenticação ou API que precisa de dados frescos
-  if (url.pathname.startsWith('/api/auth') || 
-      url.pathname.startsWith('/api/dm/') ||
-      url.pathname.startsWith('/api/rooms/') ||
-      request.method !== 'GET') {
-    return;
-  }
-
-  // Para API calls — Network First (tenta rede, fallback cache)
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, clone);
-            });
-          }
-          return response;
-        })
-        .catch(() => {
-          return caches.match(request);
-        })
-    );
-    return;
-  }
-
-  // Para assets estáticos (JS, CSS, imagens) — Cache First
-  if (url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|ico|woff2?)$/)) {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, clone);
-            });
-          }
-          return response;
-        });
-      })
-    );
-    return;
-  }
-
-  // Para páginas HTML — Network First com fallback cache
   event.respondWith(
     fetch(request)
       .then((response) => {
+        // Se a resposta foi OK, cachear para uso offline
         if (response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
@@ -103,8 +49,9 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => {
+        // Se offline, tentar o cache
         return caches.match(request).then((cached) => {
-          return cached || caches.match('/');
+          return cached || new Response('Offline', { status: 503 });
         });
       })
   );
