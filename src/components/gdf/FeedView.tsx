@@ -188,10 +188,10 @@ function PhotoViewer({ photos, initialIndex, onClose }: { photos: string[]; init
 }
 
 // ═══════════════════════════════════════════════════════════
-// FeedView
+// FeedView — MUDANÇA: usa setViewingUser do store direto
 // ═══════════════════════════════════════════════════════════
-export function FeedView({ openUserProfile }: { openUserProfile?: (userId: string) => void }) {
-  const { profile } = useStore();
+export function FeedView() {
+  const { profile, setViewingUser } = useStore();
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -409,7 +409,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
           onReaction={handleReaction}
           onDelete={handleDelete}
           onUpdateCommentCount={updateCommentCount}
-          openUserProfile={openUserProfile}
+          openUserProfile={setViewingUser}
           onPhotoClick={(index) => openPhotoViewer(post.image_urls || [], index)}
         />
       ))}
