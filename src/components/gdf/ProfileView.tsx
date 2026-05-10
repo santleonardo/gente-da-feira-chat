@@ -25,10 +25,14 @@ export function ProfileView() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [myPosts, setMyPosts] = useState<any[]>([]);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [followersCount, setFollowersCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!profile) return;
+
+    // Buscar contagem de posts
     fetch(`/api/users/${profile.id}`)
       .then((r) => r.json())
       .then((data) => {
@@ -44,6 +48,17 @@ export function ProfileView() {
       .then((r) => r.json())
       .then((data) => {
         if (data.posts) setMyPosts(data.posts);
+      })
+      .catch(() => {});
+
+    // Buscar contagem de seguidores/seguindo
+    fetch(`/api/follows?userId=${profile.id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.error) {
+          setFollowingCount(data.followingCount || 0);
+          setFollowersCount(data.followersCount || 0);
+        }
       })
       .catch(() => {});
   }, [profile]);
@@ -224,11 +239,11 @@ export function ProfileView() {
               <p className="text-xs text-muted-foreground">Posts</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold">0</p>
+              <p className="text-lg font-bold">{followingCount}</p>
               <p className="text-xs text-muted-foreground">Seguindo</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold">0</p>
+              <p className="text-lg font-bold">{followersCount}</p>
               <p className="text-xs text-muted-foreground">Seguidores</p>
             </div>
           </div>
