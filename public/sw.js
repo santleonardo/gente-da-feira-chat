@@ -1,58 +1,68 @@
-// ============================================
-// GDF Chat — Service Worker v2
-// Network-first para tudo (nunca serve stale)
-// ============================================
+import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { Toaster } from "sonner";
+import type { Metadata, Viewport } from "next";
+import { PWARegister } from "@/components/gdf/PWARegister";
 
-const CACHE_NAME = 'gdf-v2';
+export const metadata: Metadata = {
+  title: "Gente da Feira — Bate-papo do bairro",
+  description:
+    "A rede social do seu bairro em Feira de Santana. Converse, publique e conecte-se com vizinhos.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "GDF",
+  },
+  openGraph: {
+    title: "Gente da Feira",
+    description: "A rede social do seu bairro em Feira de Santana",
+    type: "website",
+    locale: "pt_BR",
+  },
+};
 
-// Instalar — não pré-cachear nada (evita falhas)
-self.addEventListener('install', () => {
-  self.skipWaiting();
-});
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F59E0B" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f0f11" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
-// Ativar — limpar caches antigos imediatamente
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
-      );
-    })
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="icon" href="/icon.png" />
+        <link rel="apple-touch-icon" href="/icons/icon-180.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black-translucent"
+        />
+        <meta name="apple-mobile-web-app-title" content="GDF" />
+      </head>
+      <body className="antialiased">
+        <NextThemesProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+          <Toaster position="top-center" richColors />
+          <PWARegister />
+        </NextThemesProvider>
+      </body>
+    </html>
   );
-  self.clients.claim();
-});
-
-// Buscar — Network First para TUDO
-// Sempre busca na rede primeiro. Só usa cache se offline.
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
-
-  // Não interceptar non-GET
-  if (request.method !== 'GET') return;
-
-  // Não interceptar auth ou realtime
-  const url = new URL(request.url);
-  if (url.pathname.startsWith('/api/auth')) return;
-
-  event.respondWith(
-    fetch(request)
-      .then((response) => {
-        // Se a resposta foi OK, cachear para uso offline
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, clone);
-          });
-        }
-        return response;
-      })
-      .catch(() => {
-        // Se offline, tentar o cache
-        return caches.match(request).then((cached) => {
-          return cached || new Response('Offline', { status: 503 });
-        });
-      })
-  );
-});
+}
