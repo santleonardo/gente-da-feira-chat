@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 
 export async function GET(req: NextRequest) {
   try {
@@ -39,13 +39,23 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-    const { content, neighborhood } = await req.json();
+    const { content, neighborhood, image_url } = await req.json();
     if (!content || !content.trim()) return NextResponse.json({ error: "Conteúdo é obrigatório" }, { status: 400 });
     if (content.trim().length > 500) return NextResponse.json({ error: "Post muito longo (máx 500 chars)" }, { status: 400 });
 
+    const insertData: any = {
+      content: content.trim(),
+      neighborhood: neighborhood || null,
+      author_id: user.id,
+    };
+
+    if (image_url) {
+      insertData.image_url = image_url;
+    }
+
     const { data: post, error } = await supabase
       .from("posts")
-      .insert({ content: content.trim(), neighborhood: neighborhood || null, author_id: user.id })
+      .insert(insertData)
       .select(`
         *,
         author:profiles(id, display_name, username, avatar_url, neighborhood),
@@ -63,12 +73,30 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const supabase = await createClient();
+    const admin = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
     const postId = searchParams.get("id");
     if (!postId) return NextResponse.json({ error: "ID necessário" }, { status: 400 });
+
+    const { data: post } = await supabase
+      .from("posts")
+      .select("image_url")
+      .eq("id", postId)
+      .eq("author_id", user.id)
+      .single();
+
+    if (post?.image_url) {
+      try {
+        const urlObj = new URL(post.image_url);
+        const pathParts = urlObj.pathname.split("/post-images/");
+        if (pathParts[1]) {
+          await admin.storage.from("post-images").remove([pathParts[1]]);
+        }
+      } catch { /* silencioso */ }
+    }
 
     const { error } = await supabase.from("posts").update({ is_deleted: true }).eq("id", postId).eq("author_id", user.id);
     if (error) throw error;
