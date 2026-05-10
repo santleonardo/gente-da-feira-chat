@@ -30,6 +30,7 @@ export interface Reaction {
 export interface Post {
   id: string;
   content: string;
+  image_url?: string | null;
   neighborhood?: string | null;
   created_at: string;
   author_id: string;
