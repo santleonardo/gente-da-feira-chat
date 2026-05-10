@@ -40,16 +40,8 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
-        <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/icon.png" />
-        <link rel="apple-touch-icon" href="/icons/icon-180.png" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta
-          name="apple-mobile-web-app-status-bar-style"
-          content="black-translucent"
-        />
-        <meta name="apple-mobile-web-app-title" content="GDF" />
+        <link rel="apple-touch-icon" href="/icon.png" />
       </head>
       <body className="antialiased">
         <NextThemesProvider
