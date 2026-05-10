@@ -36,7 +36,6 @@ export function UserProfileView() {
   const [listLoading, setListLoading] = useState(false);
   const [myFollowingIds, setMyFollowingIds] = useState<Set<string>>(new Set());
 
-  // Buscar dados do usuário
   useEffect(() => {
     if (!viewingUserId) return;
 
@@ -75,7 +74,6 @@ export function UserProfileView() {
     fetchData();
   }, [viewingUserId]);
 
-  // Buscar lista de seguidores/seguindo
   useEffect(() => {
     if (!viewingUserId || activeTab === "posts") return;
 
@@ -94,7 +92,6 @@ export function UserProfileView() {
           setFollowList(list);
         }
 
-        // Buscar quem EU sigo (para mostrar "Seguir de volta")
         if (profile && profile.id !== viewingUserId) {
           const myFollowsRes = await fetch(`/api/follows?userId=${profile.id}`);
           const myFollowsData = await myFollowsRes.json();
@@ -129,14 +126,12 @@ export function UserProfileView() {
       } else {
         const nowFollowing = data.following;
         if (!targetId) {
-          // Atualizar perfil principal
           setFollowData((prev) => ({
             ...prev,
             isFollowing: nowFollowing,
             followersCount: prev.followersCount + (nowFollowing ? 1 : -1),
           }));
         }
-        // Atualizar Set de "quem eu sigo"
         setMyFollowingIds((prev) => {
           const next = new Set(prev);
           if (nowFollowing && idToFollow) next.add(idToFollow);
@@ -179,24 +174,22 @@ export function UserProfileView() {
   const isOwnProfile = profile?.id === viewingUserId;
 
   return (
-    <div className="min-h-[calc(100vh-8rem)] md:min-h-0">
-      {/* Header fixo com botão voltar */}
-      <div className="sticky top-0 z-10 -mx-4 -mt-4 md:-mx-0 md:-mt-0 mb-4 border-b bg-background/80 backdrop-blur-xl">
-        <div className="flex items-center gap-3 px-4 py-3 md:px-0 md:py-2">
-          <button
-            onClick={goBack}
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-sm font-bold truncate">
-              {userData?.display_name || "..."}
-            </h2>
-            <p className="text-[11px] text-muted-foreground">
-              {postCount} {postCount === 1 ? "post" : "posts"}
-            </p>
-          </div>
+    <div className="space-y-4">
+      {/* Header com botão voltar */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={goBack}
+          className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-sm font-bold truncate">
+            {userData?.display_name || "..."}
+          </h2>
+          <p className="text-[11px] text-muted-foreground">
+            {postCount} {postCount === 1 ? "post" : "posts"}
+          </p>
         </div>
       </div>
 
@@ -214,10 +207,10 @@ export function UserProfileView() {
       ) : userData ? (
         <>
           {/* Banner */}
-          <div className="h-28 md:h-32 rounded-xl bg-gradient-to-br from-primary/40 via-primary/20 to-primary/5 -mx-4 -mt-0 md:-mx-0 md:-mt-0" />
+          <div className="h-24 rounded-xl bg-gradient-to-br from-primary/40 via-primary/20 to-primary/5" />
 
           {/* Avatar + Info */}
-          <div className="-mt-12 px-1">
+          <div className="-mt-10 px-1">
             <div className="flex items-end justify-between mb-3">
               <UserAvatar
                 user={{
@@ -225,7 +218,7 @@ export function UserProfileView() {
                   display_name: userData.display_name,
                   avatar_url: userData.avatar_url,
                 }}
-                className="h-20 w-20 border-4 border-background shadow-lg"
+                className="h-18 w-18 border-4 border-background shadow-lg"
               />
               {!isOwnProfile && (
                 <div className="flex gap-2 mt-2">
@@ -330,7 +323,7 @@ export function UserProfileView() {
           </div>
 
           {/* Tab Bar */}
-          <div className="mt-5 flex border-b">
+          <div className="flex border-b">
             <button
               onClick={() => setActiveTab("posts")}
               className={`flex-1 flex items-center justify-center gap-1.5 pb-3 text-xs font-semibold transition-colors ${
@@ -367,8 +360,7 @@ export function UserProfileView() {
           </div>
 
           {/* Tab Content */}
-          <div className="mt-4">
-            {/* Posts Tab */}
+          <div>
             {activeTab === "posts" && (
               <div>
                 {userPosts.length === 0 ? (
@@ -425,7 +417,6 @@ export function UserProfileView() {
               </div>
             )}
 
-            {/* Followers / Following Tabs */}
             {(activeTab === "followers" || activeTab === "following") && (
               <div>
                 {listLoading ? (
@@ -491,7 +482,6 @@ export function UserProfileView() {
                               </div>
                             )}
                           </div>
-                          {/* Botão Seguir de volta / Seguindo */}
                           {!isMe && (
                             <Button
                               size="sm"
