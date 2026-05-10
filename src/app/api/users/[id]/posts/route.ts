@@ -8,7 +8,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { data: posts, error } = await supabase
       .from("posts")
-      .select(`id, content, neighborhood, created_at, author_id, reactions(user_id, type)`)
+      .select(`id, content, neighborhood, created_at, author_id, image_url, reactions(user_id, type)`)
       .eq("author_id", id).eq("is_deleted", false)
       .order("created_at", { ascending: false }).limit(20);
 
