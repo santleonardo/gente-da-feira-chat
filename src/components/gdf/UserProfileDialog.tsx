@@ -37,14 +37,13 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
   const [followList, setFollowList] = useState<any[]>([]);
   const [listLoading, setListLoading] = useState(false);
 
-  // Buscar dados do usuário
+  // Buscar dados do usuario
   useEffect(() => {
     if (!userId || !open) return;
 
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Buscar perfil
         const profileRes = await fetch(`/api/users/${userId}`);
         const profileData = await profileRes.json();
         if (profileData.user) {
@@ -52,7 +51,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
           setPostCount(profileData.user._count?.posts || 0);
         }
 
-        // Buscar dados de seguidores
         const followRes = await fetch(`/api/follows?userId=${userId}`);
         const followResData = await followRes.json();
         if (!followRes.ok && followResData.error) {
@@ -298,7 +296,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                     <PhotoGallery
                       userId={userId}
                       isOwnProfile={isOwnProfile}
-                      openUserProfile={navigateToProfile}
                     />
                   </div>
                 )}
@@ -318,7 +315,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                       <div className="py-6 text-center">
                         <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
                         <p className="text-xs text-muted-foreground">
-                          {activeTab === "followers" ? "Nenhum seguidor ainda" : "Não segue ninguém ainda"}
+                          {activeTab === "followers" ? "Nenhum seguidor ainda" : "Nao segue ninguem ainda"}
                         </p>
                       </div>
                     ) : (
@@ -353,7 +350,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
           </>
         ) : (
           <div className="p-6 text-center">
-            <p className="text-sm text-muted-foreground">Usuário não encontrado</p>
+            <p className="text-sm text-muted-foreground">Usuario nao encontrado</p>
           </div>
         )}
       </DialogContent>
