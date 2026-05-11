@@ -1,10 +1,16 @@
 // ============================================================
-// API de upload de fotos para o Supabase Storage
-// Bucket: post-photos (público)
+// API de upload de fotos e vídeos para o Supabase Storage
+// Bucket: post-photos (público) — images
+// Suporta: images (max 500KB) e video thumbnails (max 500KB)
+// Para vídeos, use /api/upload/video
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const MAX_IMAGE_SIZE = 500 * 1024; // 500KB
+const MAX_VIDEO_THUMB_SIZE = 500 * 1024; // 500KB for thumbnails
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,14 +24,15 @@ export async function POST(req: NextRequest) {
 
     if (!file) return NextResponse.json({ error: "Arquivo não enviado" }, { status: 400 });
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    const allowedTypes = [...ALLOWED_IMAGE_TYPES];
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json({ error: "Tipo não suportado" }, { status: 400 });
     }
 
-    if (file.size > 500 * 1024) {
+    const maxSize = folder === "video-thumbs" ? MAX_VIDEO_THUMB_SIZE : MAX_IMAGE_SIZE;
+    if (file.size > maxSize) {
       return NextResponse.json({
-        error: "Imagem muito grande. Comprima antes de enviar."
+        error: "Arquivo muito grande. Comprima antes de enviar."
       }, { status: 400 });
     }
 
