@@ -1,7 +1,8 @@
 "use client";
 
 // ============================================================
-// PhotoGallery - Galeria de fotos do perfil (máx 25, permanente)
+// PhotoGallery - Galeria de fotos e vídeos do perfil
+// Máximo: 20 fotos + 5 vídeos por perfil
 // Com reações e comentários em cada foto
 // ============================================================
 
@@ -9,7 +10,6 @@ import { useState, useEffect, useRef } from "react";
 import { useStore, Profile } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   ImagePlus,
   X,
@@ -18,9 +18,11 @@ import {
   Trash2,
   Send,
   Reply,
-  Clock,
   Loader2,
   Camera,
+  Video,
+  Play,
+  Upload,
 } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 import { timeAgo } from "@/lib/constants";
@@ -32,7 +34,10 @@ import {
   revokePreviewUrl,
 } from "@/lib/image-compression";
 
-const MAX_PHOTOS_PER_PROFILE = 25;
+const MAX_PHOTOS_PER_PROFILE = 20;
+const MAX_VIDEOS_PER_PROFILE = 5;
+const MAX_VIDEO_SIZE_MB = 50;
+const MAX_VIDEO_DURATION_SEC = 30;
 
 const REACTION_EMOJIS = [
   { type: "like", emoji: "❤️", label: "Curtir" },
@@ -52,6 +57,16 @@ interface ProfilePhoto {
   created_at: string;
   reactions: { user_id: string; type: string }[];
   comment_count: number;
+}
+
+interface ProfileVideo {
+  id: string;
+  user_id: string;
+  url: string;
+  storage_path: string;
+  thumbnail_url: string;
+  duration: number;
+  created_at: string;
 }
 
 interface PhotoComment {
@@ -81,13 +96,19 @@ export function PhotoGallery({
 }) {
   const { profile } = useStore();
   const [photos, setPhotos] = useState<ProfilePhoto[]>([]);
+  const [videos, setVideos] = useState<ProfileVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<ProfilePhoto | null>(null);
+  const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"fotos" | "videos">("fotos");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchPhotos();
+    fetchVideos();
   }, [userId]);
 
   const fetchPhotos = async () => {
@@ -98,6 +119,73 @@ export function PhotoGallery({
       if (data.photos) setPhotos(data.photos);
     } catch { /* silent */ }
     setLoading(false);
+  };
+
+  const fetchVideos = async () => {
+    try {
+      const res = await fetch(`/api/profile-videos?userId=${userId}`);
+      const data = await res.json();
+      if (data.videos) setVideos(data.videos);
+    } catch { /* silent */ }
+  };
+
+  // ── Generate thumbnail from video client-side ──
+  const generateVideoThumbnail = (file: File): Promise<{ thumbnailBlob: Blob; duration: number }> => {
+    return new Promise((resolve, reject) => {
+      const videoEl = document.createElement("video");
+      videoEl.preload = "metadata";
+      videoEl.muted = true;
+      videoEl.playsInline = true;
+
+      const url = URL.createObjectURL(file);
+      videoEl.src = url;
+
+      let videoDuration = 0;
+
+      videoEl.onloadedmetadata = () => {
+        videoDuration = videoEl.duration;
+
+        if (videoDuration > MAX_VIDEO_DURATION_SEC) {
+          URL.revokeObjectURL(url);
+          reject(new Error(`Vídeo muito longo. Máximo ${MAX_VIDEO_DURATION_SEC} segundos.`));
+          return;
+        }
+
+        // Seek to 1 second for thumbnail (or 0 if very short)
+        videoEl.currentTime = Math.min(1, videoDuration * 0.1);
+      };
+
+      videoEl.onseeked = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = 320;
+          canvas.height = 240;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) throw new Error("Canvas context error");
+          ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(
+            (blob) => {
+              URL.revokeObjectURL(url);
+              if (blob) {
+                resolve({ thumbnailBlob: blob, duration: videoDuration });
+              } else {
+                reject(new Error("Erro ao gerar thumbnail"));
+              }
+            },
+            "image/webp",
+            0.7
+          );
+        } catch (err) {
+          URL.revokeObjectURL(url);
+          reject(err);
+        }
+      };
+
+      videoEl.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Erro ao carregar vídeo"));
+      };
+    });
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,6 +252,89 @@ export function PhotoGallery({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile) return;
+
+    // Validate video type
+    const allowedVideoTypes = ["video/mp4", "video/webm"];
+    if (!allowedVideoTypes.includes(file.type)) {
+      toast.error("Formato não suportado. Use MP4 ou WebM.");
+      return;
+    }
+
+    // Validate size
+    if (file.size > MAX_VIDEO_SIZE_MB * 1024 * 1024) {
+      toast.error(`Vídeo muito grande. Máximo ${MAX_VIDEO_SIZE_MB}MB.`);
+      return;
+    }
+
+    if (videos.length >= MAX_VIDEOS_PER_PROFILE) {
+      toast.error(`Limite de ${MAX_VIDEOS_PER_PROFILE} vídeos atingido. Remova um vídeo primeiro.`);
+      return;
+    }
+
+    setUploadingVideo(true);
+    try {
+      // Generate thumbnail client-side
+      const { thumbnailBlob, duration } = await generateVideoThumbnail(file);
+
+      // Upload video
+      const videoFormData = new FormData();
+      videoFormData.append("file", file, file.name);
+      videoFormData.append("folder", "videos");
+
+      const videoUploadRes = await fetch("/api/upload/video", {
+        method: "POST",
+        body: videoFormData,
+      });
+      const videoUploadData = await videoUploadRes.json();
+
+      if (!videoUploadData.url) {
+        toast.error(videoUploadData.error || "Erro ao enviar vídeo");
+        setUploadingVideo(false);
+        return;
+      }
+
+      // Upload thumbnail
+      const thumbFormData = new FormData();
+      thumbFormData.append("file", thumbnailBlob, "thumbnail.webp");
+      thumbFormData.append("folder", "video-thumbs");
+
+      const thumbUploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: thumbFormData,
+      });
+      const thumbUploadData = await thumbUploadRes.json();
+
+      const thumbnailUrl = thumbUploadData.url || "";
+
+      // Save video record
+      const saveRes = await fetch("/api/profile-videos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: videoUploadData.url,
+          storagePath: videoUploadData.path,
+          thumbnailUrl,
+          duration,
+        }),
+      });
+      const saveData = await saveRes.json();
+
+      if (saveData.video) {
+        setVideos((prev) => [saveData.video, ...prev]);
+        toast.success("Vídeo adicionado!");
+      } else {
+        toast.error(saveData.error || "Erro ao salvar vídeo");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao enviar vídeo");
+    }
+    setUploadingVideo(false);
+    if (videoInputRef.current) videoInputRef.current.value = "";
+  };
+
   const handleDelete = async (photoId: string) => {
     try {
       const res = await fetch(`/api/profile-photos?id=${photoId}`, {
@@ -182,6 +353,23 @@ export function PhotoGallery({
     }
   };
 
+  const handleDeleteVideo = async (videoId: string) => {
+    try {
+      const res = await fetch(`/api/profile-videos?id=${videoId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        setVideos((prev) => prev.filter((v) => v.id !== videoId));
+        toast.success("Vídeo removido");
+      } else {
+        toast.error(data.error || "Erro ao remover vídeo");
+      }
+    } catch {
+      toast.error("Erro ao remover vídeo");
+    }
+  };
+
   if (loading) {
     return (
       <div className="grid grid-cols-3 gap-1.5">
@@ -194,84 +382,197 @@ export function PhotoGallery({
 
   return (
     <div>
-      {/* Header */}
+      {/* Header with tabs */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold flex items-center gap-1.5">
-          <Camera className="h-4 w-4" />
-          Fotos
-          <span className="text-muted-foreground font-normal">
-            ({photos.length}/{MAX_PHOTOS_PER_PROFILE})
-          </span>
-        </h3>
-        {isOwnProfile && photos.length < MAX_PHOTOS_PER_PROFILE && (
-          <>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
-            >
-              {uploading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <ImagePlus className="h-3.5 w-3.5" />
-              )}
-              {uploading ? "Enviando..." : "Adicionar"}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              onChange={handleUpload}
-              className="hidden"
-            />
-          </>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setActiveTab("fotos")}
+            className={`text-sm font-semibold flex items-center gap-1.5 transition-colors ${
+              activeTab === "fotos" ? "text-foreground" : "text-muted-foreground"
+            }`}
+          >
+            <Camera className="h-4 w-4" />
+            Fotos
+            <span className="font-normal text-muted-foreground">
+              ({photos.length}/{MAX_PHOTOS_PER_PROFILE})
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab("videos")}
+            className={`text-sm font-semibold flex items-center gap-1.5 transition-colors ${
+              activeTab === "videos" ? "text-foreground" : "text-muted-foreground"
+            }`}
+          >
+            <Video className="h-4 w-4" />
+            Vídeos
+            <span className="font-normal text-muted-foreground">
+              ({videos.length}/{MAX_VIDEOS_PER_PROFILE})
+            </span>
+          </button>
+        </div>
+        {isOwnProfile && (
+          <div className="flex gap-2">
+            {activeTab === "fotos" && photos.length < MAX_PHOTOS_PER_PROFILE && (
+              <>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                >
+                  {uploading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <ImagePlus className="h-3.5 w-3.5" />
+                  )}
+                  {uploading ? "Enviando..." : "Adicionar"}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleUpload}
+                  className="hidden"
+                />
+              </>
+            )}
+            {activeTab === "videos" && videos.length < MAX_VIDEOS_PER_PROFILE && (
+              <>
+                <button
+                  onClick={() => videoInputRef.current?.click()}
+                  disabled={uploadingVideo}
+                  className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                >
+                  {uploadingVideo ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="h-3.5 w-3.5" />
+                  )}
+                  {uploadingVideo ? "Enviando..." : "Adicionar vídeo"}
+                </button>
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept="video/mp4,video/webm"
+                  onChange={handleVideoUpload}
+                  className="hidden"
+                />
+              </>
+            )}
+          </div>
         )}
       </div>
 
-      {/* Grid de fotos */}
-      {photos.length === 0 ? (
-        <div className="py-8 text-center">
-          <Camera className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-          <p className="text-xs text-muted-foreground">
-            {isOwnProfile
-              ? "Nenhuma foto ainda. Toque em adicionar!"
-              : "Nenhuma foto ainda"}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-3 gap-1.5">
-          {photos.map((photo) => (
-            <button
-              key={photo.id}
-              onClick={() => setSelectedPhoto(photo)}
-              className="relative aspect-square overflow-hidden rounded-lg group"
-            >
-              <img
-                src={photo.url}
-                alt="Foto do perfil"
-                className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
-                loading="lazy"
-              />
-              {(photo.reactions?.length > 0 || photo.comment_count > 0) && (
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
-                  {photo.reactions?.length > 0 && (
-                    <span className="text-white text-xs flex items-center gap-0.5">
-                      ❤️ {photo.reactions.length}
-                    </span>
+      {/* Photos Tab */}
+      {activeTab === "fotos" && (
+        <>
+          {photos.length === 0 ? (
+            <div className="py-8 text-center">
+              <Camera className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">
+                {isOwnProfile
+                  ? "Nenhuma foto ainda. Toque em adicionar!"
+                  : "Nenhuma foto ainda"}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-1.5">
+              {photos.map((photo) => (
+                <button
+                  key={photo.id}
+                  onClick={() => setSelectedPhoto(photo)}
+                  className="relative aspect-square overflow-hidden rounded-lg group"
+                >
+                  <img
+                    src={photo.url}
+                    alt="Foto do perfil"
+                    className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
+                    loading="lazy"
+                  />
+                  {(photo.reactions?.length > 0 || photo.comment_count > 0) && (
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
+                      {photo.reactions?.length > 0 && (
+                        <span className="text-white text-xs flex items-center gap-0.5">
+                          ❤️ {photo.reactions.length}
+                        </span>
+                      )}
+                      {photo.comment_count > 0 && (
+                        <span className="text-white text-xs flex items-center gap-0.5">
+                          💬 {photo.comment_count}
+                        </span>
+                      )}
+                    </div>
                   )}
-                  {photo.comment_count > 0 && (
-                    <span className="text-white text-xs flex items-center gap-0.5">
-                      💬 {photo.comment_count}
-                    </span>
-                  )}
-                </div>
-              )}
-            </button>
-          ))}
-        </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
-      {/* Modal de visualização da foto */}
+      {/* Videos Tab */}
+      {activeTab === "videos" && (
+        <>
+          {videos.length === 0 ? (
+            <div className="py-8 text-center">
+              <Video className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">
+                {isOwnProfile
+                  ? "Nenhum vídeo ainda. Toque em adicionar!"
+                  : "Nenhum vídeo ainda"}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {videos.map((video) => (
+                <div key={video.id} className="relative group">
+                  <button
+                    onClick={() => setVideoModalUrl(video.url)}
+                    className="relative overflow-hidden rounded-lg w-full"
+                  >
+                    {video.thumbnail_url ? (
+                      <img
+                        src={video.thumbnail_url}
+                        alt="Vídeo"
+                        className="w-full aspect-video object-cover group-hover:opacity-80 transition-opacity"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full aspect-video bg-muted flex items-center justify-center">
+                        <Play className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                    )}
+                    {/* Play icon overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="h-10 w-10 rounded-full bg-white/80 flex items-center justify-center shadow">
+                        <Play className="h-4 w-4 text-foreground ml-0.5" fill="currentColor" />
+                      </div>
+                    </div>
+                    {/* Duration badge */}
+                    {video.duration > 0 && (
+                      <span className="absolute bottom-1.5 right-1.5 bg-black/70 text-white text-[10px] px-1 py-0.5 rounded">
+                        {Math.floor(video.duration / 60)}:{String(Math.floor(video.duration % 60)).padStart(2, "0")}
+                      </span>
+                    )}
+                  </button>
+                  {/* Delete button */}
+                  {isOwnProfile && (
+                    <button
+                      onClick={() => {
+                        if (confirm("Remover este vídeo?")) handleDeleteVideo(video.id);
+                      }}
+                      className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Photo detail modal */}
       {selectedPhoto && (
         <PhotoDetailModal
           photo={selectedPhoto}
@@ -303,6 +604,28 @@ export function PhotoGallery({
             );
           }}
         />
+      )}
+
+      {/* Video player modal */}
+      {videoModalUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+          onClick={() => setVideoModalUrl(null)}
+        >
+          <button
+            onClick={() => setVideoModalUrl(null)}
+            className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <video
+            src={videoModalUrl}
+            controls
+            autoPlay
+            className="max-h-[90vh] max-w-[95vw] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
       )}
     </div>
   );
