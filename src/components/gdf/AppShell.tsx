@@ -28,7 +28,7 @@ export function AppShell() {
   const [profileDialogUserId, setProfileDialogUserId] = useState<string | null>(null);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 
-  // Escutar evento customizado para abrir perfil de outro usuário
+  // Escutar evento customizado para abrir perfil de outro usuario
   useEffect(() => {
     const handler = (e: any) => {
       const userId = e.detail?.userId;
@@ -149,15 +149,15 @@ export function AppShell() {
           "mx-auto px-4 py-4 md:py-6",
           inChat ? "max-w-2xl" : "max-w-lg"
         )}>
-          {tab === "feed" && <FeedView openUserProfile={openUserProfile} />}
-          {tab === "rooms" && <RoomsView openUserProfile={openUserProfile} />}
-          {tab === "dms" && <DMsView openUserProfile={openUserProfile} />}
-          {tab === "discover" && <DiscoverView openUserProfile={openUserProfile} />}
+          {tab === "feed" && <FeedView />}
+          {tab === "rooms" && <RoomsView />}
+          {tab === "dms" && <DMsView />}
+          {tab === "discover" && <DiscoverView />}
           {tab === "profile" && <ProfileView openUserProfile={openUserProfile} />}
         </div>
       </main>
 
-      {/* Perfil público de outros usuários */}
+      {/* Perfil publico de outros usuarios */}
       <UserProfileDialog
         userId={profileDialogUserId}
         open={profileDialogOpen}
