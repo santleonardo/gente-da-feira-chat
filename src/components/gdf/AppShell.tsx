@@ -149,10 +149,10 @@ export function AppShell() {
           "mx-auto px-4 py-4 md:py-6",
           inChat ? "max-w-2xl" : "max-w-lg"
         )}>
-          {tab === "feed" && <FeedView />}
-          {tab === "rooms" && <RoomsView />}
-          {tab === "dms" && <DMsView />}
-          {tab === "discover" && <DiscoverView />}
+          {tab === "feed" && <FeedView openUserProfile={openUserProfile} />}
+          {tab === "rooms" && <RoomsView openUserProfile={openUserProfile} />}
+          {tab === "dms" && <DMsView openUserProfile={openUserProfile} />}
+          {tab === "discover" && <DiscoverView openUserProfile={openUserProfile} />}
           {tab === "profile" && <ProfileView openUserProfile={openUserProfile} />}
         </div>
       </main>
