@@ -9,9 +9,8 @@ import {
   UserMinus,
   MessageCircle,
   Users,
-  Camera,
+  Grid3X3,
   Heart,
-  FileText,
   Play,
 } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
@@ -53,6 +52,7 @@ type MasonryItem =
 
 // ═══════════════════════════════════════════════════════════
 // UserProfileDialog — Full-screen public profile
+// Uma única aba "Posts" com fotos + vídeos + posts de texto
 // ═══════════════════════════════════════════════════════════
 export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDialogProps) {
   const { profile } = useStore();
@@ -65,11 +65,11 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
   const [postCount, setPostCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"fotos" | "posts" | "seguidores" | "seguindo">("fotos");
+  const [activeTab, setActiveTab] = useState<"posts" | "seguidores" | "seguindo">("posts");
   const [followList, setFollowList] = useState<any[]>([]);
   const [listLoading, setListLoading] = useState(false);
 
-  // Masonry data
+  // Masonry data — all items (photos + videos + text posts)
   const [masonryItems, setMasonryItems] = useState<MasonryItem[]>([]);
 
   // Video modal
@@ -129,7 +129,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
 
         const items: MasonryItem[] = [];
 
-        // Add photos
+        // Add photos from gallery
         for (const p of photosData.photos || []) {
           items.push({
             type: "photo",
@@ -141,7 +141,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
           });
         }
 
-        // Add text posts (only those without images)
+        // Add feed posts — text-only AND posts with images
         for (const p of postsData.posts || []) {
           if (!p.image_url) {
             items.push({
@@ -152,7 +152,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
               created_at: p.created_at,
             });
           } else {
-            // Posts with images count as photo cards
+            // Posts with images show as photo cards
             items.push({
               type: "photo",
               id: p.id,
@@ -176,7 +176,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
           });
         }
 
-        // Sort by created_at descending
+        // Sort by created_at descending (most recent first)
         items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         setMasonryItems(items);
@@ -271,13 +271,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     },
     [onOpenChange]
   );
-
-  // ── Filter items for tabs ──
-  const filteredItems = activeTab === "fotos"
-    ? masonryItems.filter((i) => i.type === "photo" || i.type === "video")
-    : activeTab === "posts"
-    ? masonryItems.filter((i) => i.type === "text")
-    : [];
 
   if (!open) return null;
 
@@ -387,21 +380,10 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
           </div>
 
           {/* ════════════════════════════════════════════
-              TABS — Fotos / Posts / Seguidores / Seguindo
+              TABS — Posts / Seguidores / Seguindo
               ════════════════════════════════════════════ */}
           <div className="max-w-2xl mx-auto px-4 mt-6">
             <div className="flex border-b">
-              <button
-                onClick={() => setActiveTab("fotos")}
-                className={`flex-1 pb-2.5 text-xs font-semibold text-center transition-colors flex items-center justify-center gap-1 ${
-                  activeTab === "fotos"
-                    ? "text-foreground border-b-2 border-primary"
-                    : "text-muted-foreground"
-                }`}
-              >
-                <Camera className="h-3.5 w-3.5" />
-                Fotos
-              </button>
               <button
                 onClick={() => setActiveTab("posts")}
                 className={`flex-1 pb-2.5 text-xs font-semibold text-center transition-colors flex items-center justify-center gap-1 ${
@@ -410,7 +392,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                     : "text-muted-foreground"
                 }`}
               >
-                <FileText className="h-3.5 w-3.5" />
+                <Grid3X3 className="h-3.5 w-3.5" />
                 Posts
               </button>
               <button
@@ -440,24 +422,25 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
               TAB CONTENT
               ════════════════════════════════════════════ */}
           <div className="max-w-2xl mx-auto px-4 py-4 pb-24">
-            {/* ── Fotos + Videos Masonry ── */}
-            {activeTab === "fotos" && (
+            {/* ── Posts Tab: Fotos + Vídeos + Text Posts (all together) ── */}
+            {activeTab === "posts" && (
               <>
-                {filteredItems.length === 0 ? (
+                {masonryItems.length === 0 ? (
                   <div className="py-12 text-center">
-                    <Camera className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Nenhuma foto ou vídeo ainda</p>
+                    <Grid3X3 className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Nenhum post ainda</p>
                   </div>
                 ) : (
                   <div className="columns-2 gap-2">
-                    {filteredItems.map((item) => {
+                    {masonryItems.map((item) => {
+                      // ── Photo card ──
                       if (item.type === "photo") {
                         return (
                           <div key={`photo-${item.id}`} className="break-inside-avoid mb-2">
                             <div className="relative overflow-hidden rounded-lg group">
                               <img
                                 src={item.url}
-                                alt="Foto do perfil"
+                                alt="Foto"
                                 className="w-full max-h-72 object-cover group-hover:opacity-90 transition-opacity"
                                 loading="lazy"
                               />
@@ -480,6 +463,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                         );
                       }
 
+                      // ── Video card ──
                       if (item.type === "video") {
                         return (
                           <div key={`video-${item.id}`} className="break-inside-avoid mb-2">
@@ -499,11 +483,13 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                                   <Play className="h-8 w-8 text-muted-foreground" />
                                 </div>
                               )}
+                              {/* Play icon overlay */}
                               <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors">
                                 <div className="h-12 w-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
                                   <Play className="h-5 w-5 text-foreground ml-0.5" fill="currentColor" />
                                 </div>
                               </div>
+                              {/* Duration badge */}
                               {item.duration > 0 && (
                                 <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded">
                                   {Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, "0")}
@@ -514,24 +500,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                         );
                       }
 
-                      return null;
-                    })}
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* ── Text Posts Masonry ── */}
-            {activeTab === "posts" && (
-              <>
-                {filteredItems.length === 0 ? (
-                  <div className="py-12 text-center">
-                    <FileText className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Nenhum post ainda</p>
-                  </div>
-                ) : (
-                  <div className="columns-2 gap-2">
-                    {filteredItems.map((item) => {
+                      // ── Text post card (colored background) ──
                       if (item.type === "text") {
                         return (
                           <div key={`text-${item.id}`} className="break-inside-avoid mb-2">
@@ -553,6 +522,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                           </div>
                         );
                       }
+
                       return null;
                     })}
                   </div>
