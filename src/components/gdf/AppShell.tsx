@@ -28,6 +28,11 @@ export function AppShell() {
   const [profileDialogUserId, setProfileDialogUserId] = useState<string | null>(null);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 
+  // When full-screen profile is open, hide main UI elements
+  const handleProfileDialogOpenChange = useCallback((open: boolean) => {
+    setProfileDialogOpen(open);
+  }, []);
+
   // Escutar evento customizado para abrir perfil de outro usuario
   useEffect(() => {
     const handler = (e: any) => {
@@ -157,11 +162,11 @@ export function AppShell() {
         </div>
       </main>
 
-      {/* Perfil publico de outros usuarios */}
+      {/* Perfil publico de outros usuarios — full-screen overlay */}
       <UserProfileDialog
         userId={profileDialogUserId}
         open={profileDialogOpen}
-        onOpenChange={setProfileDialogOpen}
+        onOpenChange={handleProfileDialogOpenChange}
       />
 
       {/* Mobile Bottom Nav */}
