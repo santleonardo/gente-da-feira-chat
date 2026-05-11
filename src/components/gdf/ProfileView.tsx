@@ -272,4 +272,173 @@ export function ProfileView({ openUserProfile }: ProfileViewProps) {
             </div>
           )}
 
-          {/* Stats - CLICAVEIS para ver seg
+          {/* Stats - CLICAVEIS para ver seguidores/seguindo */}
+          <div className="mt-6 flex gap-6">
+            <div className="text-center">
+              <p className="text-lg font-bold">{postCount}</p>
+              <p className="text-xs text-muted-foreground">Posts</p>
+            </div>
+            <button
+              onClick={() => setShowFollowList(showFollowList === "following" ? null : "following")}
+              className="text-center hover:opacity-80 transition-opacity"
+            >
+              <p className="text-lg font-bold">{followingCount}</p>
+              <p className="text-xs text-muted-foreground">Seguindo</p>
+            </button>
+            <button
+              onClick={() => setShowFollowList(showFollowList === "followers" ? null : "followers")}
+              className="text-center hover:opacity-80 transition-opacity"
+            >
+              <p className="text-lg font-bold">{followersCount}</p>
+              <p className="text-xs text-muted-foreground">Seguidores</p>
+            </button>
+          </div>
+
+          {/* Lista de seguidores/seguindo */}
+          {showFollowList && (
+            <div className="mt-4 border rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 bg-muted/50">
+                <p className="text-xs font-semibold">
+                  {showFollowList === "followers" ? "Seguidores" : "Seguindo"}
+                </p>
+                <button onClick={() => setShowFollowList(null)} className="text-muted-foreground hover:text-foreground">
+                  <ChevronUp className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                {followListLoading ? (
+                  <div className="space-y-2 p-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-center gap-2.5 animate-pulse">
+                        <div className="h-8 w-8 rounded-full bg-muted" />
+                        <div className="h-3 w-24 rounded bg-muted" />
+                      </div>
+                    ))}
+                  </div>
+                ) : followList.length === 0 ? (
+                  <div className="py-6 text-center">
+                    <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground">
+                      {showFollowList === "followers" ? "Nenhum seguidor ainda" : "Nao segue ninguem ainda"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-0.5 p-1">
+                    {followList.map((u: any) => (
+                      <button
+                        key={u.id}
+                        onClick={() => handleOpenUserProfile(u.id)}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-accent"
+                      >
+                        <UserAvatar
+                          user={{ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url }}
+                          className="h-8 w-8"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">{u.display_name}</div>
+                          <div className="text-[11px] text-muted-foreground truncate">@{u.username}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Tabs: Fotos / Meus Posts */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex border-b mb-3">
+            <button
+              onClick={() => setActiveTab("fotos")}
+              className={`flex-1 pb-2 text-xs font-semibold text-center transition-colors ${
+                activeTab === "fotos"
+                  ? "text-foreground border-b-2 border-primary"
+                  : "text-muted-foreground"
+              }`}
+            >
+              Fotos
+            </button>
+            <button
+              onClick={() => setActiveTab("posts")}
+              className={`flex-1 pb-2 text-xs font-semibold text-center transition-colors ${
+                activeTab === "posts"
+                  ? "text-foreground border-b-2 border-primary"
+                  : "text-muted-foreground"
+              }`}
+            >
+              Meus Posts
+            </button>
+          </div>
+
+          {activeTab === "fotos" && profile && (
+            <PhotoGallery userId={profile.id} isOwnProfile={true} />
+          )}
+
+          {activeTab === "posts" && (
+            <div className="space-y-2">
+              {myPosts.length === 0 ? (
+                <p className="py-6 text-center text-xs text-muted-foreground">
+                  Nenhum post ainda
+                </p>
+              ) : (
+                myPosts.map((post: any) => (
+                  <div key={post.id} className="rounded-lg border bg-card p-3">
+                    <p className="text-sm">{post.content}</p>
+                    {post.image_urls && post.image_urls.length > 0 && (
+                      <div className="mt-2 flex gap-1 overflow-x-auto">
+                        {post.image_urls.map((url: string, i: number) => (
+                          <img
+                            key={i}
+                            src={url}
+                            alt={`Foto ${i + 1}`}
+                            className="h-16 w-16 rounded object-cover flex-shrink-0"
+                            loading="lazy"
+                          />
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+                      <span>{timeAgo(post.created_at)}</span>
+                      {post.neighborhood && <span>- {post.neighborhood}</span>}
+                      {post.expires_at && (
+                        <span className="text-amber-500 flex items-center gap-0.5">
+                          - Expira {timeAgo(post.expires_at)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Permissoes do celular */}
+      <Card>
+        <CardContent className="pt-6">
+          <h3 className="text-sm font-semibold mb-3">Permissoes do dispositivo</h3>
+          <div className="space-y-2">
+            <Button variant="outline" size="sm" onClick={() => requestPermission("notifications")} className="w-full justify-start gap-2">
+              <Bell className="h-4 w-4" /> Notificacoes
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => requestPermission("microphone")} className="w-full justify-start gap-2">
+              <Mic className="h-4 w-4" /> Microfone
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => requestPermission("camera")} className="w-full justify-start gap-2">
+              <Video className="h-4 w-4" /> Camera
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Button variant="destructive" onClick={handleLogout} className="w-full gap-2">
+        <LogOut className="h-4 w-4" /> Sair da conta
+      </Button>
+    </div>
+  );
+}
