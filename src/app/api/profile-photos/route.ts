@@ -1,12 +1,12 @@
 // ============================================================
 // API de fotos do perfil (galeria permanente)
-// Máximo: 25 fotos por perfil
+// Máximo: 20 fotos por perfil
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 
-const MAX_PHOTOS_PER_PROFILE = 25;
+const MAX_PHOTOS_PER_PROFILE = 20;
 
 export async function GET(req: NextRequest) {
   try {
