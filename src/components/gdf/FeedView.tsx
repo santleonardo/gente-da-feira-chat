@@ -28,6 +28,9 @@ import {
   revokePreviewUrl,
 } from "@/lib/image-compression";
 
+// ═══════════════════════════════════════════════════════════
+// Constantes
+// ═══════════════════════════════════════════════════════════
 const MAX_PHOTOS_PER_POST = 5;
 const MAX_ACTIVE_PHOTO_POSTS = 5;
 
@@ -64,6 +67,9 @@ function getExpirationLabel(expiresAt: string): string {
   return `Expira em ${mins}min`;
 }
 
+// ═══════════════════════════════════════════════════════════
+// Interfaces
+// ═══════════════════════════════════════════════════════════
 interface Comment {
   id: string;
   content: string;
@@ -99,6 +105,9 @@ interface PostWithAuthor {
   reactions: { user_id: string; type: string }[];
 }
 
+// ═══════════════════════════════════════════════════════════
+// PhotoGrid
+// ═══════════════════════════════════════════════════════════
 function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: (index: number) => void }) {
   const count = photos.length;
   if (count === 0) return null;
@@ -153,6 +162,9 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+// PhotoViewer
+// ═══════════════════════════════════════════════════════════
 function PhotoViewer({ photos, initialIndex, onClose }: { photos: string[]; initialIndex: number; onClose: () => void }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
@@ -163,8 +175,8 @@ function PhotoViewer({ photos, initialIndex, onClose }: { photos: string[]; init
       </button>
       {photos.length > 1 && (
         <>
-          <button onClick={(e) => { e.stopPropagation(); setCurrentIndex((i) => (i > 0 ? i - 1 : photos.length - 1)); }} className="absolute left-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">&#8249;</button>
-          <button onClick={(e) => { e.stopPropagation(); setCurrentIndex((i) => (i < photos.length - 1 ? i + 1 : 0)); }} className="absolute right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">&#8250;</button>
+          <button onClick={(e) => { e.stopPropagation(); setCurrentIndex((i) => (i > 0 ? i - 1 : photos.length - 1)); }} className="absolute left-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">‹</button>
+          <button onClick={(e) => { e.stopPropagation(); setCurrentIndex((i) => (i < photos.length - 1 ? i + 1 : 0)); }} className="absolute right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">›</button>
         </>
       )}
       <img src={photos[currentIndex]} alt={`Foto ${currentIndex + 1}`} className="max-h-[90vh] max-w-[95vw] object-contain" onClick={(e) => e.stopPropagation()} />
@@ -175,8 +187,18 @@ function PhotoViewer({ photos, initialIndex, onClose }: { photos: string[]; init
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+// FeedView
+// ═══════════════════════════════════════════════════════════
 export function FeedView({ openUserProfile }: { openUserProfile?: (userId: string) => void }) {
   const { profile } = useStore();
+  const navigateToProfile = (uid: string) => {
+    if (openUserProfile) {
+      openUserProfile(uid);
+    } else {
+      window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
+    }
+  };
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -255,7 +277,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const handlePost = async () => {
     if (!content.trim() || !profile) return;
     if (selectedFiles.length > 0 && activePhotoCount >= MAX_ACTIVE_PHOTO_POSTS) {
-      toast.error(`Você já tem ${MAX_ACTIVE_PHOTO_POSTS} posts com fotos ativos. Aguarde a expiração.`);
+      toast.error(`Voce ja tem ${MAX_ACTIVE_PHOTO_POSTS} posts com fotos ativos. Aguarde a expiracao.`);
       return;
     }
     setUploading(true);
@@ -303,7 +325,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     try {
       await fetch(`/api/posts?id=${postId}`, { method: "DELETE" });
       setPosts((prev) => prev.filter((p) => p.id !== postId));
-      toast.success("Post excluído");
+      toast.success("Post excluido");
       fetchActivePhotoCount();
     } catch { toast.error("Erro ao excluir"); }
   };
@@ -325,12 +347,13 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 
   return (
     <div className="space-y-4">
+      {/* Composer */}
       <div className="rounded-xl border bg-card p-4">
         <div className="flex items-start gap-3">
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-9 w-9 shrink-0" />
           <div className="flex-1 space-y-2">
             <textarea
-              placeholder="O que está acontecendo no seu bairro?"
+              placeholder="O que esta acontecendo no seu bairro?"
               value={content}
               onChange={(e) => setContent(e.target.value.slice(0, 500))}
               className="w-full min-h-[72px] resize-none rounded-lg border-0 bg-muted/50 p-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
@@ -359,7 +382,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                       onClick={() => fileInputRef.current?.click()}
                       disabled={!canPostPhotos && selectedFiles.length === 0}
                       className={`flex items-center gap-1 text-xs transition-colors ${canPostPhotos ? "text-primary hover:text-primary/80" : "text-muted-foreground cursor-not-allowed"}`}
-                      title={canPostPhotos ? `Adicionar foto (${MAX_PHOTOS_PER_POST - selectedFiles.length} restantes)` : `${MAX_ACTIVE_PHOTO_POSTS} posts com foto ativos - aguarde expiração`}
+                      title={canPostPhotos ? `Adicionar foto (${MAX_PHOTOS_PER_POST - selectedFiles.length} restantes)` : `${MAX_ACTIVE_PHOTO_POSTS} posts com foto ativos - aguarde expiracao`}
                     >
                       <ImagePlus className="h-4 w-4" />
                       {selectedFiles.length > 0 && <span>{selectedFiles.length}/{MAX_PHOTOS_PER_POST}</span>}
@@ -393,7 +416,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
           onReaction={handleReaction}
           onDelete={handleDelete}
           onUpdateCommentCount={updateCommentCount}
-          openUserProfile={openUserProfile}
+          openUserProfile={navigateToProfile}
           onPhotoClick={(index) => openPhotoViewer(post.image_urls || [], index)}
         />
       ))}
@@ -403,6 +426,9 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+// PostThread
+// ═══════════════════════════════════════════════════════════
 function PostThread({
   post, profile, onReaction, onDelete, onUpdateCommentCount, openUserProfile, onPhotoClick,
 }: {
@@ -503,7 +529,7 @@ function PostThread({
         onUpdateCommentCount(post.id, -1);
       }
     } catch {
-      toast.error("Erro ao excluir comentário");
+      toast.error("Erro ao excluir comentario");
     }
   };
 
@@ -624,9 +650,9 @@ function PostThread({
       {(commentCount > 0 || comments.length > 0) && (
         <button onClick={toggleComments} className="flex w-full items-center justify-center gap-1.5 border-t py-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-primary">
           {showComments ? (
-            <>Ocultar comentários <ChevronUp className="h-3 w-3" /></>
+            <>Ocultar comentarios <ChevronUp className="h-3 w-3" /></>
           ) : (
-            <>{commentCount || comments.length} comentário{(commentCount || comments.length) !== 1 ? "s" : ""} <ChevronDown className="h-3 w-3" /></>
+            <>{commentCount || comments.length} comentario{(commentCount || comments.length) !== 1 ? "s" : ""} <ChevronDown className="h-3 w-3" /></>
           )}
         </button>
       )}
@@ -647,7 +673,7 @@ function PostThread({
                 ))}
               </div>
             ) : comments.length === 0 ? (
-              <p className="text-center text-xs text-muted-foreground py-2">Nenhum comentário ainda. Seja o primeiro!</p>
+              <p className="text-center text-xs text-muted-foreground py-2">Nenhum comentario ainda. Seja o primeiro!</p>
             ) : (
               <div className="space-y-3">
                 {commentRoots.map((comment) => (
@@ -681,7 +707,7 @@ function PostThread({
                 <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
                 <Input
                   ref={commentInputRef}
-                  placeholder={replyTo ? `Responder @${replyTo.author.display_name}...` : "Escreva um comentário..."}
+                  placeholder={replyTo ? `Responder @${replyTo.author.display_name}...` : "Escreva um comentario..."}
                   value={commentInput}
                   onChange={(e) => setCommentInput(e.target.value.slice(0, 300))}
                   onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && submitComment()}
@@ -700,7 +726,7 @@ function PostThread({
         <div className="flex items-center gap-2 border-t px-4 py-2.5">
           <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
           <Input
-            placeholder="Escreva um comentário..."
+            placeholder="Escreva um comentario..."
             value={commentInput}
             onChange={(e) => setCommentInput(e.target.value.slice(0, 300))}
             onKeyDown={(e) => {
@@ -715,6 +741,9 @@ function PostThread({
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+// CommentItem
+// ═══════════════════════════════════════════════════════════
 function CommentItem({
   comment, replies, profile, commentMap, onDelete, onReply, onReaction, openUserProfile, depth,
 }: {
@@ -782,6 +811,9 @@ function CommentItem({
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+// FeedSkeleton
+// ═══════════════════════════════════════════════════════════
 function FeedSkeleton() {
   return (
     <div className="space-y-4">
