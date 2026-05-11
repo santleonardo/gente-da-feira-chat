@@ -28,9 +28,6 @@ import {
   revokePreviewUrl,
 } from "@/lib/image-compression";
 
-// ═══════════════════════════════════════════════════════════
-// Constantes
-// ═══════════════════════════════════════════════════════════
 const MAX_PHOTOS_PER_POST = 5;
 const MAX_ACTIVE_PHOTO_POSTS = 5;
 
@@ -67,9 +64,6 @@ function getExpirationLabel(expiresAt: string): string {
   return `Expira em ${mins}min`;
 }
 
-// ═══════════════════════════════════════════════════════════
-// Interfaces
-// ═══════════════════════════════════════════════════════════
 interface Comment {
   id: string;
   content: string;
@@ -105,9 +99,6 @@ interface PostWithAuthor {
   reactions: { user_id: string; type: string }[];
 }
 
-// ═══════════════════════════════════════════════════════════
-// PhotoGrid
-// ═══════════════════════════════════════════════════════════
 function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: (index: number) => void }) {
   const count = photos.length;
   if (count === 0) return null;
@@ -162,9 +153,6 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// PhotoViewer
-// ═══════════════════════════════════════════════════════════
 function PhotoViewer({ photos, initialIndex, onClose }: { photos: string[]; initialIndex: number; onClose: () => void }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
@@ -175,8 +163,8 @@ function PhotoViewer({ photos, initialIndex, onClose }: { photos: string[]; init
       </button>
       {photos.length > 1 && (
         <>
-          <button onClick={(e) => { e.stopPropagation(); setCurrentIndex((i) => (i > 0 ? i - 1 : photos.length - 1)); }} className="absolute left-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">‹</button>
-          <button onClick={(e) => { e.stopPropagation(); setCurrentIndex((i) => (i < photos.length - 1 ? i + 1 : 0)); }} className="absolute right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">›</button>
+          <button onClick={(e) => { e.stopPropagation(); setCurrentIndex((i) => (i > 0 ? i - 1 : photos.length - 1)); }} className="absolute left-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">&#8249;</button>
+          <button onClick={(e) => { e.stopPropagation(); setCurrentIndex((i) => (i < photos.length - 1 ? i + 1 : 0)); }} className="absolute right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">&#8250;</button>
         </>
       )}
       <img src={photos[currentIndex]} alt={`Foto ${currentIndex + 1}`} className="max-h-[90vh] max-w-[95vw] object-contain" onClick={(e) => e.stopPropagation()} />
@@ -187,11 +175,8 @@ function PhotoViewer({ photos, initialIndex, onClose }: { photos: string[]; init
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// FeedView — MUDANÇA: usa setViewingUser do store direto
-// ═══════════════════════════════════════════════════════════
-export function FeedView() {
-  const { profile, setViewingUser } = useStore();
+export function FeedView({ openUserProfile }: { openUserProfile?: (userId: string) => void }) {
+  const { profile } = useStore();
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -291,7 +276,7 @@ export function FeedView() {
       });
       const data = await res.json();
       if (data.post) {
-        setPosts((prev) => [{ ...data.post, comment_count: 0 }, ...prev]);
+        setPosts((prev) => [{ ...data.post, comment_count: data.post.comment_count || 0 }, ...prev]);
         setContent("");
         previewUrls.forEach(revokePreviewUrl);
         setSelectedFiles([]);
@@ -340,7 +325,6 @@ export function FeedView() {
 
   return (
     <div className="space-y-4">
-      {/* Composer */}
       <div className="rounded-xl border bg-card p-4">
         <div className="flex items-start gap-3">
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-9 w-9 shrink-0" />
@@ -409,7 +393,7 @@ export function FeedView() {
           onReaction={handleReaction}
           onDelete={handleDelete}
           onUpdateCommentCount={updateCommentCount}
-          openUserProfile={setViewingUser}
+          openUserProfile={openUserProfile}
           onPhotoClick={(index) => openPhotoViewer(post.image_urls || [], index)}
         />
       ))}
@@ -419,9 +403,6 @@ export function FeedView() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// PostThread
-// ═══════════════════════════════════════════════════════════
 function PostThread({
   post, profile, onReaction, onDelete, onUpdateCommentCount, openUserProfile, onPhotoClick,
 }: {
@@ -734,9 +715,6 @@ function PostThread({
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// CommentItem
-// ═══════════════════════════════════════════════════════════
 function CommentItem({
   comment, replies, profile, commentMap, onDelete, onReply, onReaction, openUserProfile, depth,
 }: {
@@ -804,9 +782,6 @@ function CommentItem({
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// FeedSkeleton
-// ═══════════════════════════════════════════════════════════
 function FeedSkeleton() {
   return (
     <div className="space-y-4">
