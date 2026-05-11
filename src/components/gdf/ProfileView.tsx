@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, LogOut, Edit3, Camera, Bell, Mic, Video, Users, UserPlus, Heart } from "lucide-react";
+import { MapPin, LogOut, Edit3, Camera, Bell, Mic, Video, Users, ChevronDown, ChevronUp } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo, BAIRROS } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
 import { ThemeToggle } from "./ThemeToggle";
@@ -16,26 +16,40 @@ import { PhotoGallery } from "./PhotoGallery";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
-export function ProfileView() {
-  const { profile, logout, updateProfile, setViewingUser } = useStore();
+interface ProfileViewProps {
+  openUserProfile?: (userId: string) => void;
+}
+
+export function ProfileView({ openUserProfile }: ProfileViewProps) {
+  const { profile, logout, updateProfile } = useStore();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(profile?.display_name || "");
   const [bio, setBio] = useState(profile?.bio || "");
   const [neighborhood, setNeighborhood] = useState(profile?.neighborhood || "");
   const [postCount, setPostCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [followersCount, setFollowersCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [myPosts, setMyPosts] = useState<any[]>([]);
-  const [followingCount, setFollowingCount] = useState(0);
-  const [followersCount, setFollowersCount] = useState(0);
-  const [activeTab, setActiveTab] = useState<"fotos" | "posts" | "seguidores" | "seguindo">("fotos");
-  const [followList, setFollowList] = useState<any[]>([]);
-  const [listLoading, setListLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"posts" | "fotos">("fotos");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [showFollowList, setShowFollowList] = useState<"followers" | "following" | null>(null);
+  const [followList, setFollowList] = useState<any[]>([]);
+  const [followListLoading, setFollowListLoading] = useState(false);
+
+  // Função para navegar ao perfil de outro usuário
+  const handleOpenUserProfile = (userId: string) => {
+    if (openUserProfile) {
+      openUserProfile(userId);
+    } else {
+      window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId } }));
+    }
+  };
 
   useEffect(() => {
     if (!profile) return;
-
     fetch(`/api/users/${profile.id}`)
       .then((r) => r.json())
       .then((data) => {
@@ -46,13 +60,6 @@ export function ProfileView() {
       .catch(() => {})
       .finally(() => setLoading(false));
 
-    fetch(`/api/users/${profile.id}/posts`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.posts) setMyPosts(data.posts);
-      })
-      .catch(() => {});
-
     fetch(`/api/follows?userId=${profile.id}`)
       .then((r) => r.json())
       .then((data) => {
@@ -62,33 +69,34 @@ export function ProfileView() {
         }
       })
       .catch(() => {});
+
+    fetch(`/api/users/${profile.id}/posts`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.posts) setMyPosts(data.posts);
+      })
+      .catch(() => {});
   }, [profile]);
 
   useEffect(() => {
-    if (!profile || activeTab === "fotos" || activeTab === "posts") return;
+    if (!profile || !showFollowList) return;
 
-    const fetchList = async () => {
-      setListLoading(true);
-      try {
-        const res = await fetch(`/api/follows?userId=${profile.id}`);
-        const data = await res.json();
+    setFollowListLoading(true);
+    fetch(`/api/follows?userId=${profile.id}`)
+      .then((r) => r.json())
+      .then((data) => {
         if (data.error) {
           setFollowList([]);
         } else {
-          const list =
-            activeTab === "seguidores"
-              ? (data.followers || []).map((f: any) => f.follower).filter(Boolean)
-              : (data.following || []).map((f: any) => f.following).filter(Boolean);
+          const list = showFollowList === "followers"
+            ? (data.followers || []).map((f: any) => f.follower).filter(Boolean)
+            : (data.following || []).map((f: any) => f.following).filter(Boolean);
           setFollowList(list);
         }
-      } catch {
-        setFollowList([]);
-      }
-      setListLoading(false);
-    };
-
-    fetchList();
-  }, [profile, activeTab]);
+      })
+      .catch(() => setFollowList([]))
+      .finally(() => setFollowListLoading(false));
+  }, [profile, showFollowList]);
 
   const handleSave = async () => {
     if (!profile) return;
@@ -260,149 +268,153 @@ export function ProfileView() {
             </div>
           )}
 
-          {/* Stats clicáveis */}
+          {/* Stats — CLICÁVEIS para ver seguidores/seguindo */}
           <div className="mt-6 flex gap-6">
             <div className="text-center">
               <p className="text-lg font-bold">{postCount}</p>
               <p className="text-xs text-muted-foreground">Posts</p>
             </div>
             <button
-              onClick={() => setActiveTab("seguindo")}
+              onClick={() => setShowFollowList(showFollowList === "following" ? null : "following")}
               className="text-center hover:opacity-80 transition-opacity"
             >
               <p className="text-lg font-bold">{followingCount}</p>
               <p className="text-xs text-muted-foreground">Seguindo</p>
             </button>
             <button
-              onClick={() => setActiveTab("seguidores")}
+              onClick={() => setShowFollowList(showFollowList === "followers" ? null : "followers")}
               className="text-center hover:opacity-80 transition-opacity"
             >
               <p className="text-lg font-bold">{followersCount}</p>
               <p className="text-xs text-muted-foreground">Seguidores</p>
             </button>
           </div>
+
+          {/* Lista de seguidores/seguindo */}
+          {showFollowList && (
+            <div className="mt-4 border rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 bg-muted/50">
+                <p className="text-xs font-semibold">
+                  {showFollowList === "followers" ? "Seguidores" : "Seguindo"}
+                </p>
+                <button onClick={() => setShowFollowList(null)} className="text-muted-foreground hover:text-foreground">
+                  <ChevronUp className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                {followListLoading ? (
+                  <div className="space-y-2 p-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-center gap-2.5 animate-pulse">
+                        <div className="h-8 w-8 rounded-full bg-muted" />
+                        <div className="h-3 w-24 rounded bg-muted" />
+                      </div>
+                    ))}
+                  </div>
+                ) : followList.length === 0 ? (
+                  <div className="py-6 text-center">
+                    <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground">
+                      {showFollowList === "followers" ? "Nenhum seguidor ainda" : "Não segue ninguém ainda"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-0.5 p-1">
+                    {followList.map((u: any) => (
+                      <button
+                        key={u.id}
+                        onClick={() => handleOpenUserProfile(u.id)}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-accent"
+                      >
+                        <UserAvatar
+                          user={{ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url }}
+                          className="h-8 w-8"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">{u.display_name}</div>
+                          <div className="text-[11px] text-muted-foreground truncate">@{u.username}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Abas: Fotos / Posts / Seguidores / Seguindo */}
-      <div className="flex border-b">
-        <button
-          onClick={() => setActiveTab("fotos")}
-          className={`flex-1 flex items-center justify-center gap-1.5 pb-3 text-xs font-semibold transition-colors ${
-            activeTab === "fotos" ? "text-foreground border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Camera className="h-3.5 w-3.5" />
-          Fotos
-        </button>
-        <button
-          onClick={() => setActiveTab("posts")}
-          className={`flex-1 flex items-center justify-center gap-1.5 pb-3 text-xs font-semibold transition-colors ${
-            activeTab === "posts" ? "text-foreground border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Heart className="h-3.5 w-3.5" />
-          Posts
-        </button>
-        <button
-          onClick={() => setActiveTab("seguidores")}
-          className={`flex-1 flex items-center justify-center gap-1.5 pb-3 text-xs font-semibold transition-colors ${
-            activeTab === "seguidores" ? "text-foreground border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Users className="h-3.5 w-3.5" />
-          Seguidores
-        </button>
-        <button
-          onClick={() => setActiveTab("seguindo")}
-          className={`flex-1 flex items-center justify-center gap-1.5 pb-3 text-xs font-semibold transition-colors ${
-            activeTab === "seguindo" ? "text-foreground border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <UserPlus className="h-3.5 w-3.5" />
-          Seguindo
-        </button>
-      </div>
+      {/* Tabs: Fotos / Meus Posts */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex border-b mb-3">
+            <button
+              onClick={() => setActiveTab("fotos")}
+              className={`flex-1 pb-2 text-xs font-semibold text-center transition-colors ${
+                activeTab === "fotos"
+                  ? "text-foreground border-b-2 border-primary"
+                  : "text-muted-foreground"
+              }`}
+            >
+              Fotos
+            </button>
+            <button
+              onClick={() => setActiveTab("posts")}
+              className={`flex-1 pb-2 text-xs font-semibold text-center transition-colors ${
+                activeTab === "posts"
+                  ? "text-foreground border-b-2 border-primary"
+                  : "text-muted-foreground"
+              }`}
+            >
+              Meus Posts
+            </button>
+          </div>
 
-      {/* Conteúdo das abas */}
-      {activeTab === "fotos" && profile && (
-        <PhotoGallery userId={profile.id} isOwnProfile={true} />
-      )}
-
-      {activeTab === "posts" && (
-        <div>
-          {myPosts.length === 0 ? (
-            <div className="py-8 text-center">
-              <Heart className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">Nenhum post ainda</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {myPosts.map((post: any) => (
-                <div key={post.id} className="rounded-lg border bg-card p-3">
-                  <p className="text-sm">{post.content}</p>
-                  <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
-                    <span>{timeAgo(post.created_at)}</span>
-                    {post.neighborhood && <span>· {post.neighborhood}</span>}
-                  </div>
-                </div>
-              ))}
-            </div>
+          {activeTab === "fotos" && profile && (
+            <PhotoGallery userId={profile.id} isOwnProfile={true} openUserProfile={handleOpenUserProfile} />
           )}
-        </div>
-      )}
 
-      {(activeTab === "seguidores" || activeTab === "seguindo") && (
-        <div>
-          {listLoading ? (
-            <div className="space-y-2 py-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-3 animate-pulse">
-                  <div className="h-10 w-10 rounded-full bg-muted" />
-                  <div className="flex-1 space-y-1.5">
-                    <div className="h-3.5 w-28 rounded bg-muted" />
-                    <div className="h-2.5 w-20 rounded bg-muted" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : followList.length === 0 ? (
-            <div className="py-8 text-center">
-              <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">
-                {activeTab === "seguidores" ? "Nenhum seguidor ainda" : "Não segue ninguém ainda"}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {followList.map((u: any) => (
-                <button
-                  key={u.id}
-                  onClick={() => setViewingUser(u.id)}
-                  className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-accent"
-                >
-                  <UserAvatar
-                    user={{ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url }}
-                    className="h-10 w-10"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold truncate">{u.display_name}</div>
-                    <div className="text-[11px] text-muted-foreground truncate">@{u.username}</div>
-                    {u.neighborhood && (
-                      <div className="text-[10px] text-muted-foreground/60 flex items-center gap-0.5 mt-0.5">
-                        <MapPin className="h-2.5 w-2.5" />
-                        {u.neighborhood}
+          {activeTab === "posts" && (
+            <div className="space-y-2">
+              {myPosts.length === 0 ? (
+                <p className="py-6 text-center text-xs text-muted-foreground">
+                  Nenhum post ainda
+                </p>
+              ) : (
+                myPosts.map((post: any) => (
+                  <div key={post.id} className="rounded-lg border bg-card p-3">
+                    <p className="text-sm">{post.content}</p>
+                    {post.image_urls && post.image_urls.length > 0 && (
+                      <div className="mt-2 flex gap-1 overflow-x-auto">
+                        {post.image_urls.map((url: string, i: number) => (
+                          <img
+                            key={i}
+                            src={url}
+                            alt={`Foto ${i + 1}`}
+                            className="h-16 w-16 rounded object-cover flex-shrink-0"
+                            loading="lazy"
+                          />
+                        ))}
                       </div>
                     )}
+                    <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+                      <span>{timeAgo(post.created_at)}</span>
+                      {post.neighborhood && <span>· {post.neighborhood}</span>}
+                      {post.expires_at && (
+                        <span className="text-amber-500 flex items-center gap-0.5">
+                          · Expira {timeAgo(post.expires_at)}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </button>
-              ))}
+                ))
+              )}
             </div>
           )}
-        </div>
-      )}
+        </CardContent>
+      </Card>
 
-      {/* Permissões do celular */}
+      {/* Permissões do dispositivo */}
       <Card>
         <CardContent className="pt-6">
           <h3 className="text-sm font-semibold mb-3">Permissões do dispositivo</h3>
