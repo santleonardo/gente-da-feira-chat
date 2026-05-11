@@ -3,6 +3,7 @@
 // - Posts com foto: máx 5 fotos, expiram em 12h
 // - Máx 5 posts com foto ativos por usuário
 // - Limpeza automática de posts expirados
+// - Retorna comment_count
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server";
@@ -25,7 +26,8 @@ export async function GET(req: NextRequest) {
       .select(`
         *,
         author:profiles(id, display_name, username, avatar_url, neighborhood),
-        reactions(user_id, type)
+        reactions(user_id, type),
+        comments(count)
       `)
       .eq("is_deleted", false)
       .order("created_at", { ascending: false })
@@ -39,9 +41,13 @@ export async function GET(req: NextRequest) {
     const { data: posts, error } = await query;
     if (error) throw error;
 
-    // Filtrar posts expirados
+    // Filtrar posts expirados e adicionar comment_count
     const now = new Date().toISOString();
-    const filteredPosts = (posts || []).filter((p: any) => {
+    const filteredPosts = (posts || []).map((p: any) => ({
+      ...p,
+      comment_count: p.comments?.[0]?.count || 0,
+      comments: undefined,
+    })).filter((p: any) => {
       if (p.expires_at && p.expires_at < now) return false;
       return true;
     });
@@ -55,6 +61,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// Limpar posts expirados (soft delete + remover fotos do storage)
 async function cleanupExpiredPosts() {
   try {
     const admin = createAdminClient();
@@ -69,7 +76,10 @@ async function cleanupExpiredPosts() {
     if (!expiredPosts || expiredPosts.length === 0) return;
 
     const expiredIds = expiredPosts.map((p: any) => p.id);
-    await admin.from("posts").update({ is_deleted: true }).in("id", expiredIds);
+    await admin
+      .from("posts")
+      .update({ is_deleted: true })
+      .in("id", expiredIds);
 
     for (const post of expiredPosts) {
       if (post.image_urls && post.image_urls.length > 0) {
@@ -79,7 +89,9 @@ async function cleanupExpiredPosts() {
         }
       }
     }
-  } catch { /* silent */ }
+  } catch {
+    // Silent
+  }
 }
 
 function extractStoragePaths(urls: string[]): string[] {
@@ -178,7 +190,11 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) throw error;
-    return NextResponse.json({ post });
+
+    // Adicionar comment_count ao novo post
+    const postWithCount = { ...post, comment_count: 0 };
+
+    return NextResponse.json({ post: postWithCount });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
