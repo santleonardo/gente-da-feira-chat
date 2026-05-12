@@ -74,9 +74,9 @@ export async function GET(req: NextRequest) {
     const followingCount = following?.length || 0;
     const followersCount = followers?.length || 0;
 
-    // Determinar se o viewer pode ver as listas
-    const canSeeFollowing = isOwnProfile || isFollowing || !hideFollowing;
-    const canSeeFollowers = isOwnProfile || isFollowing || !hideFollowers;
+    // Ocultar para TODOS, inclusive seguidores — só o dono do perfil vê
+    const canSeeFollowing = isOwnProfile || !hideFollowing;
+    const canSeeFollowers = isOwnProfile || !hideFollowers;
     const isRestricted = isPrivate && !isOwnProfile && !isFollowing;
 
     // Filtrar listas de acordo com privacidade
