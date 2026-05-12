@@ -17,7 +17,6 @@ import { UserAvatar } from "./UserAvatar";
 import { timeAgo } from "@/lib/constants";
 import { toast } from "sonner";
 
-// ── Color palette for text post cards ──
 const POST_COLORS = [
   "bg-amber-100 dark:bg-amber-900/30",
   "bg-rose-100 dark:bg-rose-900/30",
@@ -38,7 +37,6 @@ function getPostColor(content: string): string {
   return POST_COLORS[Math.abs(hash) % POST_COLORS.length];
 }
 
-// ── Types ──
 interface UserProfileDialogProps {
   userId: string | null;
   open: boolean;
@@ -50,10 +48,6 @@ type MasonryItem =
   | { type: "text"; id: string; content: string; reactions: { user_id: string; type: string }[]; created_at: string }
   | { type: "video"; id: string; url: string; thumbnail_url: string; duration: number; created_at: string };
 
-// ═══════════════════════════════════════════════════════════
-// UserProfileDialog — Full-screen public profile
-// Uma única aba "Posts" com fotos + vídeos + posts de texto
-// ═══════════════════════════════════════════════════════════
 export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDialogProps) {
   const { profile } = useStore();
   const [userData, setUserData] = useState<any>(null);
@@ -68,16 +62,11 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
   const [activeTab, setActiveTab] = useState<"posts" | "seguidores" | "seguindo">("posts");
   const [followList, setFollowList] = useState<any[]>([]);
   const [listLoading, setListLoading] = useState(false);
-
-  // Masonry data — all items (photos + videos + text posts)
   const [masonryItems, setMasonryItems] = useState<MasonryItem[]>([]);
-
-  // Video modal
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
 
   const isOwnProfile = profile?.id === userId;
 
-  // ── Fetch user data ──
   useEffect(() => {
     if (!userId || !open) return;
 
@@ -111,7 +100,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     fetchData();
   }, [userId, open]);
 
-  // ── Fetch masonry items (photos + posts + videos) ──
   useEffect(() => {
     if (!userId || !open) return;
 
@@ -129,7 +117,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
 
         const items: MasonryItem[] = [];
 
-        // Add photos from gallery
         for (const p of photosData.photos || []) {
           items.push({
             type: "photo",
@@ -141,7 +128,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
           });
         }
 
-        // Add feed posts — text-only AND posts with images
         for (const p of postsData.posts || []) {
           if (!p.image_url) {
             items.push({
@@ -152,7 +138,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
               created_at: p.created_at,
             });
           } else {
-            // Posts with images show as photo cards with colored text overlay
             items.push({
               type: "photo",
               id: p.id,
@@ -164,7 +149,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
           }
         }
 
-        // Add videos
         for (const v of videosData.videos || []) {
           items.push({
             type: "video",
@@ -176,9 +160,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
           });
         }
 
-        // Sort by created_at descending (most recent first)
         items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
         setMasonryItems(items);
       } catch {
         // silent
@@ -188,7 +170,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     fetchMasonry();
   }, [userId, open]);
 
-  // ── Fetch follow list ──
   useEffect(() => {
     if (!userId || !open || (activeTab !== "seguidores" && activeTab !== "seguindo")) return;
 
@@ -215,7 +196,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     fetchList();
   }, [userId, open, activeTab]);
 
-  // ── Handlers ──
   const handleFollowToggle = async () => {
     if (!userId || !profile || profile.id === userId || followLoading) return;
     setFollowLoading(true);
@@ -276,7 +256,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
 
   return (
     <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
-      {/* ── Close Button ── */}
       <button
         onClick={() => onOpenChange(false)}
         className="fixed top-4 right-4 z-[60] flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 transition-colors"
@@ -293,23 +272,16 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
         </div>
       ) : userData ? (
         <>
-          {/* ════════════════════════════════════════════
-              HEADER — Gradient + Avatar + Info
-              ════════════════════════════════════════════ */}
           <div className="relative">
-            {/* Gradient Banner */}
             <div className="h-40 sm:h-48 bg-gradient-to-br from-primary via-primary/70 to-primary/30" />
 
-            {/* Avatar + Info overlay */}
             <div className="max-w-2xl mx-auto px-4 -mt-12">
               <div className="flex items-end gap-4">
-                {/* Rounded-square avatar 80x80 */}
                 <UserAvatar
                   user={{ id: userId!, display_name: userData.display_name, avatar_url: userData.avatar_url }}
                   className="h-20 w-20 rounded-2xl border-4 border-background shadow-lg flex-shrink-0"
                 />
                 <div className="flex-1 pb-1" />
-                {/* Action buttons for other users */}
                 {!isOwnProfile && (
                   <div className="flex gap-2 pb-1">
                     <Button
@@ -343,11 +315,9 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                 )}
               </div>
 
-              {/* Name + username + bio */}
               <div className="mt-2">
                 <h2 className="text-xl font-bold leading-tight">{userData.display_name}</h2>
                 <p className="text-sm text-muted-foreground">@{userData.username}</p>
-
                 {userData.bio ? (
                   <p className="mt-2 text-sm leading-relaxed">{userData.bio}</p>
                 ) : (
@@ -355,7 +325,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                 )}
               </div>
 
-              {/* Stats row */}
               <div className="mt-4 flex gap-6">
                 <div className="text-center">
                   <p className="text-lg font-bold">{postCount}</p>
@@ -379,9 +348,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
             </div>
           </div>
 
-          {/* ════════════════════════════════════════════
-              TABS — Posts / Seguidores / Seguindo
-              ════════════════════════════════════════════ */}
           <div className="max-w-2xl mx-auto px-4 mt-6">
             <div className="flex border-b">
               <button
@@ -418,11 +384,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
             </div>
           </div>
 
-          {/* ════════════════════════════════════════════
-              TAB CONTENT
-              ════════════════════════════════════════════ */}
           <div className="max-w-2xl mx-auto px-4 py-4 pb-24">
-            {/* ── Posts Tab: Fotos + Vídeos + Text Posts (all together) ── */}
             {activeTab === "posts" && (
               <>
                 {masonryItems.length === 0 ? (
@@ -433,7 +395,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                 ) : (
                   <div className="columns-2 gap-2">
                     {masonryItems.map((item) => {
-                      // ── Photo card ──
                       if (item.type === "photo") {
                         return (
                           <div key={`photo-${item.id}`} className="break-inside-avoid mb-2">
@@ -463,7 +424,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                         );
                       }
 
-                      // ── Video card ──
                       if (item.type === "video") {
                         return (
                           <div key={`video-${item.id}`} className="break-inside-avoid mb-2">
@@ -474,7 +434,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                               {item.thumbnail_url ? (
                                 <img
                                   src={item.thumbnail_url}
-                                  alt="Vídeo"
+                                  alt="Video"
                                   className="w-full max-h-72 object-cover"
                                   loading="lazy"
                                 />
@@ -483,13 +443,11 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                                   <Play className="h-8 w-8 text-muted-foreground" />
                                 </div>
                               )}
-                              {/* Play icon overlay */}
                               <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors">
                                 <div className="h-12 w-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
                                   <Play className="h-5 w-5 text-foreground ml-0.5" fill="currentColor" />
                                 </div>
                               </div>
-                              {/* Duration badge */}
                               {item.duration > 0 && (
                                 <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded">
                                   {Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, "0")}
@@ -500,7 +458,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                         );
                       }
 
-                      // ── Text post card (colored background) ──
                       if (item.type === "text") {
                         return (
                           <div key={`text-${item.id}`} className="break-inside-avoid mb-2">
@@ -530,7 +487,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
               </>
             )}
 
-            {/* ── Seguidores / Seguindo ── */}
             {(activeTab === "seguidores" || activeTab === "seguindo") && (
               <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
                 {listLoading ? (
@@ -549,7 +505,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                   <div className="py-12 text-center">
                     <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
                     <p className="text-sm text-muted-foreground">
-                      {activeTab === "seguidores" ? "Nenhum seguidor ainda" : "Não segue ninguém ainda"}
+                      {activeTab === "seguidores" ? "Nenhum seguidor ainda" : "Nao segue ninguem ainda"}
                     </p>
                   </div>
                 ) : (
@@ -575,7 +531,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
               </div>
             )}
 
-            {/* Joined date */}
             <p className="mt-6 text-[11px] text-muted-foreground/60 text-center">
               Entrou em {new Date(userData.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
             </p>
@@ -585,7 +540,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
             <Users className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">Usuário não encontrado</p>
+            <p className="text-sm text-muted-foreground">Usuario nao encontrado</p>
             <Button variant="outline" size="sm" className="mt-4" onClick={() => onOpenChange(false)}>
               Voltar
             </Button>
@@ -593,7 +548,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
         </div>
       )}
 
-      {/* ── Video Player Modal ── */}
       {videoModalUrl && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90"
