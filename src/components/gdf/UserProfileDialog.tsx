@@ -152,7 +152,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
               created_at: p.created_at,
             });
           } else {
-            // Posts with images show as photo cards
+            // Posts with images show as photo cards with colored text overlay
             items.push({
               type: "photo",
               id: p.id,
