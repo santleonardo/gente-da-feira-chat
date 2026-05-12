@@ -8,19 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, LogOut, Edit3, Camera, Bell, Mic, Video, Users, ChevronDown, ChevronUp } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { MapPin, LogOut, Edit3, Camera, Bell, Mic, Video, Shield, Lock, EyeOff } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo, BAIRROS } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
 import { ThemeToggle } from "./ThemeToggle";
-import { PhotoGallery } from "./PhotoGallery";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
-interface ProfileViewProps {
-  openUserProfile?: (userId: string) => void;
-}
-
-export function ProfileView({ openUserProfile }: ProfileViewProps) {
+export function ProfileView() {
   const { profile, logout, updateProfile } = useStore();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(profile?.display_name || "");
@@ -32,22 +28,22 @@ export function ProfileView({ openUserProfile }: ProfileViewProps) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [myPosts, setMyPosts] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"posts" | "fotos">("fotos");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Seguidores/seguindo expansivel
-  const [showFollowList, setShowFollowList] = useState<"followers" | "following" | null>(null);
-  const [followList, setFollowList] = useState<any[]>([]);
-  const [followListLoading, setFollowListLoading] = useState(false);
+  // Privacidade
+  const [isPrivate, setIsPrivate] = useState(profile?.is_private || false);
+  const [hideFollowing, setHideFollowing] = useState(profile?.hide_following || false);
+  const [hideFollowers, setHideFollowers] = useState(profile?.hide_followers || false);
+  const [privacyLoading, setPrivacyLoading] = useState(false);
 
-  // Funcao para navegar ao perfil de outro usuario
-  const handleOpenUserProfile = (userId: string) => {
-    if (openUserProfile) {
-      openUserProfile(userId);
-    } else {
-      window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId } }));
+  // Sincronizar com profile do store
+  useEffect(() => {
+    if (profile) {
+      setIsPrivate(profile.is_private || false);
+      setHideFollowing(profile.hide_following || false);
+      setHideFollowers(profile.hide_followers || false);
     }
-  };
+  }, [profile?.is_private, profile?.hide_following, profile?.hide_followers]);
 
   useEffect(() => {
     if (!profile) return;
@@ -56,6 +52,10 @@ export function ProfileView({ openUserProfile }: ProfileViewProps) {
       .then((data) => {
         if (data.user) {
           setPostCount(data.user._count?.posts || 0);
+          // Sincronizar privacidade do servidor
+          if (data.user.is_private !== undefined) setIsPrivate(data.user.is_private);
+          if (data.user.hide_following !== undefined) setHideFollowing(data.user.hide_following);
+          if (data.user.hide_followers !== undefined) setHideFollowers(data.user.hide_followers);
         }
       })
       .catch(() => {})
@@ -81,27 +81,6 @@ export function ProfileView({ openUserProfile }: ProfileViewProps) {
       .catch(() => {});
   }, [profile]);
 
-  // Buscar lista de seguidores ou seguindo quando expandir
-  useEffect(() => {
-    if (!profile || !showFollowList) return;
-
-    setFollowListLoading(true);
-    fetch(`/api/follows?userId=${profile.id}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.error) {
-          setFollowList([]);
-        } else {
-          const list = showFollowList === "followers"
-            ? (data.followers || []).map((f: any) => f.follower).filter(Boolean)
-            : (data.following || []).map((f: any) => f.following).filter(Boolean);
-          setFollowList(list);
-        }
-      })
-      .catch(() => setFollowList([]))
-      .finally(() => setFollowListLoading(false));
-  }, [profile, showFollowList]);
-
   const handleSave = async () => {
     if (!profile) return;
     try {
@@ -123,12 +102,51 @@ export function ProfileView({ openUserProfile }: ProfileViewProps) {
     } catch { toast.error("Erro ao salvar"); }
   };
 
+  const handlePrivacyChange = async (field: "is_private" | "hide_following" | "hide_followers", value: boolean) => {
+    if (!profile) return;
+    setPrivacyLoading(true);
+
+    // Atualizar UI imediatamente
+    if (field === "is_private") setIsPrivate(value);
+    if (field === "hide_following") setHideFollowing(value);
+    if (field === "hide_followers") setHideFollowers(value);
+
+    try {
+      const res = await fetch(`/api/users/${profile.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
+      });
+      const data = await res.json();
+      if (data.user) {
+        updateProfile(data.user);
+        toast.success(value
+          ? field === "is_private" ? "Perfil agora é privado" : "Lista oculta"
+          : field === "is_private" ? "Perfil agora é público" : "Lista visível"
+        );
+      } else {
+        // Reverter em caso de erro
+        if (field === "is_private") setIsPrivate(!value);
+        if (field === "hide_following") setHideFollowing(!value);
+        if (field === "hide_followers") setHideFollowers(!value);
+        toast.error("Erro ao atualizar privacidade");
+      }
+    } catch {
+      // Reverter em caso de erro
+      if (field === "is_private") setIsPrivate(!value);
+      if (field === "hide_following") setHideFollowing(!value);
+      if (field === "hide_followers") setHideFollowers(!value);
+      toast.error("Erro ao atualizar privacidade");
+    }
+    setPrivacyLoading(false);
+  };
+
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      toast.error("Imagem muito grande (max 2MB)");
+      toast.error("Imagem muito grande (máx 2MB)");
       return;
     }
 
@@ -160,9 +178,9 @@ export function ProfileView({ openUserProfile }: ProfileViewProps) {
       if (type === "notifications") {
         const result = await Notification.requestPermission();
         if (result === "granted") {
-          toast.success("Notificacoes ativadas!");
+          toast.success("Notificações ativadas!");
         } else {
-          toast.error("Permissao de notificacao negada");
+          toast.error("Permissão de notificação negada");
         }
       } else if (type === "microphone") {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -171,10 +189,10 @@ export function ProfileView({ openUserProfile }: ProfileViewProps) {
       } else if (type === "camera") {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         stream.getTracks().forEach((t) => t.stop());
-        toast.success("Camera permitida!");
+        toast.success("Câmera permitida!");
       }
     } catch {
-      toast.error(`Permissao de ${type === "microphone" ? "microfone" : type === "camera" ? "camera" : "notificacao"} negada`);
+      toast.error(`Permissão de ${type === "microphone" ? "microfone" : type === "camera" ? "câmera" : "notificação"} negada`);
     }
   };
 
@@ -218,7 +236,10 @@ export function ProfileView({ openUserProfile }: ProfileViewProps) {
                 />
               </div>
               <div>
-                <h2 className="text-lg font-bold">{profile?.display_name}</h2>
+                <div className="flex items-center gap-1.5">
+                  <h2 className="text-lg font-bold">{profile?.display_name}</h2>
+                  {isPrivate && <Lock className="h-4 w-4 text-muted-foreground" />}
+                </div>
                 <p className="text-sm text-muted-foreground">@{profile?.username}</p>
                 {profile?.neighborhood && (
                   <Badge variant="secondary" className="mt-1.5 gap-1">
@@ -272,169 +293,127 @@ export function ProfileView({ openUserProfile }: ProfileViewProps) {
             </div>
           )}
 
-          {/* Stats - CLICAVEIS para ver seguidores/seguindo */}
           <div className="mt-6 flex gap-6">
             <div className="text-center">
               <p className="text-lg font-bold">{postCount}</p>
               <p className="text-xs text-muted-foreground">Posts</p>
             </div>
-            <button
-              onClick={() => setShowFollowList(showFollowList === "following" ? null : "following")}
-              className="text-center hover:opacity-80 transition-opacity"
-            >
+            <div className="text-center">
               <p className="text-lg font-bold">{followingCount}</p>
               <p className="text-xs text-muted-foreground">Seguindo</p>
-            </button>
-            <button
-              onClick={() => setShowFollowList(showFollowList === "followers" ? null : "followers")}
-              className="text-center hover:opacity-80 transition-opacity"
-            >
+            </div>
+            <div className="text-center">
               <p className="text-lg font-bold">{followersCount}</p>
               <p className="text-xs text-muted-foreground">Seguidores</p>
-            </button>
-          </div>
-
-          {/* Lista de seguidores/seguindo */}
-          {showFollowList && (
-            <div className="mt-4 border rounded-lg overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2 bg-muted/50">
-                <p className="text-xs font-semibold">
-                  {showFollowList === "followers" ? "Seguidores" : "Seguindo"}
-                </p>
-                <button onClick={() => setShowFollowList(null)} className="text-muted-foreground hover:text-foreground">
-                  <ChevronUp className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="max-h-48 overflow-y-auto custom-scrollbar">
-                {followListLoading ? (
-                  <div className="space-y-2 p-3">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="flex items-center gap-2.5 animate-pulse">
-                        <div className="h-8 w-8 rounded-full bg-muted" />
-                        <div className="h-3 w-24 rounded bg-muted" />
-                      </div>
-                    ))}
-                  </div>
-                ) : followList.length === 0 ? (
-                  <div className="py-6 text-center">
-                    <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-xs text-muted-foreground">
-                      {showFollowList === "followers" ? "Nenhum seguidor ainda" : "Nao segue ninguem ainda"}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-0.5 p-1">
-                    {followList.map((u: any) => (
-                      <button
-                        key={u.id}
-                        onClick={() => handleOpenUserProfile(u.id)}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-accent"
-                      >
-                        <UserAvatar
-                          user={{ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url }}
-                          className="h-8 w-8"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">{u.display_name}</div>
-                          <div className="text-[11px] text-muted-foreground truncate">@{u.username}</div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Tabs: Fotos / Meus Posts */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="flex border-b mb-3">
-            <button
-              onClick={() => setActiveTab("fotos")}
-              className={`flex-1 pb-2 text-xs font-semibold text-center transition-colors ${
-                activeTab === "fotos"
-                  ? "text-foreground border-b-2 border-primary"
-                  : "text-muted-foreground"
-              }`}
-            >
-              Fotos
-            </button>
-            <button
-              onClick={() => setActiveTab("posts")}
-              className={`flex-1 pb-2 text-xs font-semibold text-center transition-colors ${
-                activeTab === "posts"
-                  ? "text-foreground border-b-2 border-primary"
-                  : "text-muted-foreground"
-              }`}
-            >
-              Meus Posts
-            </button>
-          </div>
-
-          {activeTab === "fotos" && profile && (
-            <PhotoGallery userId={profile.id} isOwnProfile={true} />
-          )}
-
-          {activeTab === "posts" && (
-            <div className="space-y-2">
-              {myPosts.length === 0 ? (
-                <p className="py-6 text-center text-xs text-muted-foreground">
-                  Nenhum post ainda
-                </p>
-              ) : (
-                myPosts.map((post: any) => (
-                  <div key={post.id} className="rounded-lg border bg-card p-3">
-                    <p className="text-sm">{post.content}</p>
-                    {post.image_urls && post.image_urls.length > 0 && (
-                      <div className="mt-2 flex gap-1 overflow-x-auto">
-                        {post.image_urls.map((url: string, i: number) => (
-                          <img
-                            key={i}
-                            src={url}
-                            alt={`Foto ${i + 1}`}
-                            className="h-16 w-16 rounded object-cover flex-shrink-0"
-                            loading="lazy"
-                          />
-                        ))}
-                      </div>
-                    )}
-                    <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
-                      <span>{timeAgo(post.created_at)}</span>
-                      {post.neighborhood && <span>- {post.neighborhood}</span>}
-                      {post.expires_at && (
-                        <span className="text-amber-500 flex items-center gap-0.5">
-                          - Expira {timeAgo(post.expires_at)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Permissoes do celular */}
+      {/* Privacidade */}
       <Card>
         <CardContent className="pt-6">
-          <h3 className="text-sm font-semibold mb-3">Permissoes do dispositivo</h3>
+          <div className="flex items-center gap-2 mb-4">
+            <Shield className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold">Privacidade</h3>
+          </div>
+          <div className="space-y-4">
+            {/* Perfil privado */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <p className="text-sm font-medium">Perfil privado</p>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Quem não te segue não verá seus posts e informações
+                </p>
+              </div>
+              <Switch
+                checked={isPrivate}
+                onCheckedChange={(v) => handlePrivacyChange("is_private", v)}
+                disabled={privacyLoading}
+              />
+            </div>
+
+            <div className="border-t" />
+
+            {/* Esconder seguindo */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                  <p className="text-sm font-medium">Esconder seguindo</p>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Outros não verão quem você está seguindo
+                </p>
+              </div>
+              <Switch
+                checked={hideFollowing}
+                onCheckedChange={(v) => handlePrivacyChange("hide_following", v)}
+                disabled={privacyLoading}
+              />
+            </div>
+
+            <div className="border-t" />
+
+            {/* Esconder seguidores */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                  <p className="text-sm font-medium">Esconder seguidores</p>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Outros não verão seus seguidores
+                </p>
+              </div>
+              <Switch
+                checked={hideFollowers}
+                onCheckedChange={(v) => handlePrivacyChange("hide_followers", v)}
+                disabled={privacyLoading}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Permissões do celular */}
+      <Card>
+        <CardContent className="pt-6">
+          <h3 className="text-sm font-semibold mb-3">Permissões do dispositivo</h3>
           <div className="space-y-2">
             <Button variant="outline" size="sm" onClick={() => requestPermission("notifications")} className="w-full justify-start gap-2">
-              <Bell className="h-4 w-4" /> Notificacoes
+              <Bell className="h-4 w-4" /> Notificações
             </Button>
             <Button variant="outline" size="sm" onClick={() => requestPermission("microphone")} className="w-full justify-start gap-2">
               <Mic className="h-4 w-4" /> Microfone
             </Button>
             <Button variant="outline" size="sm" onClick={() => requestPermission("camera")} className="w-full justify-start gap-2">
-              <Video className="h-4 w-4" /> Camera
+              <Video className="h-4 w-4" /> Câmera
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Meus Posts */}
+      {myPosts.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-sm font-semibold">Meus posts</h3>
+          <div className="space-y-2">
+            {myPosts.map((post: any) => (
+              <div key={post.id} className="rounded-lg border bg-card p-3">
+                <p className="text-sm">{post.content}</p>
+                <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <span>{timeAgo(post.created_at)}</span>
+                  {post.neighborhood && <span>· {post.neighborhood}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Button variant="destructive" onClick={handleLogout} className="w-full gap-2">
         <LogOut className="h-4 w-4" /> Sair da conta
