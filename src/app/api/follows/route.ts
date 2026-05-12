@@ -12,6 +12,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "userId é obrigatório" }, { status: 400 });
     }
 
+    // Buscar configurações de privacidade do perfil
+    const { data: targetProfile } = await supabase
+      .from("profiles")
+      .select("is_private, hide_following, hide_followers")
+      .eq("id", userId)
+      .single();
+
+    const isPrivate = targetProfile?.is_private || false;
+    const hideFollowing = targetProfile?.hide_following || false;
+    const hideFollowers = targetProfile?.hide_followers || false;
+
     // Buscar quem o usuário segue
     const { data: following, error: fErr } = await supabase
       .from("follows")
@@ -30,14 +41,12 @@ export async function GET(req: NextRequest) {
 
     if (foErr) throw foErr;
 
-    // Contagem
-    const followingCount = following?.length || 0;
-    const followersCount = followers?.length || 0;
-
-    // Verificar se o usuário logado segue este perfil
+    // Verificar se o usuário logado segue cada pessoa na lista de seguidores
     const { data: { user: authUser } } = await supabase.auth.getUser();
+    const isOwnProfile = authUser?.id === userId;
     let isFollowing = false;
-    if (authUser && authUser.id !== userId) {
+
+    if (authUser && !isOwnProfile) {
       const { data: followRow } = await supabase
         .from("follows")
         .select("id")
@@ -47,19 +56,53 @@ export async function GET(req: NextRequest) {
       isFollowing = !!followRow;
     }
 
+    let followingIdsSet: Set<string> | null = null;
+
+    if (authUser && !isOwnProfile) {
+      const otherUserIds = followers?.map((f: any) => f.follower_id).filter(Boolean) || [];
+      if (otherUserIds.length > 0) {
+        const { data: myFollows } = await supabase
+          .from("follows")
+          .select("following_id")
+          .eq("follower_id", authUser.id)
+          .in("following_id", otherUserIds);
+        followingIdsSet = new Set((myFollows || []).map((f: any) => f.following_id));
+      }
+    }
+
+    // Contagem
+    const followingCount = following?.length || 0;
+    const followersCount = followers?.length || 0;
+
+    // Determinar se o viewer pode ver as listas
+    const canSeeFollowing = isOwnProfile || isFollowing || !hideFollowing;
+    const canSeeFollowers = isOwnProfile || isFollowing || !hideFollowers;
+    const isRestricted = isPrivate && !isOwnProfile && !isFollowing;
+
+    // Filtrar listas de acordo com privacidade
+    const filteredFollowing = canSeeFollowing ? (following || []) : [];
+    const filteredFollowers = canSeeFollowers ? (followers || []) : [];
+
     return NextResponse.json({
       followingCount,
       followersCount,
       isFollowing,
-      following: following || [],
-      followers: followers || [],
+      following: filteredFollowing,
+      followers: filteredFollowers,
+      _privacy: {
+        hide_following: hideFollowing,
+        hide_followers: hideFollowers,
+        canSeeFollowing,
+        canSeeFollowers,
+        isRestricted,
+      },
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// POST /api/follows — Seguir ou deixar de seguir (toggle)
+// POST /api/follows — Seguir ou deixar de seguir um usuário (toggle)
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -91,6 +134,7 @@ export async function POST(req: NextRequest) {
         .from("follows")
         .delete()
         .eq("id", existing.id);
+
       if (delErr) throw delErr;
       return NextResponse.json({ following: false });
     } else {
@@ -98,6 +142,7 @@ export async function POST(req: NextRequest) {
       const { error: insertErr } = await supabase
         .from("follows")
         .insert({ follower_id: user.id, following_id: targetUserId });
+
       if (insertErr) throw insertErr;
       return NextResponse.json({ following: true });
     }
