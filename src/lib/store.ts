@@ -10,6 +10,9 @@ export interface Profile {
   theme: string;
   created_at: string;
   updated_at: string;
+  is_private?: boolean;
+  hide_following?: boolean;
+  hide_followers?: boolean;
 }
 
 type Tab = "feed" | "rooms" | "dms" | "discover" | "profile";
@@ -24,7 +27,6 @@ interface AppState {
   selectedRoom: any | null;
   selectedDM: any | null;
   selectedUser: any | null;
-  viewingUserId: string | null;
 
   // Actions
   setProfile: (profile: Profile | null) => void;
@@ -33,7 +35,6 @@ interface AppState {
   setSelectedRoom: (room: any | null) => void;
   setSelectedDM: (dm: any | null) => void;
   setSelectedUser: (user: any | null) => void;
-  setViewingUser: (userId: string | null) => void;
   updateProfile: (data: Partial<Profile>) => void;
 }
 
@@ -44,7 +45,6 @@ export const useStore = create<AppState>((set) => ({
   selectedRoom: null,
   selectedDM: null,
   selectedUser: null,
-  viewingUserId: null,
 
   setProfile: (profile) => {
     set({
@@ -60,7 +60,6 @@ export const useStore = create<AppState>((set) => ({
       tab: "feed",
       selectedRoom: null,
       selectedDM: null,
-      viewingUserId: null,
     });
   },
 
@@ -68,7 +67,6 @@ export const useStore = create<AppState>((set) => ({
   setSelectedRoom: (room) => set({ selectedRoom: room, tab: "rooms" }),
   setSelectedDM: (dm) => set({ selectedDM: dm, tab: "dms" }),
   setSelectedUser: (user) => set({ selectedUser: user }),
-  setViewingUser: (userId) => set({ viewingUserId: userId }),
   updateProfile: (data) =>
     set((state) => ({
       profile: state.profile ? { ...state.profile, ...data } : null,
