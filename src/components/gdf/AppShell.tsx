@@ -158,7 +158,7 @@ export function AppShell() {
           {tab === "rooms" && <RoomsView openUserProfile={openUserProfile} />}
           {tab === "dms" && <DMsView openUserProfile={openUserProfile} />}
           {tab === "discover" && <DiscoverView openUserProfile={openUserProfile} />}
-          {tab === "profile" && <ProfileView openUserProfile={openUserProfile} />}
+          {tab === "profile" && <ProfileView />}
         </div>
       </main>
 
