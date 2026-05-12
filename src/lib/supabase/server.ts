@@ -18,7 +18,7 @@ export async function createClient() {
               cookieStore.set(name, value, options)
             )
           } catch {
-            // Server Components não podem setar cookies
+            // Server Components nao podem setar cookies
           }
         },
       },
@@ -26,12 +26,11 @@ export async function createClient() {
   )
 }
 
-// Admin client (service role) para bypassar RLS quando necessário
 export function createAdminClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!serviceRoleKey) {
-    console.warn("SUPABASE_SERVICE_ROLE_KEY não configurada — admin indisponível");
+    console.warn("SUPABASE_SERVICE_ROLE_KEY nao configurada — admin indisponivel");
     return createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
