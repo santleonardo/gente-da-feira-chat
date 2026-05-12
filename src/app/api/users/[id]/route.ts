@@ -19,6 +19,26 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
     }
 
+    // Verificar privacidade
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const isOwnProfile = authUser?.id === id;
+    let isFollowing = false;
+
+    if (authUser && !isOwnProfile) {
+      const { data: followRow } = await supabase
+        .from("follows")
+        .select("id")
+        .eq("follower_id", authUser.id)
+        .eq("following_id", id)
+        .maybeSingle();
+      isFollowing = !!followRow;
+    }
+
+    const isPrivate = profile.is_private || false;
+    const hideFollowing = profile.hide_following || false;
+    const hideFollowers = profile.hide_followers || false;
+    const isRestricted = isPrivate && !isOwnProfile && !isFollowing;
+
     const formatted = {
       ...profile,
       name: profile.display_name,
@@ -26,7 +46,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       posts: undefined,
     };
 
-    return NextResponse.json({ user: formatted });
+    const privacyResponse = {
+      is_private: isPrivate,
+      hide_following: hideFollowing,
+      hide_followers: hideFollowers,
+      isRestricted,
+    };
+
+    return NextResponse.json({ user: formatted, _privacy: privacyResponse });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -68,6 +95,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         return NextResponse.json({ error: "Username deve ter pelo menos 3 caracteres (apenas letras, números e _)" }, { status: 400 });
       }
       updates.username = username;
+    }
+
+    // Campos de privacidade
+    if (data.is_private !== undefined) {
+      updates.is_private = Boolean(data.is_private);
+    }
+
+    if (data.hide_following !== undefined) {
+      updates.hide_following = Boolean(data.hide_following);
+    }
+
+    if (data.hide_followers !== undefined) {
+      updates.hide_followers = Boolean(data.hide_followers);
     }
 
     if (Object.keys(updates).length === 0) {
