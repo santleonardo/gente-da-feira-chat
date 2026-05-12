@@ -109,8 +109,9 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
         if (data.error) {
           setFollowList([]);
         } else {
-          const canSeeFollowers = !data._privacy?.hide_followers || followData.isFollowing;
-          const canSeeFollowing = !data._privacy?.hide_following || followData.isFollowing;
+          // Ocultar para TODOS inclusive seguidores
+          const canSeeFollowers = !data._privacy?.hide_followers;
+          const canSeeFollowing = !data._privacy?.hide_following;
 
           let list: any[] = [];
           if (activeTab === "followers" && canSeeFollowers) {
@@ -127,7 +128,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     };
 
     fetchList();
-  }, [userId, open, activeTab, followData.isFollowing, privacyInfo.isRestricted]);
+  }, [userId, open, activeTab, privacyInfo.isRestricted]);
 
   const handleFollowToggle = async () => {
     if (!userId || !profile || profile.id === userId || followLoading) return;
@@ -188,8 +189,9 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
 
   const isOwnProfile = profile?.id === userId;
   const isRestricted = privacyInfo.isRestricted && !isOwnProfile;
-  const canSeeFollowing = isOwnProfile || followData.isFollowing || !privacyInfo.hide_following;
-  const canSeeFollowers = isOwnProfile || followData.isFollowing || !privacyInfo.hide_followers;
+  // Ocultar para TODOS inclusive seguidores — só o dono do perfil vê
+  const canSeeFollowing = isOwnProfile || !privacyInfo.hide_following;
+  const canSeeFollowers = isOwnProfile || !privacyInfo.hide_followers;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -382,7 +384,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                           {activeTab === "followers" ? "Lista de seguidores oculta" : "Lista de seguindo oculta"}
                         </p>
                         <p className="text-[10px] text-muted-foreground/60 mt-1">
-                          Siga este perfil para ver esta lista
+                          Este usuário optou por manter esta informação privada
                         </p>
                       </div>
                     ) : listLoading ? (
