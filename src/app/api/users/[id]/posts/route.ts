@@ -6,17 +6,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const supabase = await createClient();
 
-    // Verificar privacidade do perfil
+    // Verificar se o perfil é privado e o viewer não é seguidor
     const { data: targetProfile } = await supabase
       .from("profiles")
-      .select("is_private, hide_following, hide_followers")
+      .select("is_private")
       .eq("id", id)
       .single();
 
     const isPrivate = targetProfile?.is_private || false;
 
     if (isPrivate) {
-      // Verificar se o viewer é o dono do perfil ou se é seguidor
       const { data: { user: authUser } } = await supabase.auth.getUser();
       const isOwnProfile = authUser?.id === id;
 
@@ -43,6 +42,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .select(`
         id,
         content,
+        image_url,
         neighborhood,
         created_at,
         author_id,
