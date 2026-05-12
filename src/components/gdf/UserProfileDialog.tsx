@@ -4,14 +4,11 @@ import { useState, useEffect } from "react";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
-import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, EyeOff, Loader2 } from "lucide-react";
+import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, Loader2 } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 import { timeAgo } from "@/lib/constants";
 import { toast } from "sonner";
@@ -31,9 +28,11 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     isFollowing: boolean;
   }>({ followingCount: 0, followersCount: 0, isFollowing: false });
   const [postCount, setPostCount] = useState(0);
+  const [userPosts, setUserPosts] = useState<any[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"followers" | "following">("followers");
+  const [activeTab, setActiveTab] = useState<"posts" | "followers" | "following">("posts");
   const [followList, setFollowList] = useState<any[]>([]);
   const [listLoading, setListLoading] = useState(false);
 
@@ -59,7 +58,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
           setUserData(profileData.user);
           setPostCount(profileData.user._count?.posts || 0);
 
-          // Processar info de privacidade
           if (profileData._privacy) {
             setPrivacyInfo(profileData._privacy);
           }
@@ -77,7 +75,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
             isFollowing: followData.isFollowing || false,
           });
 
-          // Atualizar privacidade com dados do follows
           if (followData._privacy) {
             setPrivacyInfo((prev) => ({
               ...prev,
@@ -87,6 +84,15 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
             }));
           }
         }
+
+        // Buscar posts
+        setPostsLoading(true);
+        const postsRes = await fetch(`/api/users/${userId}/posts`);
+        const postsData = await postsRes.json();
+        if (postsData.posts) {
+          setUserPosts(postsData.posts);
+        }
+        setPostsLoading(false);
       } catch {
         // silent
       }
@@ -100,6 +106,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
   useEffect(() => {
     if (!userId || !open) return;
     if (privacyInfo.isRestricted) return;
+    if (activeTab === "posts") return;
 
     const fetchList = async () => {
       setListLoading(true);
@@ -109,14 +116,10 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
         if (data.error) {
           setFollowList([]);
         } else {
-          // Ocultar para TODOS inclusive seguidores
-          const canSeeFollowers = !data._privacy?.hide_followers;
-          const canSeeFollowing = !data._privacy?.hide_following;
-
           let list: any[] = [];
-          if (activeTab === "followers" && canSeeFollowers) {
+          if (activeTab === "followers") {
             list = (data.followers || []).map((f: any) => f.follower).filter(Boolean);
-          } else if (activeTab === "following" && canSeeFollowing) {
+          } else if (activeTab === "following") {
             list = (data.following || []).map((f: any) => f.following).filter(Boolean);
           }
           setFollowList(list);
@@ -160,6 +163,10 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
             setUserData(profileData.user);
             setPostCount(profileData.user._count?.posts || 0);
           }
+          // Recarregar posts
+          const postsRes = await fetch(`/api/users/${userId}/posts`);
+          const postsData = await postsRes.json();
+          if (postsData.posts) setUserPosts(postsData.posts);
         }
       }
     } catch {
@@ -189,9 +196,23 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
 
   const isOwnProfile = profile?.id === userId;
   const isRestricted = privacyInfo.isRestricted && !isOwnProfile;
-  // Ocultar para TODOS inclusive seguidores — só o dono do perfil vê
+  // Ocultar para TODOS inclusive seguidores — só o dono vê
   const canSeeFollowing = isOwnProfile || !privacyInfo.hide_following;
   const canSeeFollowers = isOwnProfile || !privacyInfo.hide_followers;
+
+  // Determinar quais tabs mostrar
+  const visibleTabs: Array<{ id: "posts" | "followers" | "following"; label: string }> = [
+    { id: "posts", label: "Posts" },
+  ];
+  if (canSeeFollowers) visibleTabs.push({ id: "followers", label: "Seguidores" });
+  if (canSeeFollowing) visibleTabs.push({ id: "following", label: "Seguindo" });
+
+  // Se a tab ativa não está mais visível, voltar para posts
+  useEffect(() => {
+    if (activeTab !== "posts" && !visibleTabs.find(t => t.id === activeTab)) {
+      setActiveTab("posts");
+    }
+  }, [canSeeFollowers, canSeeFollowing]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -303,91 +324,94 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
               {/* Stats */}
               <div className="mt-4 flex gap-5">
                 <div className="text-center">
-                  <p className="text-base font-bold">{isRestricted ? "-" : postCount}</p>
+                  <p className="text-base font-bold">{postCount}</p>
                   <p className="text-[11px] text-muted-foreground">Posts</p>
                 </div>
-                <button
-                  onClick={() => {
-                    if (canSeeFollowing) setActiveTab("following");
-                  }}
-                  className={`text-center ${canSeeFollowing ? "hover:opacity-80 transition-opacity" : "cursor-default"}`}
-                >
-                  <p className="text-base font-bold">
-                    {canSeeFollowing ? followData.followingCount : <EyeOff className="h-4 w-4 inline text-muted-foreground" />}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground flex items-center gap-0.5 justify-center">
-                    Seguindo
-                    {!canSeeFollowing && <EyeOff className="h-3 w-3" />}
-                  </p>
-                </button>
-                <button
-                  onClick={() => {
-                    if (canSeeFollowers) setActiveTab("followers");
-                  }}
-                  className={`text-center ${canSeeFollowers ? "hover:opacity-80 transition-opacity" : "cursor-default"}`}
-                >
-                  <p className="text-base font-bold">
-                    {canSeeFollowers ? followData.followersCount : <EyeOff className="h-4 w-4 inline text-muted-foreground" />}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground flex items-center gap-0.5 justify-center">
-                    Seguidores
-                    {!canSeeFollowers && <EyeOff className="h-3 w-3" />}
-                  </p>
-                </button>
+                {canSeeFollowing && (
+                  <button
+                    onClick={() => setActiveTab("following")}
+                    className="text-center hover:opacity-80 transition-opacity"
+                  >
+                    <p className="text-base font-bold">{followData.followingCount}</p>
+                    <p className="text-[11px] text-muted-foreground">Seguindo</p>
+                  </button>
+                )}
+                {canSeeFollowers && (
+                  <button
+                    onClick={() => setActiveTab("followers")}
+                    className="text-center hover:opacity-80 transition-opacity"
+                  >
+                    <p className="text-base font-bold">{followData.followersCount}</p>
+                    <p className="text-[11px] text-muted-foreground">Seguidores</p>
+                  </button>
+                )}
               </div>
 
-              {/* Followers/Following List — só mostrar se não for restrito */}
-              {!isRestricted && (
-                <div className="mt-4">
-                  <div className="flex border-b">
+              {/* Tab Bar — só mostra tabs visíveis */}
+              {!isRestricted && visibleTabs.length > 1 && (
+                <div className="mt-4 flex border-b">
+                  {visibleTabs.map((tab) => (
                     <button
-                      onClick={() => {
-                        if (canSeeFollowers) setActiveTab("followers");
-                      }}
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
                       className={`flex-1 pb-2 text-xs font-semibold text-center transition-colors ${
-                        !canSeeFollowers
-                          ? "text-muted-foreground/40 cursor-not-allowed"
-                          : activeTab === "followers"
-                            ? "text-foreground border-b-2 border-primary"
-                            : "text-muted-foreground"
+                        activeTab === tab.id
+                          ? "text-foreground border-b-2 border-primary"
+                          : "text-muted-foreground"
                       }`}
                     >
-                      <span className="flex items-center justify-center gap-1">
-                        Seguidores
-                        {!canSeeFollowers && <EyeOff className="h-3 w-3" />}
-                      </span>
+                      {tab.label}
                     </button>
-                    <button
-                      onClick={() => {
-                        if (canSeeFollowing) setActiveTab("following");
-                      }}
-                      className={`flex-1 pb-2 text-xs font-semibold text-center transition-colors ${
-                        !canSeeFollowing
-                          ? "text-muted-foreground/40 cursor-not-allowed"
-                          : activeTab === "following"
-                            ? "text-foreground border-b-2 border-primary"
-                            : "text-muted-foreground"
-                      }`}
-                    >
-                      <span className="flex items-center justify-center gap-1">
-                        Seguindo
-                        {!canSeeFollowing && <EyeOff className="h-3 w-3" />}
-                      </span>
-                    </button>
-                  </div>
+                  ))}
+                </div>
+              )}
 
-                  <div className="max-h-48 overflow-y-auto mt-2 custom-scrollbar">
-                    {(activeTab === "followers" && !canSeeFollowers) || (activeTab === "following" && !canSeeFollowing) ? (
-                      <div className="py-6 text-center">
-                        <EyeOff className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                        <p className="text-xs text-muted-foreground">
-                          {activeTab === "followers" ? "Lista de seguidores oculta" : "Lista de seguindo oculta"}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground/60 mt-1">
-                          Este usuário optou por manter esta informação privada
-                        </p>
+              {/* Tab Content */}
+              {!isRestricted && (
+                <div className="max-h-64 overflow-y-auto mt-2 custom-scrollbar">
+                  {activeTab === "posts" && (
+                    postsLoading ? (
+                      <div className="space-y-2 py-2">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />
+                        ))}
                       </div>
-                    ) : listLoading ? (
+                    ) : userPosts.length === 0 ? (
+                      <div className="py-8 text-center">
+                        <p className="text-xs text-muted-foreground">Nenhum post ainda</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {userPosts.map((post: any) => (
+                          <div key={post.id} className="rounded-lg border bg-card p-3">
+                            {post.image_url && (
+                              <img
+                                src={post.image_url}
+                                alt=""
+                                className="w-full rounded-md mb-2 max-h-48 object-cover"
+                              />
+                            )}
+                            <p className="text-sm">{post.content}</p>
+                            <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground">
+                              <span>{timeAgo(post.created_at)}</span>
+                              {post.neighborhood && (
+                                <>
+                                  <span>·</span>
+                                  <span className="flex items-center gap-0.5">
+                                    <MapPin className="h-2.5 w-2.5" />
+                                    {post.neighborhood}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  )}
+
+                  {(activeTab === "followers" || activeTab === "following") && (
+                    listLoading ? (
                       <div className="space-y-2 py-2">
                         {[1, 2, 3].map((i) => (
                           <div key={i} className="flex items-center gap-2.5 animate-pulse">
@@ -397,7 +421,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                         ))}
                       </div>
                     ) : followList.length === 0 ? (
-                      <div className="py-6 text-center">
+                      <div className="py-8 text-center">
                         <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
                         <p className="text-xs text-muted-foreground">
                           {activeTab === "followers" ? "Nenhum seguidor ainda" : "Não segue ninguém ainda"}
@@ -427,8 +451,8 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                           </button>
                         ))}
                       </div>
-                    )}
-                  </div>
+                    )
+                  )}
                 </div>
               )}
 
