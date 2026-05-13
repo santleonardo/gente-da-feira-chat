@@ -19,17 +19,13 @@ export interface Profile {
 type Tab = "feed" | "rooms" | "dms" | "discover" | "profile";
 
 interface AppState {
-  // Auth
   profile: Profile | null;
   isLoggedIn: boolean;
-
-  // Navigation
   tab: Tab;
   selectedRoom: any | null;
   selectedDM: any | null;
   selectedUser: any | null;
-
-  // Actions
+  unreadNotifications: number;
   setProfile: (profile: Profile | null) => void;
   logout: () => void;
   setTab: (tab: Tab) => void;
@@ -37,6 +33,7 @@ interface AppState {
   setSelectedDM: (dm: any | null) => void;
   setSelectedUser: (user: any | null) => void;
   updateProfile: (data: Partial<Profile>) => void;
+  setUnreadNotifications: (count: number) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -46,30 +43,14 @@ export const useStore = create<AppState>((set) => ({
   selectedRoom: null,
   selectedDM: null,
   selectedUser: null,
+  unreadNotifications: 0,
 
-  setProfile: (profile) => {
-    set({
-      profile,
-      isLoggedIn: !!profile,
-    });
-  },
-
-  logout: () => {
-    set({
-      profile: null,
-      isLoggedIn: false,
-      tab: "feed",
-      selectedRoom: null,
-      selectedDM: null,
-    });
-  },
-
+  setProfile: (profile) => set({ profile, isLoggedIn: !!profile }),
+  logout: () => set({ profile: null, isLoggedIn: false, tab: "feed", selectedRoom: null, selectedDM: null, unreadNotifications: 0 }),
   setTab: (tab) => set({ tab }),
   setSelectedRoom: (room) => set({ selectedRoom: room, tab: "rooms" }),
   setSelectedDM: (dm) => set({ selectedDM: dm, tab: "dms" }),
   setSelectedUser: (user) => set({ selectedUser: user }),
-  updateProfile: (data) =>
-    set((state) => ({
-      profile: state.profile ? { ...state.profile, ...data } : null,
-    })),
+  updateProfile: (data) => set((state) => ({ profile: state.profile ? { ...state.profile, ...data } : null })),
+  setUnreadNotifications: (count) => set({ unreadNotifications: count }),
 }));
