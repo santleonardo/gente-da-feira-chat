@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
     const { data: followers, error: foErr } = await supabase
       .from("follows")
-      .select("follower_id, created_at, follower:profiles!follows_follower_id_fkey(id, display_name, username, avatar_url, neighborhood, bio)")
+      .select("id, follower_id, created_at, follower:profiles!follows_follower_id_fkey(id, display_name, username, avatar_url, neighborhood, bio)")
       .eq("following_id", userId)
       .eq("status", "accepted")
       .order("created_at", { ascending: false });
@@ -70,6 +70,16 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    let isBlocked = false;
+    if (authUser && !isOwnProfile) {
+      const { data: blockRow } = await supabase
+        .from("blocks")
+        .select("id")
+        .or(`and(blocker_id.eq.${authUser.id},blocked_id.eq.${userId}),and(blocker_id.eq.${userId},blocked_id.eq.${authUser.id})`)
+        .maybeSingle();
+      if (blockRow) isBlocked = true;
+    }
+
     const followingCount = following?.length || 0;
     const followersCount = followers?.length || 0;
     const pendingCount = pendingRequests.length;
@@ -86,6 +96,7 @@ export async function GET(req: NextRequest) {
       followersCount,
       isFollowing,
       isPending,
+      isBlocked,
       approveFollowers,
       following: filteredFollowing,
       followers: filteredFollowers,
@@ -109,18 +120,20 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+    if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
     const { targetUserId } = await req.json();
-    if (!targetUserId) {
-      return NextResponse.json({ error: "targetUserId é obrigatório" }, { status: 400 });
-    }
+    if (!targetUserId) return NextResponse.json({ error: "targetUserId é obrigatório" }, { status: 400 });
+    if (user.id === targetUserId) return NextResponse.json({ error: "Não pode seguir a si mesmo" }, { status: 400 });
 
-    if (user.id === targetUserId) {
-      return NextResponse.json({ error: "Não pode seguir a si mesmo" }, { status: 400 });
-    }
+    // Check block status
+    const { data: blockRow } = await supabase
+      .from("blocks")
+      .select("id")
+      .or(`and(blocker_id.eq.${user.id},blocked_id.eq.${targetUserId}),and(blocker_id.eq.${targetUserId},blocked_id.eq.${user.id})`)
+      .maybeSingle();
+
+    if (blockRow) return NextResponse.json({ error: "Não é possível seguir este usuário" }, { status: 403 });
 
     const { data: existing } = await supabase
       .from("follows")
@@ -130,11 +143,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existing) {
-      const { error: delErr } = await supabase
-        .from("follows")
-        .delete()
-        .eq("id", existing.id);
-
+      const { error: delErr } = await supabase.from("follows").delete().eq("id", existing.id);
       if (delErr) throw delErr;
       return NextResponse.json({ following: false, pending: false });
     } else {
@@ -154,11 +163,46 @@ export async function POST(req: NextRequest) {
       if (insertErr) throw insertErr;
 
       if (approveFollowers) {
+        await supabase.from("notifications").insert({
+          user_id: targetUserId,
+          type: "follow_request",
+          from_user_id: user.id,
+          message: "solicitou seguir você",
+        });
         return NextResponse.json({ following: false, pending: true });
       } else {
+        await supabase.from("notifications").insert({
+          user_id: targetUserId,
+          type: "follow",
+          from_user_id: user.id,
+          message: "começou a seguir você",
+        });
         return NextResponse.json({ following: true, pending: false });
       }
     }
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// DELETE — Remove follower
+export async function DELETE(req: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+    const { followerId } = await req.json();
+    if (!followerId) return NextResponse.json({ error: "followerId é obrigatório" }, { status: 400 });
+
+    const { error: delErr } = await supabase
+      .from("follows")
+      .delete()
+      .eq("follower_id", followerId)
+      .eq("following_id", user.id);
+
+    if (delErr) throw delErr;
+    return NextResponse.json({ removed: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
