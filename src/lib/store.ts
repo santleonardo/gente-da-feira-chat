@@ -17,11 +17,13 @@ export interface Profile {
 }
 
 type Tab = "feed" | "rooms" | "dms" | "discover" | "profile";
+type ProfileSubView = "profile" | "settings";
 
 interface AppState {
   profile: Profile | null;
   isLoggedIn: boolean;
   tab: Tab;
+  profileSubView: ProfileSubView;
   selectedRoom: any | null;
   selectedDM: any | null;
   selectedUser: any | null;
@@ -29,6 +31,7 @@ interface AppState {
   setProfile: (profile: Profile | null) => void;
   logout: () => void;
   setTab: (tab: Tab) => void;
+  setProfileSubView: (view: ProfileSubView) => void;
   setSelectedRoom: (room: any | null) => void;
   setSelectedDM: (dm: any | null) => void;
   setSelectedUser: (user: any | null) => void;
@@ -40,14 +43,16 @@ export const useStore = create<AppState>((set) => ({
   profile: null,
   isLoggedIn: false,
   tab: "feed",
+  profileSubView: "profile",
   selectedRoom: null,
   selectedDM: null,
   selectedUser: null,
   unreadNotifications: 0,
 
   setProfile: (profile) => set({ profile, isLoggedIn: !!profile }),
-  logout: () => set({ profile: null, isLoggedIn: false, tab: "feed", selectedRoom: null, selectedDM: null, unreadNotifications: 0 }),
+  logout: () => set({ profile: null, isLoggedIn: false, tab: "feed", selectedRoom: null, selectedDM: null, profileSubView: "profile", unreadNotifications: 0 }),
   setTab: (tab) => set({ tab }),
+  setProfileSubView: (profileSubView) => set({ profileSubView }),
   setSelectedRoom: (room) => set({ selectedRoom: room, tab: "rooms" }),
   setSelectedDM: (dm) => set({ selectedDM: dm, tab: "dms" }),
   setSelectedUser: (user) => set({ selectedUser: user }),
