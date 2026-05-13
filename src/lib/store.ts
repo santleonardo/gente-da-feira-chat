@@ -13,6 +13,7 @@ export interface Profile {
   is_private?: boolean;
   hide_following?: boolean;
   hide_followers?: boolean;
+  approve_followers?: boolean;
 }
 
 type Tab = "feed" | "rooms" | "dms" | "discover" | "profile";
