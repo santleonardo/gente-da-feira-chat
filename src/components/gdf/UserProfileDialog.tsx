@@ -8,7 +8,13 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
-import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, Loader2, Clock, UserCheck } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, Loader2, Clock, UserCheck, MoreVertical, Ban, ShieldBan } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 import { timeAgo } from "@/lib/constants";
 import { toast } from "sonner";
@@ -36,6 +42,8 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
   const [activeTab, setActiveTab] = useState<"posts" | "followers" | "following">("posts");
   const [followList, setFollowList] = useState<any[]>([]);
   const [listLoading, setListLoading] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
 
   // Privacidade
   const [privacyInfo, setPrivacyInfo] = useState<{
@@ -44,7 +52,10 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     hide_followers: boolean;
     approve_followers: boolean;
     isRestricted: boolean;
-  }>({ is_private: false, hide_following: false, hide_followers: false, approve_followers: false, isRestricted: false });
+    isBlocked: boolean;
+    isBlockedByViewer: boolean;
+    isBlockedByTarget: boolean;
+  }>({ is_private: false, hide_following: false, hide_followers: false, approve_followers: false, isRestricted: false, isBlocked: false, isBlockedByViewer: false, isBlockedByTarget: false });
 
   // Buscar dados do usuário
   useEffect(() => {
@@ -62,7 +73,8 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
 
           if (profileData._privacy) {
             setPrivacyInfo(profileData._privacy);
-            // Sincronizar isPending vindo do perfil
+            setIsBlocked(profileData._privacy.isBlocked || false);
+
             if (profileData._privacy.isPending !== undefined) {
               setFollowData((prev) => ({ ...prev, isPending: profileData._privacy.isPending }));
             }
@@ -158,14 +170,9 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
         const nowPending = data.pending;
 
         if (nowPending) {
-          // Solicitação enviada (perfil exige aprovação)
-          setFollowData((prev) => ({
-            ...prev,
-            isPending: true,
-          }));
+          setFollowData((prev) => ({ ...prev, isPending: true }));
           toast.success("Solicitação enviada!");
         } else if (nowFollowing) {
-          // Começou a seguir (sem necessidade de aprovação)
           setFollowData((prev) => ({
             ...prev,
             isFollowing: true,
@@ -174,7 +181,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
           }));
           toast.success("Seguindo!");
 
-          // Se começou a seguir e o perfil era privado, recarregar dados
           if (privacyInfo.is_private) {
             setPrivacyInfo((prev) => ({ ...prev, isRestricted: false }));
             const profileRes = await fetch(`/api/users/${userId}`);
@@ -183,13 +189,11 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
               setUserData(profileData.user);
               setPostCount(profileData.user._count?.posts || 0);
             }
-            // Recarregar posts
             const postsRes = await fetch(`/api/users/${userId}/posts`);
             const postsData = await postsRes.json();
             if (postsData.posts) setUserPosts(postsData.posts);
           }
         } else {
-          // Deixou de seguir ou cancelou solicitação
           const wasPending = followData.isPending;
           setFollowData((prev) => ({
             ...prev,
@@ -204,6 +208,32 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
       toast.error("Erro ao seguir");
     }
     setFollowLoading(false);
+  };
+
+  const handleBlockToggle = async () => {
+    if (!userId || !profile || profile.id === userId || blockLoading) return;
+    setBlockLoading(true);
+    try {
+      const res = await fetch("/api/blocks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId: userId }),
+      });
+      const data = await res.json();
+      if (data.blocked) {
+        setIsBlocked(true);
+        setFollowData((prev) => ({ ...prev, isFollowing: false, isPending: false }));
+        toast.success("Usuário bloqueado");
+      } else if (!data.blocked) {
+        setIsBlocked(false);
+        toast.success("Usuário desbloqueado");
+      } else if (data.error) {
+        toast.error(data.error);
+      }
+    } catch {
+      toast.error("Erro ao bloquear");
+    }
+    setBlockLoading(false);
   };
 
   const handleStartDM = async () => {
@@ -227,26 +257,31 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
 
   const isOwnProfile = profile?.id === userId;
   const isRestricted = privacyInfo.isRestricted && !isOwnProfile;
-  // Ocultar para TODOS inclusive seguidores — só o dono vê
   const canSeeFollowing = isOwnProfile || !privacyInfo.hide_following;
   const canSeeFollowers = isOwnProfile || !privacyInfo.hide_followers;
+
+  // Se está bloqueado, mostrar tela de bloqueado
+  const showBlockedView = isBlocked && !isOwnProfile;
 
   // Determinar quais tabs mostrar
   const visibleTabs: Array<{ id: "posts" | "followers" | "following"; label: string }> = [
     { id: "posts", label: "Posts" },
   ];
-  if (canSeeFollowers) visibleTabs.push({ id: "followers", label: "Seguidores" });
-  if (canSeeFollowing) visibleTabs.push({ id: "following", label: "Seguindo" });
+  if (canSeeFollowers && !showBlockedView) visibleTabs.push({ id: "followers", label: "Seguidores" });
+  if (canSeeFollowing && !showBlockedView) visibleTabs.push({ id: "following", label: "Seguindo" });
 
   // Se a tab ativa não está mais visível, voltar para posts
   useEffect(() => {
     if (activeTab !== "posts" && !visibleTabs.find(t => t.id === activeTab)) {
       setActiveTab("posts");
     }
-  }, [canSeeFollowers, canSeeFollowing]);
+  }, [canSeeFollowers, canSeeFollowing, isBlocked]);
 
   // Determinar o texto e ícone do botão de seguir
   const getFollowButton = () => {
+    if (isBlocked) {
+      return null; // Não mostra botão de seguir se está bloqueado
+    }
     if (followData.isFollowing) {
       return { icon: <UserMinus className="h-3.5 w-3.5" />, label: "Seguindo", variant: "outline" as const };
     }
@@ -293,40 +328,68 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                     user={{ id: userId!, display_name: userData.display_name, avatar_url: userData.avatar_url }}
                     className="h-16 w-16 border-4 border-background shadow-lg"
                   />
-                  {isRestricted && (
+                  {(isRestricted || showBlockedView) && (
                     <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-muted text-muted-foreground">
-                      <Lock className="h-3.5 w-3.5" />
+                      {showBlockedView ? <Ban className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
                     </div>
                   )}
                 </div>
                 {!isOwnProfile && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleStartDM}
-                      className="gap-1.5 rounded-full px-3"
-                    >
-                      <MessageCircle className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleFollowToggle}
-                      disabled={followLoading}
-                      variant={followBtn.variant}
-                      className={`gap-1.5 rounded-full px-4 ${
-                        followData.isPending ? "border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400" : ""
-                      }`}
-                    >
-                      {followLoading ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <>
-                          {followBtn.icon}
-                          {followBtn.label}
-                        </>
-                      )}
-                    </Button>
+                  <div className="flex items-center gap-1.5">
+                    {!showBlockedView && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleStartDM}
+                        className="gap-1.5 rounded-full px-3"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {followBtn && (
+                      <Button
+                        size="sm"
+                        onClick={handleFollowToggle}
+                        disabled={followLoading}
+                        variant={followBtn.variant}
+                        className={`gap-1.5 rounded-full px-4 ${
+                          followData.isPending ? "border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400" : ""
+                        }`}
+                      >
+                        {followLoading ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <>
+                            {followBtn.icon}
+                            {followBtn.label}
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={handleBlockToggle}
+                          disabled={blockLoading}
+                          className={isBlocked ? "text-primary" : "text-destructive focus:text-destructive"}
+                        >
+                          {isBlocked ? (
+                            <>
+                              <ShieldBan className="h-4 w-4 mr-2" /> Desbloquear
+                            </>
+                          ) : (
+                            <>
+                              <Ban className="h-4 w-4 mr-2" /> Bloquear
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 )}
               </div>
@@ -334,13 +397,22 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
               {/* Info */}
               <div className="flex items-center gap-1.5">
                 <h2 className="text-lg font-bold leading-tight">{userData.display_name}</h2>
-                {privacyInfo.is_private && (
+                {privacyInfo.is_private && !showBlockedView && (
                   <Lock className="h-4 w-4 text-muted-foreground" />
                 )}
               </div>
               <p className="text-sm text-muted-foreground">@{userData.username}</p>
 
-              {isRestricted ? (
+              {showBlockedView ? (
+                /* Usuário bloqueado */
+                <div className="mt-4 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/30 p-4 text-center">
+                  <Ban className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <p className="text-sm font-medium text-muted-foreground">Usuário bloqueado</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">
+                    Desbloqueie para ver o perfil novamente
+                  </p>
+                </div>
+              ) : isRestricted ? (
                 /* Perfil privado — visão restrita para não-seguidores */
                 <div className="mt-4 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/30 p-4 text-center">
                   <Lock className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
@@ -371,7 +443,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                   <p className="text-base font-bold">{postCount}</p>
                   <p className="text-[11px] text-muted-foreground">Posts</p>
                 </div>
-                {canSeeFollowing && (
+                {canSeeFollowing && !showBlockedView && (
                   <button
                     onClick={() => setActiveTab("following")}
                     className="text-center hover:opacity-80 transition-opacity"
@@ -380,7 +452,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                     <p className="text-[11px] text-muted-foreground">Seguindo</p>
                   </button>
                 )}
-                {canSeeFollowers && (
+                {canSeeFollowers && !showBlockedView && (
                   <button
                     onClick={() => setActiveTab("followers")}
                     className="text-center hover:opacity-80 transition-opacity"
@@ -392,7 +464,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
               </div>
 
               {/* Tab Bar — só mostra tabs visíveis */}
-              {!isRestricted && visibleTabs.length > 1 && (
+              {!isRestricted && !showBlockedView && visibleTabs.length > 1 && (
                 <div className="mt-4 flex border-b">
                   {visibleTabs.map((tab) => (
                     <button
@@ -411,7 +483,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
               )}
 
               {/* Tab Content */}
-              {!isRestricted && (
+              {!isRestricted && !showBlockedView && (
                 <div className="max-h-64 overflow-y-auto mt-2 custom-scrollbar">
                   {activeTab === "posts" && (
                     postsLoading ? (
