@@ -4,17 +4,9 @@ import { useState, useEffect } from "react";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, Loader2, Clock, UserCheck, MoreVertical, Ban, ShieldBan } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, Loader2, Clock, MoreVertical, Ban, ShieldBan } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 import { timeAgo } from "@/lib/constants";
 import { toast } from "sonner";
@@ -42,114 +34,81 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
   const [activeTab, setActiveTab] = useState<"posts" | "followers" | "following">("posts");
   const [followList, setFollowList] = useState<any[]>([]);
   const [listLoading, setListLoading] = useState(false);
-  const [isBlocked, setIsBlocked] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
 
-  // Privacidade
   const [privacyInfo, setPrivacyInfo] = useState<{
     is_private: boolean;
     hide_following: boolean;
     hide_followers: boolean;
     approve_followers: boolean;
     isRestricted: boolean;
-    isBlocked: boolean;
+    isPending: boolean;
     isBlockedByViewer: boolean;
     isBlockedByTarget: boolean;
-  }>({ is_private: false, hide_following: false, hide_followers: false, approve_followers: false, isRestricted: false, isBlocked: false, isBlockedByViewer: false, isBlockedByTarget: false });
+  }>({ is_private: false, hide_following: false, hide_followers: false, approve_followers: false, isRestricted: false, isPending: false, isBlockedByViewer: false, isBlockedByTarget: false });
 
-  // Buscar dados do usuário
   useEffect(() => {
     if (!userId || !open) return;
-
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Buscar perfil
         const profileRes = await fetch(`/api/users/${userId}`);
         const profileData = await profileRes.json();
         if (profileData.user) {
           setUserData(profileData.user);
           setPostCount(profileData.user._count?.posts || 0);
-
           if (profileData._privacy) {
-            setPrivacyInfo(profileData._privacy);
-            setIsBlocked(profileData._privacy.isBlocked || false);
-
-            if (profileData._privacy.isPending !== undefined) {
-              setFollowData((prev) => ({ ...prev, isPending: profileData._privacy.isPending }));
-            }
+            setPrivacyInfo((prev) => ({ ...prev, ...profileData._privacy }));
           }
         }
-
-        // Buscar dados de seguidores
         const followRes = await fetch(`/api/follows?userId=${userId}`);
-        const followResult = await followRes.json();
-        if (!followRes.ok && followResult.error) {
+        const followDataResult = await followRes.json();
+        if (!followRes.ok && followDataResult.error) {
           setFollowData({ followingCount: 0, followersCount: 0, isFollowing: false, isPending: false });
         } else {
           setFollowData({
-            followingCount: followResult.followingCount || 0,
-            followersCount: followResult.followersCount || 0,
-            isFollowing: followResult.isFollowing || false,
-            isPending: followResult.isPending || false,
+            followingCount: followDataResult.followingCount || 0,
+            followersCount: followDataResult.followersCount || 0,
+            isFollowing: followDataResult.isFollowing || false,
+            isPending: followDataResult.isPending || false,
           });
-
-          if (followResult._privacy) {
+          if (followDataResult._privacy) {
             setPrivacyInfo((prev) => ({
               ...prev,
-              hide_following: followResult._privacy.hide_following,
-              hide_followers: followResult._privacy.hide_followers,
-              approve_followers: followResult._privacy.approve_followers ?? prev.approve_followers,
-              isRestricted: followResult._privacy.isRestricted ?? prev.isRestricted,
+              hide_following: followDataResult._privacy.hide_following,
+              hide_followers: followDataResult._privacy.hide_followers,
+              approve_followers: followDataResult._privacy.approve_followers,
+              isRestricted: followDataResult._privacy.isRestricted ?? prev.isRestricted,
             }));
           }
         }
-
-        // Buscar posts
         setPostsLoading(true);
         const postsRes = await fetch(`/api/users/${userId}/posts`);
         const postsData = await postsRes.json();
-        if (postsData.posts) {
-          setUserPosts(postsData.posts);
-        }
+        if (postsData.posts) setUserPosts(postsData.posts);
         setPostsLoading(false);
-      } catch {
-        // silent
-      }
+      } catch { /* silent */ }
       setLoading(false);
     };
-
     fetchData();
   }, [userId, open]);
 
-  // Buscar lista de seguidores/seguindo
   useEffect(() => {
-    if (!userId || !open) return;
-    if (privacyInfo.isRestricted) return;
-    if (activeTab === "posts") return;
-
+    if (!userId || !open || privacyInfo.isRestricted || activeTab === "posts") return;
     const fetchList = async () => {
       setListLoading(true);
       try {
         const res = await fetch(`/api/follows?userId=${userId}`);
         const data = await res.json();
-        if (data.error) {
-          setFollowList([]);
-        } else {
+        if (data.error) { setFollowList([]); } else {
           let list: any[] = [];
-          if (activeTab === "followers") {
-            list = (data.followers || []).map((f: any) => f.follower).filter(Boolean);
-          } else if (activeTab === "following") {
-            list = (data.following || []).map((f: any) => f.following).filter(Boolean);
-          }
+          if (activeTab === "followers") list = (data.followers || []).map((f: any) => f.follower).filter(Boolean);
+          else if (activeTab === "following") list = (data.following || []).map((f: any) => f.following).filter(Boolean);
           setFollowList(list);
         }
-      } catch {
-        setFollowList([]);
-      }
+      } catch { setFollowList([]); }
       setListLoading(false);
     };
-
     fetchList();
   }, [userId, open, activeTab, privacyInfo.isRestricted]);
 
@@ -157,56 +116,31 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     if (!userId || !profile || profile.id === userId || followLoading) return;
     setFollowLoading(true);
     try {
-      const res = await fetch("/api/follows", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUserId: userId }),
-      });
+      const res = await fetch("/api/follows", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetUserId: userId }) });
       const data = await res.json();
-      if (data.error) {
-        toast.error(data.error);
-      } else {
-        const nowFollowing = data.following;
-        const nowPending = data.pending;
-
-        if (nowPending) {
-          setFollowData((prev) => ({ ...prev, isPending: true }));
-          toast.success("Solicitação enviada!");
-        } else if (nowFollowing) {
-          setFollowData((prev) => ({
-            ...prev,
-            isFollowing: true,
-            isPending: false,
-            followersCount: prev.followersCount + 1,
-          }));
+      if (data.error) { toast.error(data.error); } else {
+        if (data.following) {
+          setFollowData((prev) => ({ ...prev, isFollowing: true, isPending: false, followersCount: prev.followersCount + 1 }));
           toast.success("Seguindo!");
-
           if (privacyInfo.is_private) {
             setPrivacyInfo((prev) => ({ ...prev, isRestricted: false }));
             const profileRes = await fetch(`/api/users/${userId}`);
             const profileData = await profileRes.json();
-            if (profileData.user) {
-              setUserData(profileData.user);
-              setPostCount(profileData.user._count?.posts || 0);
-            }
+            if (profileData.user) { setUserData(profileData.user); setPostCount(profileData.user._count?.posts || 0); }
             const postsRes = await fetch(`/api/users/${userId}/posts`);
             const postsData = await postsRes.json();
             if (postsData.posts) setUserPosts(postsData.posts);
           }
+        } else if (data.pending) {
+          setFollowData((prev) => ({ ...prev, isFollowing: false, isPending: true }));
+          toast.success("Solicitação enviada!");
         } else {
           const wasPending = followData.isPending;
-          setFollowData((prev) => ({
-            ...prev,
-            isFollowing: false,
-            isPending: false,
-            followersCount: wasPending ? prev.followersCount : prev.followersCount - 1,
-          }));
+          setFollowData((prev) => ({ ...prev, isFollowing: false, isPending: false, followersCount: wasPending ? prev.followersCount : prev.followersCount - 1 }));
           toast.success(wasPending ? "Solicitação cancelada" : "Deixou de seguir");
         }
       }
-    } catch {
-      toast.error("Erro ao seguir");
-    }
+    } catch { toast.error("Erro ao seguir"); }
     setFollowLoading(false);
   };
 
@@ -214,87 +148,63 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     if (!userId || !profile || profile.id === userId || blockLoading) return;
     setBlockLoading(true);
     try {
-      const res = await fetch("/api/blocks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUserId: userId }),
-      });
+      const res = await fetch("/api/blocks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetUserId: userId }) });
       const data = await res.json();
       if (data.blocked) {
-        setIsBlocked(true);
-        setFollowData((prev) => ({ ...prev, isFollowing: false, isPending: false }));
+        setPrivacyInfo((prev) => ({ ...prev, isBlockedByViewer: true }));
+        setFollowData((prev) => ({ ...prev, isFollowing: false, isPending: false, followersCount: prev.isFollowing ? prev.followersCount - 1 : prev.followersCount }));
         toast.success("Usuário bloqueado");
-      } else if (!data.blocked) {
-        setIsBlocked(false);
+      } else if (data.blocked === false) {
+        setPrivacyInfo((prev) => ({ ...prev, isBlockedByViewer: false }));
         toast.success("Usuário desbloqueado");
-      } else if (data.error) {
-        toast.error(data.error);
+      } else {
+        toast.error(data.error || "Erro ao bloquear");
       }
-    } catch {
-      toast.error("Erro ao bloquear");
-    }
+    } catch { toast.error("Erro ao bloquear"); }
     setBlockLoading(false);
   };
 
   const handleStartDM = async () => {
     if (!profile || !userId) return;
+    if (privacyInfo.isBlockedByViewer || privacyInfo.isBlockedByTarget) { toast.error("Não é possível enviar mensagem para este usuário"); return; }
     try {
-      const res = await fetch("/api/dm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ receiverId: userId }),
-      });
+      const res = await fetch("/api/dm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ receiverId: userId }) });
       const data = await res.json();
-      if (data.conversation) {
-        useStore.getState().setSelectedDM(data.conversation);
-        useStore.getState().setTab("dms");
-        onOpenChange(false);
-      }
-    } catch {
-      toast.error("Erro ao iniciar conversa");
-    }
+      if (data.conversation) { useStore.getState().setSelectedDM(data.conversation); useStore.getState().setTab("dms"); onOpenChange(false); }
+    } catch { toast.error("Erro ao iniciar conversa"); }
   };
 
   const isOwnProfile = profile?.id === userId;
-  const isRestricted = privacyInfo.isRestricted && !isOwnProfile;
+  const isBlocked = privacyInfo.isBlockedByViewer || privacyInfo.isBlockedByTarget;
+  const isRestricted = (privacyInfo.isRestricted && !isOwnProfile) || isBlocked;
   const canSeeFollowing = isOwnProfile || !privacyInfo.hide_following;
   const canSeeFollowers = isOwnProfile || !privacyInfo.hide_followers;
 
-  // Se está bloqueado, mostrar tela de bloqueado
-  const showBlockedView = isBlocked && !isOwnProfile;
+  const visibleTabs: Array<{ id: "posts" | "followers" | "following"; label: string }> = [{ id: "posts", label: "Posts" }];
+  if (canSeeFollowers) visibleTabs.push({ id: "followers", label: "Seguidores" });
+  if (canSeeFollowing) visibleTabs.push({ id: "following", label: "Seguindo" });
 
-  // Determinar quais tabs mostrar
-  const visibleTabs: Array<{ id: "posts" | "followers" | "following"; label: string }> = [
-    { id: "posts", label: "Posts" },
-  ];
-  if (canSeeFollowers && !showBlockedView) visibleTabs.push({ id: "followers", label: "Seguidores" });
-  if (canSeeFollowing && !showBlockedView) visibleTabs.push({ id: "following", label: "Seguindo" });
-
-  // Se a tab ativa não está mais visível, voltar para posts
   useEffect(() => {
-    if (activeTab !== "posts" && !visibleTabs.find(t => t.id === activeTab)) {
-      setActiveTab("posts");
-    }
-  }, [canSeeFollowers, canSeeFollowing, isBlocked]);
+    if (activeTab !== "posts" && !visibleTabs.find(t => t.id === activeTab)) setActiveTab("posts");
+  }, [canSeeFollowers, canSeeFollowing]);
 
-  // Determinar o texto e ícone do botão de seguir
-  const getFollowButton = () => {
-    if (isBlocked) {
-      return null; // Não mostra botão de seguir se está bloqueado
-    }
+  const renderFollowButton = () => {
+    if (isOwnProfile || isBlocked) return null;
     if (followData.isFollowing) {
-      return { icon: <UserMinus className="h-3.5 w-3.5" />, label: "Seguindo", variant: "outline" as const };
+      return <Button size="sm" onClick={handleFollowToggle} disabled={followLoading} variant="outline" className="gap-1.5 rounded-full px-4">
+        {followLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><UserMinus className="h-3.5 w-3.5" />Seguindo</>}
+      </Button>;
     }
     if (followData.isPending) {
-      return { icon: <Clock className="h-3.5 w-3.5" />, label: "Solicitado", variant: "outline" as const };
+      return <Button size="sm" onClick={handleFollowToggle} disabled={followLoading} variant="outline" className="gap-1.5 rounded-full px-4">
+        {followLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Clock className="h-3.5 w-3.5" />Solicitado</>}
+      </Button>;
     }
-    if (privacyInfo.approve_followers) {
-      return { icon: <UserCheck className="h-3.5 w-3.5" />, label: "Solicitar", variant: "default" as const };
-    }
-    return { icon: <UserPlus className="h-3.5 w-3.5" />, label: "Seguir", variant: "default" as const };
+    const label = privacyInfo.approve_followers ? "Solicitar" : "Seguir";
+    return <Button size="sm" onClick={handleFollowToggle} disabled={followLoading} variant="default" className="gap-1.5 rounded-full px-4">
+      {followLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><UserPlus className="h-3.5 w-3.5" />{label}</>}
+    </Button>;
   };
-
-  const followBtn = getFollowButton();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -303,90 +213,37 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
           <div className="p-6 space-y-4">
             <div className="flex items-center gap-4">
               <div className="h-16 w-16 rounded-full bg-muted animate-pulse" />
-              <div className="space-y-2 flex-1">
-                <div className="h-5 w-32 rounded bg-muted animate-pulse" />
-                <div className="h-3 w-24 rounded bg-muted animate-pulse" />
-              </div>
-            </div>
-            <div className="h-4 w-full rounded bg-muted animate-pulse" />
-            <div className="flex gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-10 w-16 rounded bg-muted animate-pulse" />
-              ))}
+              <div className="space-y-2 flex-1"><div className="h-5 w-32 rounded bg-muted animate-pulse" /><div className="h-3 w-24 rounded bg-muted animate-pulse" /></div>
             </div>
           </div>
         ) : userData ? (
           <>
-            {/* Header com banner */}
-            <div className="h-20 bg-gradient-to-br from-primary/30 via-primary/10 to-transparent" />
-
+            <div className={`h-20 ${isBlocked ? "bg-gradient-to-br from-muted/50 via-muted/30 to-muted/10" : "bg-gradient-to-br from-primary/30 via-primary/10 to-transparent"}`} />
             <div className="px-5 pb-5 -mt-8">
-              {/* Avatar + Actions */}
               <div className="flex items-end justify-between mb-3">
                 <div className="relative">
-                  <UserAvatar
-                    user={{ id: userId!, display_name: userData.display_name, avatar_url: userData.avatar_url }}
-                    className="h-16 w-16 border-4 border-background shadow-lg"
-                  />
-                  {(isRestricted || showBlockedView) && (
+                  <UserAvatar user={{ id: userId!, display_name: userData.display_name, avatar_url: userData.avatar_url }} className="h-16 w-16 border-4 border-background shadow-lg" />
+                  {(isRestricted || isBlocked) && (
                     <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-muted text-muted-foreground">
-                      {showBlockedView ? <Ban className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                      <Lock className="h-3.5 w-3.5" />
                     </div>
                   )}
                 </div>
                 {!isOwnProfile && (
                   <div className="flex items-center gap-1.5">
-                    {!showBlockedView && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleStartDM}
-                        className="gap-1.5 rounded-full px-3"
-                      >
+                    {!isBlocked && (
+                      <Button variant="outline" size="sm" onClick={handleStartDM} className="gap-1.5 rounded-full px-3">
                         <MessageCircle className="h-3.5 w-3.5" />
                       </Button>
                     )}
-                    {followBtn && (
-                      <Button
-                        size="sm"
-                        onClick={handleFollowToggle}
-                        disabled={followLoading}
-                        variant={followBtn.variant}
-                        className={`gap-1.5 rounded-full px-4 ${
-                          followData.isPending ? "border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400" : ""
-                        }`}
-                      >
-                        {followLoading ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <>
-                            {followBtn.icon}
-                            {followBtn.label}
-                          </>
-                        )}
-                      </Button>
-                    )}
+                    {renderFollowButton()}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full"><MoreVertical className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={handleBlockToggle}
-                          disabled={blockLoading}
-                          className={isBlocked ? "text-primary" : "text-destructive focus:text-destructive"}
-                        >
-                          {isBlocked ? (
-                            <>
-                              <ShieldBan className="h-4 w-4 mr-2" /> Desbloquear
-                            </>
-                          ) : (
-                            <>
-                              <Ban className="h-4 w-4 mr-2" /> Bloquear
-                            </>
-                          )}
+                        <DropdownMenuItem onClick={handleBlockToggle} disabled={blockLoading}>
+                          {privacyInfo.isBlockedByViewer ? <><ShieldBan className="h-4 w-4 mr-2" />Desbloquear</> : <><Ban className="h-4 w-4 mr-2" />Bloquear</>}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -394,194 +251,84 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                 )}
               </div>
 
-              {/* Info */}
               <div className="flex items-center gap-1.5">
                 <h2 className="text-lg font-bold leading-tight">{userData.display_name}</h2>
-                {privacyInfo.is_private && !showBlockedView && (
-                  <Lock className="h-4 w-4 text-muted-foreground" />
-                )}
+                {privacyInfo.is_private && <Lock className="h-4 w-4 text-muted-foreground" />}
               </div>
               <p className="text-sm text-muted-foreground">@{userData.username}</p>
 
-              {showBlockedView ? (
-                /* Usuário bloqueado */
+              {isBlocked && privacyInfo.isBlockedByViewer ? (
                 <div className="mt-4 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/30 p-4 text-center">
                   <Ban className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-muted-foreground">Usuário bloqueado</p>
-                  <p className="text-xs text-muted-foreground/70 mt-1">
-                    Desbloqueie para ver o perfil novamente
-                  </p>
+                  <p className="text-sm font-medium text-muted-foreground">Você bloqueou este usuário</p>
+                  <Button variant="outline" size="sm" onClick={handleBlockToggle} disabled={blockLoading} className="mt-2">Desbloquear</Button>
+                </div>
+              ) : isBlocked && privacyInfo.isBlockedByTarget ? (
+                <div className="mt-4 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/30 p-4 text-center">
+                  <Lock className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <p className="text-sm font-medium text-muted-foreground">Este perfil não está disponível</p>
                 </div>
               ) : isRestricted ? (
-                /* Perfil privado — visão restrita para não-seguidores */
                 <div className="mt-4 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/30 p-4 text-center">
                   <Lock className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
                   <p className="text-sm font-medium text-muted-foreground">Este perfil é privado</p>
-                  <p className="text-xs text-muted-foreground/70 mt-1">
-                    Siga este perfil para ver suas publicações e informações
-                  </p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">Siga este perfil para ver suas publicações e informações</p>
                 </div>
               ) : (
                 <>
-                  {userData.neighborhood && (
-                    <Badge variant="secondary" className="mt-2 gap-1">
-                      <MapPin className="h-3 w-3" /> {userData.neighborhood}
-                    </Badge>
-                  )}
-
-                  {userData.bio ? (
-                    <p className="mt-3 text-sm leading-relaxed">{userData.bio}</p>
-                  ) : (
-                    <p className="mt-3 text-sm text-muted-foreground italic">Sem bio ainda</p>
-                  )}
+                  {userData.neighborhood && <Badge variant="secondary" className="mt-2 gap-1"><MapPin className="h-3 w-3" /> {userData.neighborhood}</Badge>}
+                  {userData.bio ? <p className="mt-3 text-sm leading-relaxed">{userData.bio}</p> : <p className="mt-3 text-sm text-muted-foreground italic">Sem bio ainda</p>}
                 </>
               )}
 
-              {/* Stats */}
               <div className="mt-4 flex gap-5">
-                <div className="text-center">
-                  <p className="text-base font-bold">{postCount}</p>
-                  <p className="text-[11px] text-muted-foreground">Posts</p>
-                </div>
-                {canSeeFollowing && !showBlockedView && (
-                  <button
-                    onClick={() => setActiveTab("following")}
-                    className="text-center hover:opacity-80 transition-opacity"
-                  >
-                    <p className="text-base font-bold">{followData.followingCount}</p>
-                    <p className="text-[11px] text-muted-foreground">Seguindo</p>
-                  </button>
-                )}
-                {canSeeFollowers && !showBlockedView && (
-                  <button
-                    onClick={() => setActiveTab("followers")}
-                    className="text-center hover:opacity-80 transition-opacity"
-                  >
-                    <p className="text-base font-bold">{followData.followersCount}</p>
-                    <p className="text-[11px] text-muted-foreground">Seguidores</p>
-                  </button>
-                )}
+                <div className="text-center"><p className="text-base font-bold">{postCount}</p><p className="text-[11px] text-muted-foreground">Posts</p></div>
+                {canSeeFollowing && <button onClick={() => setActiveTab("following")} className="text-center hover:opacity-80 transition-opacity"><p className="text-base font-bold">{followData.followingCount}</p><p className="text-[11px] text-muted-foreground">Seguindo</p></button>}
+                {canSeeFollowers && <button onClick={() => setActiveTab("followers")} className="text-center hover:opacity-80 transition-opacity"><p className="text-base font-bold">{followData.followersCount}</p><p className="text-[11px] text-muted-foreground">Seguidores</p></button>}
               </div>
 
-              {/* Tab Bar — só mostra tabs visíveis */}
-              {!isRestricted && !showBlockedView && visibleTabs.length > 1 && (
+              {!isRestricted && visibleTabs.length > 1 && (
                 <div className="mt-4 flex border-b">
                   {visibleTabs.map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex-1 pb-2 text-xs font-semibold text-center transition-colors ${
-                        activeTab === tab.id
-                          ? "text-foreground border-b-2 border-primary"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 pb-2 text-xs font-semibold text-center transition-colors ${activeTab === tab.id ? "text-foreground border-b-2 border-primary" : "text-muted-foreground"}`}>{tab.label}</button>
                   ))}
                 </div>
               )}
 
-              {/* Tab Content */}
-              {!isRestricted && !showBlockedView && (
+              {!isRestricted && (
                 <div className="max-h-64 overflow-y-auto mt-2 custom-scrollbar">
-                  {activeTab === "posts" && (
-                    postsLoading ? (
-                      <div className="space-y-2 py-2">
-                        {[1, 2, 3].map((i) => (
-                          <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />
-                        ))}
-                      </div>
-                    ) : userPosts.length === 0 ? (
-                      <div className="py-8 text-center">
-                        <p className="text-xs text-muted-foreground">Nenhum post ainda</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {userPosts.map((post: any) => (
-                          <div key={post.id} className="rounded-lg border bg-card p-3">
-                            {post.image_url && (
-                              <img
-                                src={post.image_url}
-                                alt=""
-                                className="w-full rounded-md mb-2 max-h-48 object-cover"
-                              />
-                            )}
-                            <p className="text-sm">{post.content}</p>
-                            <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground">
-                              <span>{timeAgo(post.created_at)}</span>
-                              {post.neighborhood && (
-                                <>
-                                  <span>·</span>
-                                  <span className="flex items-center gap-0.5">
-                                    <MapPin className="h-2.5 w-2.5" />
-                                    {post.neighborhood}
-                                  </span>
-                                </>
-                              )}
-                            </div>
+                  {activeTab === "posts" && (postsLoading ? <div className="space-y-2 py-2">{[1,2,3].map(i=><div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)}</div> : userPosts.length === 0 ? <div className="py-8 text-center"><p className="text-xs text-muted-foreground">Nenhum post ainda</p></div> : (
+                    <div className="space-y-2">
+                      {userPosts.map((post: any) => (
+                        <div key={post.id} className="rounded-lg border bg-card p-3">
+                          {post.image_url && <img src={post.image_url} alt="" className="w-full rounded-md mb-2 max-h-48 object-cover" />}
+                          <p className="text-sm">{post.content}</p>
+                          <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <span>{timeAgo(post.created_at)}</span>
+                            {post.neighborhood && <><span>·</span><span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{post.neighborhood}</span></>}
                           </div>
-                        ))}
-                      </div>
-                    )
-                  )}
-
-                  {(activeTab === "followers" || activeTab === "following") && (
-                    listLoading ? (
-                      <div className="space-y-2 py-2">
-                        {[1, 2, 3].map((i) => (
-                          <div key={i} className="flex items-center gap-2.5 animate-pulse">
-                            <div className="h-8 w-8 rounded-full bg-muted" />
-                            <div className="h-3 w-24 rounded bg-muted" />
-                          </div>
-                        ))}
-                      </div>
-                    ) : followList.length === 0 ? (
-                      <div className="py-8 text-center">
-                        <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                        <p className="text-xs text-muted-foreground">
-                          {activeTab === "followers" ? "Nenhum seguidor ainda" : "Não segue ninguém ainda"}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-0.5">
-                        {followList.map((u: any) => (
-                          <button
-                            key={u.id}
-                            onClick={() => {
-                              onOpenChange(false);
-                              setTimeout(() => {
-                                window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: u.id } }));
-                              }, 200);
-                            }}
-                            className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-accent"
-                          >
-                            <UserAvatar
-                              user={{ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url }}
-                              className="h-8 w-8"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium truncate">{u.display_name}</div>
-                              <div className="text-[11px] text-muted-foreground truncate">@{u.username}</div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )
-                  )}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  {(activeTab === "followers" || activeTab === "following") && (listLoading ? <div className="space-y-2 py-2">{[1,2,3].map(i=><div key={i} className="flex items-center gap-2.5 animate-pulse"><div className="h-8 w-8 rounded-full bg-muted" /><div className="h-3 w-24 rounded bg-muted" /></div>)}</div> : followList.length === 0 ? <div className="py-8 text-center"><Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" /><p className="text-xs text-muted-foreground">{activeTab === "followers" ? "Nenhum seguidor ainda" : "Não segue ninguém ainda"}</p></div> : (
+                    <div className="space-y-0.5">
+                      {followList.map((u: any) => (
+                        <button key={u.id} onClick={() => { onOpenChange(false); setTimeout(() => { window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: u.id } })); }, 200); }} className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-accent">
+                          <UserAvatar user={{ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url }} className="h-8 w-8" />
+                          <div className="flex-1 min-w-0"><div className="text-sm font-medium truncate">{u.display_name}</div><div className="text-[11px] text-muted-foreground truncate">@{u.username}</div></div>
+                        </button>
+                      ))}
+                    </div>
+                  ))}
                 </div>
               )}
 
-              {/* Joined date */}
-              <p className="mt-4 text-[11px] text-muted-foreground/60">
-                Entrou em {new Date(userData.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
-              </p>
+              <p className="mt-4 text-[11px] text-muted-foreground/60">Entrou em {new Date(userData.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}</p>
             </div>
           </>
         ) : (
-          <div className="p-6 text-center">
-            <p className="text-sm text-muted-foreground">Usuário não encontrado</p>
-          </div>
+          <div className="p-6 text-center"><p className="text-sm text-muted-foreground">Usuário não encontrado</p></div>
         )}
       </DialogContent>
     </Dialog>
