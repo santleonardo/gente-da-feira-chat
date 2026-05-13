@@ -19,24 +19,28 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
     }
 
-    // Verificar privacidade
     const { data: { user: authUser } } = await supabase.auth.getUser();
     const isOwnProfile = authUser?.id === id;
     let isFollowing = false;
+    let isPending = false;
 
     if (authUser && !isOwnProfile) {
       const { data: followRow } = await supabase
         .from("follows")
-        .select("id")
+        .select("id, status")
         .eq("follower_id", authUser.id)
         .eq("following_id", id)
         .maybeSingle();
-      isFollowing = !!followRow;
+      if (followRow) {
+        isFollowing = followRow.status === "accepted";
+        isPending = followRow.status === "pending";
+      }
     }
 
     const isPrivate = profile.is_private || false;
     const hideFollowing = profile.hide_following || false;
     const hideFollowers = profile.hide_followers || false;
+    const approveFollowers = profile.approve_followers || false;
     const isRestricted = isPrivate && !isOwnProfile && !isFollowing;
 
     const formatted = {
@@ -50,7 +54,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       is_private: isPrivate,
       hide_following: hideFollowing,
       hide_followers: hideFollowers,
+      approve_followers: approveFollowers,
       isRestricted,
+      isPending,
     };
 
     return NextResponse.json({ user: formatted, _privacy: privacyResponse });
@@ -97,7 +103,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       updates.username = username;
     }
 
-    // Campos de privacidade
     if (data.is_private !== undefined) {
       updates.is_private = Boolean(data.is_private);
     }
@@ -108,6 +113,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     if (data.hide_followers !== undefined) {
       updates.hide_followers = Boolean(data.hide_followers);
+    }
+
+    if (data.approve_followers !== undefined) {
+      updates.approve_followers = Boolean(data.approve_followers);
+      if (!data.approve_followers) {
+        await supabase
+          .from("follows")
+          .update({ status: "accepted" })
+          .eq("following_id", id)
+          .eq("status", "pending");
+      }
     }
 
     if (Object.keys(updates).length === 0) {
