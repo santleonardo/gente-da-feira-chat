@@ -8,7 +8,7 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
-import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, Loader2 } from "lucide-react";
+import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, Loader2, Clock, UserCheck } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 import { timeAgo } from "@/lib/constants";
 import { toast } from "sonner";
@@ -26,7 +26,8 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     followingCount: number;
     followersCount: number;
     isFollowing: boolean;
-  }>({ followingCount: 0, followersCount: 0, isFollowing: false });
+    isPending: boolean;
+  }>({ followingCount: 0, followersCount: 0, isFollowing: false, isPending: false });
   const [postCount, setPostCount] = useState(0);
   const [userPosts, setUserPosts] = useState<any[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
@@ -41,8 +42,9 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     is_private: boolean;
     hide_following: boolean;
     hide_followers: boolean;
+    approve_followers: boolean;
     isRestricted: boolean;
-  }>({ is_private: false, hide_following: false, hide_followers: false, isRestricted: false });
+  }>({ is_private: false, hide_following: false, hide_followers: false, approve_followers: false, isRestricted: false });
 
   // Buscar dados do usuário
   useEffect(() => {
@@ -60,27 +62,33 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
 
           if (profileData._privacy) {
             setPrivacyInfo(profileData._privacy);
+            // Sincronizar isPending vindo do perfil
+            if (profileData._privacy.isPending !== undefined) {
+              setFollowData((prev) => ({ ...prev, isPending: profileData._privacy.isPending }));
+            }
           }
         }
 
         // Buscar dados de seguidores
         const followRes = await fetch(`/api/follows?userId=${userId}`);
-        const followData = await followRes.json();
-        if (!followRes.ok && followData.error) {
-          setFollowData({ followingCount: 0, followersCount: 0, isFollowing: false });
+        const followResult = await followRes.json();
+        if (!followRes.ok && followResult.error) {
+          setFollowData({ followingCount: 0, followersCount: 0, isFollowing: false, isPending: false });
         } else {
           setFollowData({
-            followingCount: followData.followingCount || 0,
-            followersCount: followData.followersCount || 0,
-            isFollowing: followData.isFollowing || false,
+            followingCount: followResult.followingCount || 0,
+            followersCount: followResult.followersCount || 0,
+            isFollowing: followResult.isFollowing || false,
+            isPending: followResult.isPending || false,
           });
 
-          if (followData._privacy) {
+          if (followResult._privacy) {
             setPrivacyInfo((prev) => ({
               ...prev,
-              hide_following: followData._privacy.hide_following,
-              hide_followers: followData._privacy.hide_followers,
-              isRestricted: followData._privacy.isRestricted ?? prev.isRestricted,
+              hide_following: followResult._privacy.hide_following,
+              hide_followers: followResult._privacy.hide_followers,
+              approve_followers: followResult._privacy.approve_followers ?? prev.approve_followers,
+              isRestricted: followResult._privacy.isRestricted ?? prev.isRestricted,
             }));
           }
         }
@@ -147,26 +155,49 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
         toast.error(data.error);
       } else {
         const nowFollowing = data.following;
-        setFollowData((prev) => ({
-          ...prev,
-          isFollowing: nowFollowing,
-          followersCount: prev.followersCount + (nowFollowing ? 1 : -1),
-        }));
-        toast.success(nowFollowing ? "Seguindo!" : "Deixou de seguir");
+        const nowPending = data.pending;
 
-        // Se começou a seguir e o perfil era privado, recarregar dados
-        if (nowFollowing && privacyInfo.is_private) {
-          setPrivacyInfo((prev) => ({ ...prev, isRestricted: false }));
-          const profileRes = await fetch(`/api/users/${userId}`);
-          const profileData = await profileRes.json();
-          if (profileData.user) {
-            setUserData(profileData.user);
-            setPostCount(profileData.user._count?.posts || 0);
+        if (nowPending) {
+          // Solicitação enviada (perfil exige aprovação)
+          setFollowData((prev) => ({
+            ...prev,
+            isPending: true,
+          }));
+          toast.success("Solicitação enviada!");
+        } else if (nowFollowing) {
+          // Começou a seguir (sem necessidade de aprovação)
+          setFollowData((prev) => ({
+            ...prev,
+            isFollowing: true,
+            isPending: false,
+            followersCount: prev.followersCount + 1,
+          }));
+          toast.success("Seguindo!");
+
+          // Se começou a seguir e o perfil era privado, recarregar dados
+          if (privacyInfo.is_private) {
+            setPrivacyInfo((prev) => ({ ...prev, isRestricted: false }));
+            const profileRes = await fetch(`/api/users/${userId}`);
+            const profileData = await profileRes.json();
+            if (profileData.user) {
+              setUserData(profileData.user);
+              setPostCount(profileData.user._count?.posts || 0);
+            }
+            // Recarregar posts
+            const postsRes = await fetch(`/api/users/${userId}/posts`);
+            const postsData = await postsRes.json();
+            if (postsData.posts) setUserPosts(postsData.posts);
           }
-          // Recarregar posts
-          const postsRes = await fetch(`/api/users/${userId}/posts`);
-          const postsData = await postsRes.json();
-          if (postsData.posts) setUserPosts(postsData.posts);
+        } else {
+          // Deixou de seguir ou cancelou solicitação
+          const wasPending = followData.isPending;
+          setFollowData((prev) => ({
+            ...prev,
+            isFollowing: false,
+            isPending: false,
+            followersCount: wasPending ? prev.followersCount : prev.followersCount - 1,
+          }));
+          toast.success(wasPending ? "Solicitação cancelada" : "Deixou de seguir");
         }
       }
     } catch {
@@ -213,6 +244,22 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
       setActiveTab("posts");
     }
   }, [canSeeFollowers, canSeeFollowing]);
+
+  // Determinar o texto e ícone do botão de seguir
+  const getFollowButton = () => {
+    if (followData.isFollowing) {
+      return { icon: <UserMinus className="h-3.5 w-3.5" />, label: "Seguindo", variant: "outline" as const };
+    }
+    if (followData.isPending) {
+      return { icon: <Clock className="h-3.5 w-3.5" />, label: "Solicitado", variant: "outline" as const };
+    }
+    if (privacyInfo.approve_followers) {
+      return { icon: <UserCheck className="h-3.5 w-3.5" />, label: "Solicitar", variant: "default" as const };
+    }
+    return { icon: <UserPlus className="h-3.5 w-3.5" />, label: "Seguir", variant: "default" as const };
+  };
+
+  const followBtn = getFollowButton();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -266,20 +313,17 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                       size="sm"
                       onClick={handleFollowToggle}
                       disabled={followLoading}
-                      variant={followData.isFollowing ? "outline" : "default"}
-                      className="gap-1.5 rounded-full px-4"
+                      variant={followBtn.variant}
+                      className={`gap-1.5 rounded-full px-4 ${
+                        followData.isPending ? "border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400" : ""
+                      }`}
                     >
                       {followLoading ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : followData.isFollowing ? (
-                        <>
-                          <UserMinus className="h-3.5 w-3.5" />
-                          Seguindo
-                        </>
                       ) : (
                         <>
-                          <UserPlus className="h-3.5 w-3.5" />
-                          Seguir
+                          {followBtn.icon}
+                          {followBtn.label}
                         </>
                       )}
                     </Button>
