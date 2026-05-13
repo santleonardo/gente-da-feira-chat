@@ -7,6 +7,7 @@ import { FeedView } from "@/components/gdf/FeedView";
 import { RoomsView } from "@/components/gdf/RoomsView";
 import { DMsView } from "@/components/gdf/DMsView";
 import { ProfileView } from "@/components/gdf/ProfileView";
+import { SettingsView } from "@/components/gdf/SettingsView";
 import { DiscoverView } from "@/components/gdf/DiscoverView";
 import { ThemeToggle } from "@/components/gdf/ThemeToggle";
 import { UserProfileDialog } from "@/components/gdf/UserProfileDialog";
@@ -23,17 +24,11 @@ const tabs = [
 ];
 
 export function AppShell() {
-  const { profile, tab, setTab, selectedRoom, selectedDM, setSelectedRoom, setSelectedDM, setProfile, logout } = useStore();
+  const { profile, tab, setTab, profileSubView, selectedRoom, selectedDM, setSelectedRoom, setSelectedDM, setProfile, logout } = useStore();
   const [checkedAuth, setCheckedAuth] = useState(false);
   const [profileDialogUserId, setProfileDialogUserId] = useState<string | null>(null);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 
-  // When full-screen profile is open, hide main UI elements
-  const handleProfileDialogOpenChange = useCallback((open: boolean) => {
-    setProfileDialogOpen(open);
-  }, []);
-
-  // Escutar evento customizado para abrir perfil de outro usuario
   useEffect(() => {
     const handler = (e: any) => {
       const userId = e.detail?.userId;
@@ -53,33 +48,40 @@ export function AppShell() {
 
   useEffect(() => {
     const supabase = createClient();
-
     const initAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single();
+        const { data: prof } = await supabase.from("profiles").select("*").eq("id", user.id).single();
         if (prof) setProfile(prof);
       }
       setCheckedAuth(true);
     };
-
     initAuth();
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === "SIGNED_OUT") {
-        try {
-          await supabase.removeAllChannels();
-        } catch { /* silent */ }
+        try { await supabase.removeAllChannels(); } catch { /* silent */ }
         logout();
       }
     });
-
     return () => subscription.unsubscribe();
   }, [setProfile, logout]);
+
+  useEffect(() => {
+    if (!profile) return;
+    const fetchUnread = () => {
+      fetch("/api/notifications")
+        .then((r) => r.json())
+        .then((data) => {
+          if (typeof data.unreadCount === "number") {
+            useStore.getState().setUnreadNotifications(data.unreadCount);
+          }
+        })
+        .catch(() => {});
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60000);
+    return () => clearInterval(interval);
+  }, [profile]);
 
   if (!checkedAuth) {
     return (
@@ -101,9 +103,13 @@ export function AppShell() {
 
   const inChat = (tab === "rooms" && selectedRoom) || (tab === "dms" && selectedDM);
 
+  const renderProfileContent = () => {
+    if (profileSubView === "settings") return <SettingsView />;
+    return <ProfileView />;
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      {/* Desktop Header */}
       <header className="sticky top-0 z-40 hidden md:flex items-center justify-between border-b px-6 py-2.5 bg-background/70 backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-sm">
@@ -114,7 +120,6 @@ export function AppShell() {
             <p className="text-[10px] text-muted-foreground leading-none">Feira de Santana</p>
           </div>
         </div>
-
         <nav className="flex items-center gap-0.5 bg-muted/50 rounded-full p-1">
           {tabs.map((t) => (
             <button
@@ -122,13 +127,12 @@ export function AppShell() {
               onClick={() => {
                 if (t.id === "rooms") setSelectedRoom(null);
                 if (t.id === "dms") setSelectedDM(null);
+                if (t.id === "profile") useStore.getState().setProfileSubView("profile");
                 setTab(t.id);
               }}
               className={cn(
                 "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
-                tab === t.id
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                tab === t.id ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
               <t.icon className="h-4 w-4" />
@@ -136,7 +140,6 @@ export function AppShell() {
             </button>
           ))}
         </nav>
-
         <div className="flex items-center gap-3">
           <ThemeToggle />
           <div className="flex items-center gap-2.5">
@@ -148,28 +151,18 @@ export function AppShell() {
         </div>
       </header>
 
-      {/* Content Area */}
       <main className="flex-1 pb-20 md:pb-6">
-        <div className={cn(
-          "mx-auto px-4 py-4 md:py-6",
-          inChat ? "max-w-2xl" : "max-w-lg"
-        )}>
+        <div className={cn("mx-auto px-4 py-4 md:py-6", inChat ? "max-w-2xl" : "max-w-lg")}>
           {tab === "feed" && <FeedView openUserProfile={openUserProfile} />}
           {tab === "rooms" && <RoomsView openUserProfile={openUserProfile} />}
           {tab === "dms" && <DMsView openUserProfile={openUserProfile} />}
           {tab === "discover" && <DiscoverView openUserProfile={openUserProfile} />}
-          {tab === "profile" && <ProfileView />}
+          {tab === "profile" && renderProfileContent()}
         </div>
       </main>
 
-      {/* Perfil publico de outros usuarios — full-screen overlay */}
-      <UserProfileDialog
-        userId={profileDialogUserId}
-        open={profileDialogOpen}
-        onOpenChange={handleProfileDialogOpenChange}
-      />
+      <UserProfileDialog userId={profileDialogUserId} open={profileDialogOpen} onOpenChange={setProfileDialogOpen} />
 
-      {/* Mobile Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden">
         <div className="mx-3 mb-3 flex items-center justify-around rounded-2xl border bg-background/90 backdrop-blur-xl shadow-lg px-1 py-1">
           {tabs.map((t) => (
@@ -178,13 +171,12 @@ export function AppShell() {
               onClick={() => {
                 if (t.id === "rooms") setSelectedRoom(null);
                 if (t.id === "dms") setSelectedDM(null);
+                if (t.id === "profile") useStore.getState().setProfileSubView("profile");
                 setTab(t.id);
               }}
               className={cn(
                 "flex flex-col items-center gap-0.5 rounded-xl px-3.5 py-2 transition-all duration-200",
-                tab === t.id
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground active:scale-95"
+                tab === t.id ? "bg-primary/10 text-primary" : "text-muted-foreground active:scale-95"
               )}
             >
               <t.icon className={cn("h-5 w-5", tab === t.id && "stroke-[2.5px]")} />
