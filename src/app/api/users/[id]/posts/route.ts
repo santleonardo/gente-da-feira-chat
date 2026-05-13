@@ -6,12 +6,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const supabase = await createClient();
 
-    // Verificar se o perfil é privado e o viewer não é seguidor
     const { data: targetProfile } = await supabase
-      .from("profiles")
-      .select("is_private")
-      .eq("id", id)
-      .single();
+      .from("profiles").select("is_private").eq("id", id).single();
 
     const isPrivate = targetProfile?.is_private || false;
 
@@ -22,32 +18,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       if (!isOwnProfile && authUser) {
         const { data: followRow } = await supabase
           .from("follows")
-          .select("id")
+          .select("id, status")
           .eq("follower_id", authUser.id)
           .eq("following_id", id)
           .maybeSingle();
 
-        if (!followRow) {
-          // Perfil privado e não é seguidor — não mostrar posts
+        // FIX: Only restrict if no follow row OR status is not accepted
+        if (!followRow || followRow.status !== "accepted") {
           return NextResponse.json({ posts: [], _privacy: { isRestricted: true } });
         }
       } else if (!authUser) {
-        // Não autenticado vendo perfil privado
         return NextResponse.json({ posts: [], _privacy: { isRestricted: true } });
       }
     }
 
     const { data: posts, error } = await supabase
       .from("posts")
-      .select(`
-        id,
-        content,
-        image_url,
-        neighborhood,
-        created_at,
-        author_id,
-        reactions(user_id, type)
-      `)
+      .select(`id, content, image_url, neighborhood, created_at, author_id, reactions(user_id, type)`)
       .eq("author_id", id)
       .eq("is_deleted", false)
       .order("created_at", { ascending: false })
