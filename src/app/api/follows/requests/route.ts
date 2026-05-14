@@ -60,20 +60,14 @@ export async function POST(req: NextRequest) {
 
     if (action === "accept") {
       // Aceitar: atualizar status para 'accepted'
+      // O trigger notify_new_follow() vai detectar o UPDATE para 'accepted'
+      // e criar automaticamente a notificação follow_accepted com actor_id
       const { error: updateErr } = await supabase
         .from("follows")
         .update({ status: "accepted" })
         .eq("id", requestId);
 
       if (updateErr) throw updateErr;
-
-      // Notificar o seguidor que foi aceito
-      await supabase.from("notifications").insert({
-        user_id: followRow.follower_id,
-        from_user_id: user.id,
-        type: "follow_accepted",
-        content: "aceitou sua solicitação de seguida",
-      });
 
       return NextResponse.json({ accepted: true });
     } else {
