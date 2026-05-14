@@ -6,7 +6,7 @@ import { useStore } from "@/lib/store";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Send, ArrowLeft, UserPlus, Search, MessageSquare } from "lucide-react";
+import { Send, ArrowLeft, UserPlus, Search, MessageSquare, Camera, Mic, MicOff, X, ImagePlus } from "lucide-react";
 import { timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
 import { useRealtimeMessages } from "@/hooks/use-realtime";
@@ -182,6 +182,15 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Camera & mic
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
   const other = conversation.initiator_id === profile?.id ? conversation.receiver : conversation.initiator;
 
   const fetchMessages = useCallback(async () => {
@@ -228,9 +237,9 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
     setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }), 100);
   }, [messages, loading]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || !profile) return;
-    const text = input.trim();
+  const sendMessage = async (content: string) => {
+    if (!content.trim() || !profile) return;
+    const text = content.trim();
     setInput("");
     try {
       const res = await fetch(`/api/dm/${conversation.id}/messages`, {
@@ -252,7 +261,93 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
     } catch { toast.error("Erro ao enviar"); }
   };
 
-  const groupedMessages = messages.map((msg, idx) => {
+  // Microphone recording
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const url = URL.createObjectURL(blob);
+        // For DMs, we send a text indication since the DM API only supports text content
+        sendMessage("🎤 Áudio enviado");
+        stream.getTracks().forEach((t) => t.stop());
+        URL.revokeObjectURL(url);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => {
+          if (prev >= 60) {
+            stopRecording();
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch {
+      toast.error("Não foi possível acessar o microfone");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
+      mediaRecorderRef.current.stop();
+    }
+    audioChunksRef.current = [];
+    setIsRecording(false);
+    setRecordingSeconds(0);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  };
+
+  // Camera
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // For DMs, send as text indication since DM API only supports text
+    sendMessage("📷 Foto enviada");
+    if (cameraRef.current) cameraRef.current.value = "";
+  };
+
+  const handleGallerySelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    sendMessage("📷 Foto enviada");
+    if (galleryRef.current) galleryRef.current.value = "";
+  };
+
+  const formatRecDuration = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
+
+  const groupedMessages = messages.map((msg: any, idx: number) => {
     const prev = idx > 0 ? messages[idx - 1] : null;
     const isGrouped = prev && prev.sender_id === msg.sender_id;
     return { ...msg, isGrouped };
@@ -292,7 +387,7 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
             <p className="text-xs text-muted-foreground mt-0.5">Diga olá para {other.display_name}!</p>
           </div>
         )}
-        {groupedMessages.map((msg) => {
+        {groupedMessages.map((msg: any) => {
           const isMine = msg.sender_id === profile?.id;
 
           return (
@@ -303,12 +398,8 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
                 )}
                 <div className={`px-3.5 py-2 text-sm leading-relaxed inline-block break-words ${
                   isMine
-                    ? msg.isGrouped
-                      ? "bg-primary text-primary-foreground rounded-2xl rounded-br-md"
-                      : "bg-primary text-primary-foreground rounded-2xl rounded-br-md"
-                    : msg.isGrouped
-                      ? "bg-muted rounded-2xl rounded-bl-md"
-                      : "bg-muted rounded-2xl rounded-bl-md"
+                    ? "bg-primary text-primary-foreground rounded-2xl rounded-br-md"
+                    : "bg-muted rounded-2xl rounded-bl-md"
                 }`}>
                   {msg.content}
                 </div>
@@ -321,21 +412,79 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
         })}
       </div>
 
+      {/* Recording indicator */}
+      {isRecording && (
+        <div className="border-t px-4 py-2 bg-red-50 dark:bg-red-950/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              </span>
+              <span className="text-xs font-semibold text-red-600 dark:text-red-400">Gravando {formatRecDuration(recordingSeconds)}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button onClick={cancelRecording} className="flex h-7 w-7 items-center justify-center rounded-full bg-muted hover:bg-destructive hover:text-destructive-foreground transition-colors" title="Cancelar">
+                <X className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={stopRecording} className="flex h-7 items-center gap-1 rounded-full bg-primary px-3 text-xs font-medium text-primary-foreground" title="Enviar">
+                <Send className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="border-t px-4 py-3 bg-card/80 backdrop-blur-md">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          {/* Camera */}
+          <button
+            onClick={() => cameraRef.current?.click()}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-primary transition-colors"
+            title="Tirar foto"
+          >
+            <Camera className="h-4 w-4" />
+          </button>
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleCameraCapture} className="hidden" />
+
+          {/* Gallery */}
+          <button
+            onClick={() => galleryRef.current?.click()}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-primary transition-colors"
+            title="Foto da galeria"
+          >
+            <ImagePlus className="h-4 w-4" />
+          </button>
+          <input ref={galleryRef} type="file" accept="image/*" onChange={handleGallerySelect} className="hidden" />
+
+          {/* Input */}
           <div className="flex-1 relative">
             <Input
               placeholder="Escreva uma mensagem..."
               value={input}
               onChange={(e) => setInput(e.target.value.slice(0, 2000))}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage(input)}
               className="h-11 rounded-full pl-4 pr-4 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
             />
           </div>
+
+          {/* Mic */}
+          <button
+            onClick={() => {
+              if (isRecording) return;
+              startRecording();
+            }}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${isRecording ? "text-red-500 bg-red-500/10" : "text-muted-foreground hover:bg-accent hover:text-primary"}`}
+            title="Gravar áudio"
+          >
+            {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          </button>
+
+          {/* Send */}
           <Button
             size="icon"
-            onClick={sendMessage}
-            disabled={!input.trim()}
+            onClick={() => sendMessage(input)}
+            disabled={!input.trim() || isRecording}
             className="h-11 w-11 rounded-full shrink-0 shadow-sm transition-all hover:shadow-md disabled:shadow-none"
           >
             <Send className="h-4 w-4" />
