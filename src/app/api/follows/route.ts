@@ -185,22 +185,8 @@ export async function POST(req: NextRequest) {
 
       if (insertErr) throw insertErr;
 
-      // Criar notificação
-      if (approveFollowers) {
-        await supabase.from("notifications").insert({
-          user_id: targetUserId,
-          from_user_id: user.id,
-          type: "follow_request",
-          content: "solicitou te seguir",
-        });
-      } else {
-        await supabase.from("notifications").insert({
-          user_id: targetUserId,
-          from_user_id: user.id,
-          type: "follow",
-          content: "começou a te seguir",
-        });
-      }
+      // Notificação agora é criada pelo TRIGGER notify_new_follow()
+      // Não precisamos inserir manualmente na tabela notifications
 
       if (approveFollowers) {
         return NextResponse.json({ following: false, pending: true });
