@@ -12,14 +12,14 @@ export async function GET(req: NextRequest) {
 
     const { data: notifications, error } = await supabase
       .from("notifications")
-      .select("id, type, content, read, created_at, from_user:profiles!notifications_from_user_id_fkey(id, display_name, username, avatar_url)")
+      .select("id, type, is_read, created_at, actor:profiles!notifications_actor_id_fkey(id, display_name, username, avatar), post_id, comment_id")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(50);
 
     if (error) throw error;
 
-    const unreadCount = (notifications || []).filter((n: any) => !n.read).length;
+    const unreadCount = (notifications || []).filter((n: any) => !n.is_read).length;
 
     return NextResponse.json({
       notifications: notifications || [],
@@ -44,9 +44,9 @@ export async function PUT(req: NextRequest) {
     if (markAll) {
       const { error } = await supabase
         .from("notifications")
-        .update({ read: true })
+        .update({ is_read: true })
         .eq("user_id", user.id)
-        .eq("read", false);
+        .eq("is_read", false);
 
       if (error) throw error;
       return NextResponse.json({ markedAll: true });
@@ -58,7 +58,7 @@ export async function PUT(req: NextRequest) {
 
     const { error } = await supabase
       .from("notifications")
-      .update({ read: true })
+      .update({ is_read: true })
       .eq("id", notificationId)
       .eq("user_id", user.id);
 
