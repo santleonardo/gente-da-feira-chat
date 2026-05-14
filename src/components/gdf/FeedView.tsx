@@ -788,14 +788,14 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 
             {/* Photo previews */}
             {hasPhotosInComposer && previewUrls.length > 0 && (
-              <div className="flex gap-2 flex-wrap">
-                {previewUrls.map((url, i) => (
-                  <div key={i} className="relative group">
-                    <img src={url} alt={`Preview ${i + 1}`} className="h-20 w-20 rounded-xl object-cover border shadow-sm" />
-                    <button onClick={() => removeSelectedFile(i)} className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
+                <div className="flex items-center gap-2 shrink-0">
+                <span className={`text-[10px] ${content.length > 450 ? "text-destructive" : "text-muted-foreground"}`}>
+                  {content.length}/500
+                </span>
+                <Button size="icon" disabled={!content.trim() || uploading} onClick={handlePost} className="h-8 w-8 rounded-full shrink-0 shadow-sm" title="Publicar">
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
+              </div>
                 ))}
               </div>
             )}
