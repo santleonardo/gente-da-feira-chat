@@ -29,9 +29,10 @@ import {
   Repeat2,
   Copy,
   ExternalLink,
-  Paperclip,
+  Camera,
   Plus,
   Square,
+  Music,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -53,19 +54,19 @@ const MAX_VIDEO_DURATION = 30; // seconds
 const MAX_AUDIO_DURATION = 60; // seconds
 
 const REACTION_EMOJIS = [
-  { type: "like", emoji: "❤️", label: "Curtir" },
-  { type: "laugh", emoji: "😂", label: "Engraçado" },
-  { type: "sad", emoji: "😔", label: "Triste" },
-  { type: "wow", emoji: "😲", label: "Uau" },
-  { type: "angry", emoji: "😡", label: "Bravo" },
-  { type: "love", emoji: "😍", label: "Amei" },
+  { type: "like", emoji: "\u2764\uFE0F", label: "Curtir" },
+  { type: "laugh", emoji: "\uD83D\uDE02", label: "Engra\u00E7ado" },
+  { type: "sad", emoji: "\uD83D\uDE14", label: "Triste" },
+  { type: "wow", emoji: "\uD83D\uDE32", label: "Uau" },
+  { type: "angry", emoji: "\uD83D\uDE21", label: "Bravo" },
+  { type: "love", emoji: "\uD83D\uDE0D", label: "Amei" },
 ] as const;
 
 function buildReactionGroups(reactions: { user_id: string; type: string }[]) {
   const groups: Record<string, { emoji: string; count: number; types: string[] }> = {};
   for (const r of reactions) {
     const match = REACTION_EMOJIS.find((e) => e.type === r.type);
-    const emoji = match?.emoji || "❤️";
+    const emoji = match?.emoji || "\u2764\uFE0F";
     if (!groups[r.type]) groups[r.type] = { emoji, count: 0, types: [r.type] };
     groups[r.type].count++;
   }
@@ -316,7 +317,7 @@ function ShareMenu({
       if (navigator.share) {
         await navigator.share(shareData);
       } else {
-        await navigator.clipboard.writeText(`${shareData.text}\n\n— GDF Chat`);
+        await navigator.clipboard.writeText(`${shareData.text}\n\n--- GDF Chat`);
         toast.success("Texto copiado!");
       }
     } catch { /* cancelled */ }
@@ -376,9 +377,13 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [uploading, setUploading] = useState(false);
   const [activeMediaCount, setActiveMediaCount] = useState(0);
   const [videoPostsInWindow, setVideoPostsInWindow] = useState(0);
+
+  // Input refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const cameraPhotoRef = useRef<HTMLInputElement>(null);
+  const cameraVideoRef = useRef<HTMLInputElement>(null);
 
   // Composer state
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
@@ -388,6 +393,18 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [videoDuration, setVideoDuration] = useState<number>(0);
   const [audioDuration, setAudioDuration] = useState<number>(0);
   const [visibility, setVisibility] = useState<"public" | "followers">("public");
+
+  // Menu state
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Audio recording state (direct in-app recording)
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   // Viewer state
   const [viewerPhotos, setViewerPhotos] = useState<string[]>([]);
@@ -401,28 +418,27 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [repostingPost, setRepostingPost] = useState<PostWithAuthor | null>(null);
   const [repostContent, setRepostContent] = useState("");
 
-  // Attach menu state
-  const [showAttachMenu, setShowAttachMenu] = useState(false);
-
-  // Audio recording state
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-
-  // Fechar menu ao clicar fora
+  // Close menu on outside click
   useEffect(() => {
-    if (!showAttachMenu) return;
+    if (!menuOpen) return;
     const handler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('[data-attach-menu]')) {
-        setShowAttachMenu(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [showAttachMenu]);
+  }, [menuOpen]);
+
+  // Cleanup recording on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const nb = profile?.neighborhood || "all";
@@ -468,6 +484,44 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       setPreviewUrls((prev) => [...prev, createPreviewUrl(file)]);
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
+    setMenuOpen(false);
+  };
+
+  const handleCameraPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const error = validateImageFile(file);
+    if (error) { toast.error(error); return; }
+    setSelectedFiles((prev) => [...prev, file]);
+    setPreviewUrls((prev) => [...prev, createPreviewUrl(file)]);
+    if (cameraPhotoRef.current) cameraPhotoRef.current.value = "";
+    setMenuOpen(false);
+  };
+
+  const handleCameraVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Process same as video file select
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Vídeo muito grande (máx 50MB)");
+      return;
+    }
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      if (video.duration > MAX_VIDEO_DURATION) {
+        toast.error(`Vídeo muito longo (máx ${MAX_VIDEO_DURATION}s)`);
+        URL.revokeObjectURL(video.src);
+        return;
+      }
+      setVideoDuration(video.duration);
+      setSelectedVideo(file);
+      setVideoPreview(URL.createObjectURL(file));
+      URL.revokeObjectURL(video.src);
+    };
+    video.src = URL.createObjectURL(file);
+    if (cameraVideoRef.current) cameraVideoRef.current.value = "";
+    setMenuOpen(false);
   };
 
   const removeSelectedFile = (index: number) => {
@@ -502,6 +556,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     };
     video.src = URL.createObjectURL(file);
     if (videoInputRef.current) videoInputRef.current.value = "";
+    setMenuOpen(false);
   };
 
   const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -530,16 +585,26 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     };
     audio.src = URL.createObjectURL(file);
     if (audioInputRef.current) audioInputRef.current.value = "";
+    setMenuOpen(false);
   };
 
-  const startRecording = async () => {
-    if (hasPhotosInComposer || hasVideoInComposer || hasAudioInComposer) {
-      toast.error("Remova a mídia atual antes de gravar áudio");
-      return;
-    }
+  // ═══════ Direct audio recording ═══════
+  const startAudioRecording = async () => {
+    setMenuOpen(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm' });
+      mediaStreamRef.current = stream;
+
+      // Choose best supported mimeType
+      let mimeType = "audio/webm";
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = "audio/webm;codecs=opus";
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = "audio/mp4";
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -548,58 +613,78 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       };
 
       mediaRecorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const url = URL.createObjectURL(blob);
-        const file = new File([blob], `audio_${Date.now()}.webm`, { type: 'audio/webm' });
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        const ext = mimeType.includes("mp4") ? "m4a" : "webm";
+        const file = new File([blob], `gravação.${ext}`, { type: mimeType });
+        const url = URL.createObjectURL(file);
 
-        // Verificar duração
-        const audio = document.createElement('audio');
-        audio.preload = 'metadata';
-        audio.onloadedmetadata = () => {
-          const dur = audio.duration;
-          if (dur > MAX_AUDIO_DURATION) {
-            toast.error(`Áudio muito longo (máx ${MAX_AUDIO_DURATION}s)`);
-            URL.revokeObjectURL(url);
-          } else {
-            setAudioDuration(dur);
-            setSelectedAudio(file);
-            setAudioPreview(url);
-          }
-          URL.revokeObjectURL(audio.src);
+        // Get duration
+        const tempAudio = document.createElement("audio");
+        tempAudio.preload = "metadata";
+        tempAudio.onloadedmetadata = () => {
+          const dur = tempAudio.duration;
+          setAudioDuration(dur);
+          setSelectedAudio(file);
+          setAudioPreview(url);
+          URL.revokeObjectURL(tempAudio.src);
         };
-        audio.src = URL.createObjectURL(blob);
+        tempAudio.src = url;
 
-        // Cleanup
-        if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
-        setIsRecording(false);
-        setRecordingSeconds(0);
+        // Stop all tracks
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+          mediaStreamRef.current = null;
+        }
+        mediaRecorderRef.current = null;
+        setIsRecordingAudio(false);
       };
 
-      mediaRecorder.start();
-      setIsRecording(true);
+      mediaRecorder.start(1000);
+      setIsRecordingAudio(true);
       setRecordingSeconds(0);
-      setShowAttachMenu(false);
 
+      // Timer
       recordingTimerRef.current = setInterval(() => {
-        setRecordingSeconds((s) => {
-          if (s >= MAX_AUDIO_DURATION) {
-            stopRecording();
-            return s;
+        setRecordingSeconds((prev) => {
+          if (prev + 1 >= MAX_AUDIO_DURATION) {
+            stopAudioRecording();
+            return MAX_AUDIO_DURATION;
           }
-          return s + 1;
+          return prev + 1;
         });
       }, 1000);
     } catch {
-      toast.error('Não foi possível acessar o microfone');
+      toast.error("Não foi possível acessar o microfone. Verifique as permissões.");
     }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+  const stopAudioRecording = () => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
     }
-    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
+  };
+
+  const cancelAudioRecording = () => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
+    mediaRecorderRef.current = null;
+    audioChunksRef.current = [];
+    setIsRecordingAudio(false);
+    setRecordingSeconds(0);
   };
 
   const clearMedia = () => {
@@ -614,8 +699,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     if (audioPreview) URL.revokeObjectURL(audioPreview);
     setAudioPreview(null);
     setAudioDuration(0);
-    // Parar gravação se ativa
-    if (isRecording) stopRecording();
+    cancelAudioRecording();
   };
 
   const uploadPhotos = async (): Promise<string[]> => {
@@ -784,7 +868,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const hasAudioInComposer = !!selectedAudio;
   const canAddPhotos = !hasVideoInComposer && !hasAudioInComposer && selectedFiles.length < MAX_PHOTOS_PER_POST;
   const canAddVideo = !hasPhotosInComposer && !hasAudioInComposer && !hasVideoInComposer;
-  const canAddAudio = !hasPhotosInComposer && !hasVideoInComposer && !hasAudioInComposer && !isRecording;
+  const canAddAudio = !hasPhotosInComposer && !hasVideoInComposer && !hasAudioInComposer;
 
   if (loading) return <FeedSkeleton />;
 
@@ -845,115 +929,148 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               </div>
             )}
 
-            {/* Recording indicator */}
-            {isRecording && (
-              <div className="flex items-center gap-3 rounded-xl border bg-red-500/10 border-red-500/20 p-3 mt-1">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-xs font-semibold text-red-500">Gravando</span>
+            {/* Audio recording indicator */}
+            {isRecordingAudio && (
+              <div className="relative rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500 text-white animate-pulse">
+                    <Mic className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-red-600 dark:text-red-400">Gravando áudio...</span>
+                      <span className="text-sm font-bold tabular-nums text-red-600 dark:text-red-400">{formatDuration(recordingSeconds)}</span>
+                      <span className="text-[10px] text-muted-foreground">/ {formatDuration(MAX_AUDIO_DURATION)}</span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 bg-red-200 dark:bg-red-900 rounded-full overflow-hidden">
+                      <div className="h-full bg-red-500 rounded-full transition-all" style={{ width: `${(recordingSeconds / MAX_AUDIO_DURATION) * 100}%` }} />
+                    </div>
+                  </div>
+                  <button onClick={stopAudioRecording} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500 text-white shadow-md hover:bg-red-600 transition-colors" title="Parar gravação">
+                    <Square className="h-4 w-4" />
+                  </button>
+                  <button onClick={cancelAudioRecording} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-destructive hover:text-destructive-foreground transition-colors" title="Cancelar">
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-                <span className="text-sm font-mono tabular-nums text-red-500">{formatDuration(recordingSeconds)}</span>
-                <div className="flex-1" />
-                <button onClick={stopRecording} className="flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600 transition-colors">
-                  <Square className="h-3 w-3 fill-current" /> Parar
-                </button>
               </div>
             )}
 
-            {/* Action bar — Menu + Publicar */}
+            {/* ═══════ ACTION BAR ═══════ */}
             <div className="flex items-center justify-between pt-1">
-              <div className="relative" data-attach-menu>
-                {/* Botão Menu */}
+              {/* Menu button */}
+              <div className="relative" ref={menuRef}>
                 <button
-                  onClick={() => { if (!isRecording) setShowAttachMenu(!showAttachMenu); }}
-                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${showAttachMenu ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-primary"}`}
-                  title="Opções"
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${menuOpen ? "bg-primary/10 text-primary" : "text-primary hover:bg-primary/10"}`}
                 >
                   <Plus className="h-4 w-4" />
                   <span>Menu</span>
+                  <ChevronDown className={`h-3 w-3 transition-transform ${menuOpen ? "rotate-180" : ""}`} />
                 </button>
 
-                {/* Dropdown menu */}
-                {showAttachMenu && (
-                  <div className="absolute left-0 bottom-full mb-2 w-56 rounded-xl border bg-card p-1.5 shadow-xl z-30 animate-in fade-in-0 zoom-in-95">
-                    {/* Foto */}
+                {/* Dropdown menu - opens DOWNWARD */}
+                {menuOpen && (
+                  <div className="absolute left-0 top-full mt-1 w-56 rounded-xl border bg-card p-1.5 shadow-xl z-50 animate-in fade-in-0 zoom-in-95">
+                    {/* Camera photo */}
                     <button
-                      onClick={() => { if (canAddPhotos) fileInputRef.current?.click(); setShowAttachMenu(false); }}
+                      onClick={() => { if (canAddPhotos) cameraPhotoRef.current?.click(); }}
+                      disabled={!canAddPhotos}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddPhotos ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                    >
+                      <Camera className={`h-4 w-4 ${canAddPhotos ? "text-primary" : ""}`} />
+                      <span>Tirar foto</span>
+                    </button>
+
+                    {/* Gallery photos */}
+                    <button
+                      onClick={() => { if (canAddPhotos) fileInputRef.current?.click(); }}
                       disabled={!canAddPhotos}
                       className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddPhotos ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
                     >
                       <ImagePlus className={`h-4 w-4 ${canAddPhotos ? "text-primary" : ""}`} />
-                      <span>Adicionar foto</span>
+                      <span>Escolher fotos</span>
                     </button>
 
-                    {/* Vídeo */}
+                    <div className="my-1 h-px bg-border" />
+
+                    {/* Camera video */}
                     <button
-                      onClick={() => { if (canAddVideo) videoInputRef.current?.click(); setShowAttachMenu(false); }}
+                      onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) cameraVideoRef.current?.click(); }}
                       disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
                       className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
-                      title={videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H ? `Limite de ${MAX_VIDEO_POSTS_PER_12H} vídeos/12h atingido` : undefined}
                     >
                       <Video className={`h-4 w-4 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-primary" : ""}`} />
-                      <span>Adicionar vídeo</span>
-                      <span className="ml-auto text-[10px] text-muted-foreground">máx 30s</span>
+                      <span>Gravar vídeo</span>
                     </button>
 
-                    {/* Áudio arquivo */}
+                    {/* Video from file */}
                     <button
-                      onClick={() => { if (canAddAudio) audioInputRef.current?.click(); setShowAttachMenu(false); }}
-                      disabled={!canAddAudio}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddAudio ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                      onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) videoInputRef.current?.click(); }}
+                      disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
                     >
-                      <Mic className={`h-4 w-4 ${canAddAudio ? "text-primary" : ""}`} />
-                      <span>Áudio do arquivo</span>
+                      <Video className={`h-4 w-4 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-muted-foreground" : ""}`} />
+                      <span>Escolher vídeo</span>
                     </button>
 
-                    {/* Gravar áudio */}
+                    <div className="my-1 h-px bg-border" />
+
+                    {/* Record audio (direct) */}
                     <button
-                      onClick={() => { if (canAddAudio) startRecording(); }}
-                      disabled={!canAddAudio}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddAudio ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                      onClick={() => { if (canAddAudio && !isRecordingAudio) startAudioRecording(); }}
+                      disabled={!canAddAudio || isRecordingAudio}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddAudio && !isRecordingAudio ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
                     >
-                      <div className="relative">
-                        <Mic className={`h-4 w-4 ${canAddAudio ? "text-red-500" : ""}`} />
-                        {canAddAudio && <div className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500" />}
-                      </div>
+                      <Mic className={`h-4 w-4 ${canAddAudio && !isRecordingAudio ? "text-primary" : ""}`} />
                       <span>Gravar áudio</span>
-                      <span className="ml-auto text-[10px] text-muted-foreground">máx 60s</span>
                     </button>
 
-                    {/* Divisor */}
-                    <div className="my-1 border-t" />
-
-                    {/* Visibilidade */}
+                    {/* Audio from file */}
                     <button
-                      onClick={() => { setVisibility(v => v === "public" ? "followers" : "public"); setShowAttachMenu(false); }}
+                      onClick={() => { if (canAddAudio) audioInputRef.current?.click(); }}
+                      disabled={!canAddAudio}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddAudio ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                    >
+                      <Music className={`h-4 w-4 ${canAddAudio ? "text-muted-foreground" : ""}`} />
+                      <span>Escolher áudio</span>
+                    </button>
+
+                    <div className="my-1 h-px bg-border" />
+
+                    {/* Visibility toggle */}
+                    <button
+                      onClick={() => setVisibility((v) => v === "public" ? "followers" : "public")}
                       className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-accent"
                     >
-                      {visibility === "public" ? <Globe className="h-4 w-4 text-primary" /> : <UsersIcon className="h-4 w-4 text-amber-500" />}
-                      <span>{visibility === "public" ? "Público" : "Somente seguidores"}</span>
+                      {visibility === "public" ? (
+                        <Globe className="h-4 w-4 text-primary" />
+                      ) : (
+                        <UsersIcon className="h-4 w-4 text-amber-500" />
+                      )}
+                      <span>{visibility === "public" ? "Público" : "Seguidores"}</span>
                     </button>
                   </div>
                 )}
+
+                {/* Hidden inputs */}
+                <input ref={cameraPhotoRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhotoSelect} className="hidden" />
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
+                <input ref={cameraVideoRef} type="file" accept="video/*" capture="environment" onChange={handleCameraVideoSelect} className="hidden" />
+                <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
+                <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
               </div>
 
+              {/* Publish button */}
               <div className="flex items-center gap-2">
-                {visibility === "followers" && (
-                  <UsersIcon className="h-3.5 w-3.5 text-amber-500" />
-                )}
                 <span className={`text-[10px] ${content.length > 450 ? "text-destructive" : "text-muted-foreground"}`}>
                   {content.length}/500
                 </span>
-                <Button size="icon" disabled={!content.trim() || uploading || isRecording} onClick={handlePost} className="h-8 w-8 rounded-full shadow-sm shrink-0">
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                <Button size="sm" disabled={!content.trim() || uploading} onClick={handlePost} className="rounded-full px-5 shadow-sm">
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Publicar"}
                 </Button>
               </div>
             </div>
-
-            {/* Hidden file inputs — sempre no DOM para o file picker funcionar */}
-            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
-            <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
-            <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
 
             {activeMediaCount >= MAX_ACTIVE_MEDIA_POSTS && (
               <div className="flex items-center gap-1 text-[10px] text-amber-500 mt-1">
