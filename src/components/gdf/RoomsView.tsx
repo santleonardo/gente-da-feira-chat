@@ -1,7 +1,6 @@
 "use client";
 
 /* eslint-disable react-hooks/set-state-in-effect */
-import { Camera, Mic, MicOff, ImagePlus, X } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useStore } from "@/lib/store";
 import { Input } from "@/components/ui/input";
@@ -11,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import {
   Send, ArrowLeft, Users, Plus, LogOut, UserPlus, UserCheck,
   ChevronDown, ChevronUp, X, MoreVertical, Hash, Crown,
+  Camera, Video, Mic, StopCircle,
+  Play, Pause, Volume2, Loader2,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -35,6 +36,12 @@ const ROOM_ICONS = [
   "🍕", "💡", "🔧", "🎯", "🌟", "🚀", "❤️", "🔥",
   "🎨", "💻", "🐶", "🌈", "☕", "🛒", "📣", "🤝",
 ];
+
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 export function RoomsView({ openUserProfile }: { openUserProfile?: (userId: string) => void }) {
   const { profile, selectedRoom, setSelectedRoom } = useStore();
@@ -244,67 +251,72 @@ function CreateRoomDialog({
 }
 
 // ═══════════════════════════════════════════════════════════
-// RoomChat — Redesenhado com visual de chat moderno
+// ChatAudioPlayer — Player de áudio inline no chat
+// ═══════════════════════════════════════════════════════════
+function ChatAudioPlayer({ src }: { src: string }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  const toggle = () => {
+    if (!audioRef.current) return;
+    if (playing) audioRef.current.pause();
+    else audioRef.current.play();
+    setPlaying(!playing);
+  };
+
+  return (
+    <div className="rounded-xl bg-primary/10 p-2.5 mt-1">
+      <div className="flex items-center gap-2">
+        <button onClick={toggle} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all">
+          {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Volume2 className="h-3 w-3 text-primary" />
+            <span className="text-[10px] font-medium">Áudio</span>
+            <span className="text-[9px] text-muted-foreground tabular-nums">{formatDuration(currentTime)} / {formatDuration(duration)}</span>
+          </div>
+          <div className="h-1.5 bg-primary/20 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const pct = (e.clientX - rect.left) / rect.width;
+            if (audioRef.current && duration) audioRef.current.currentTime = pct * duration;
+          }}>
+            <div className="h-full bg-primary rounded-full transition-all" style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }} />
+          </div>
+        </div>
+      </div>
+      <audio ref={audioRef} src={src} preload="metadata" onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)} onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)} onEnded={() => setPlaying(false)} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// RoomChat — Redesenhado com visual de chat moderno + mídia
 // ═══════════════════════════════════════════════════════════
 function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any; onBack: () => void; onRefreshRooms: () => void; openUserProfile?: (userId: string) => void }) {
   const { profile } = useStore();
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
-    // Camera & mic refs and state
-  const cameraRef = useRef<HTMLInputElement>(null);
-  const galleryRef = useRef<HTMLInputElement>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-
-  const formatRecDuration = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${sec.toString().padStart(2, "0")}`;
-  };
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        sendMessage("🎤 Áudio enviado");
-        stream.getTracks().forEach((t) => t.stop());
-      };
-      mediaRecorder.start();
-      setIsRecording(true);
-      setRecordingSeconds(0);
-      recordingTimerRef.current = setInterval(() => {
-        setRecordingSeconds((prev) => { if (prev >= 60) { stopRecording(); return prev; } return prev + 1; });
-      }, 1000);
-    } catch { toast.error("Não foi possível acessar o microfone"); }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") mediaRecorderRef.current.stop();
-    setIsRecording(false);
-    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
-  };
-
-  const cancelRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") { mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop()); mediaRecorderRef.current.stop(); }
-    audioChunksRef.current = [];
-    setIsRecording(false);
-    setRecordingSeconds(0);
-    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
-  };
   const [isMember, setIsMember] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
   const [showMembers, setShowMembers] = useState(false);
   const [membersLoading, setMembersLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // ── Mídia no chat ──
+  const [sendingMedia, setSendingMedia] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const videoCaptureRef = useRef<HTMLInputElement>(null);
+
+  // ── Gravação de áudio ──
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchMembers = useCallback(async () => {
     setMembersLoading(true);
@@ -494,15 +506,41 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
     if (showMembers) fetchMembers();
   }, [showMembers, fetchMembers]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || !profile || !isMember) return;
+  // ── Upload de mídia para o chat ──
+  const uploadChatMedia = async (file: File, type: "image" | "video" | "audio"): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "chat");
+      const endpoint = type === "image" ? "/api/upload" : type === "video" ? "/api/upload/video" : "/api/upload/audio";
+      const res = await fetch(endpoint, { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.url) return data.url;
+      toast.error(data.error || "Erro ao enviar mídia");
+      return null;
+    } catch {
+      toast.error("Erro ao enviar mídia");
+      return null;
+    }
+  };
+
+  // ── Enviar mensagem (texto ou com mídia) ──
+  const sendMessage = async (mediaData?: { image_url?: string; video_url?: string; audio_url?: string }) => {
+    if ((!input.trim() && !mediaData) || !profile || !isMember) return;
     const text = input.trim();
     setInput("");
+    setSendingMedia(false);
     try {
+      const body: any = { content: text || "📷" };
+      if (mediaData) {
+        if (mediaData.image_url) body.image_url = mediaData.image_url;
+        if (mediaData.video_url) body.video_url = mediaData.video_url;
+        if (mediaData.audio_url) body.audio_url = mediaData.audio_url;
+      }
       const res = await fetch(`/api/rooms/${room.id}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: text }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (data.error) { toast.error(data.error); return; }
@@ -514,6 +552,110 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
       }
     } catch { toast.error("Erro ao enviar mensagem"); }
   };
+
+  // ── Captura de foto da câmera ──
+  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSendingMedia(true);
+    const url = await uploadChatMedia(file, "image");
+    if (url) {
+      await sendMessage({ image_url: url });
+    }
+    setSendingMedia(false);
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
+  };
+
+  // ── Captura de vídeo da câmera ──
+  const handleVideoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Vídeo muito grande (máx 50MB)");
+      return;
+    }
+    const videoEl = document.createElement("video");
+    videoEl.preload = "metadata";
+    videoEl.onloadedmetadata = async () => {
+      if (videoEl.duration > 30) {
+        toast.error("Vídeo muito longo (máx 30s)");
+        URL.revokeObjectURL(videoEl.src);
+        return;
+      }
+      URL.revokeObjectURL(videoEl.src);
+      setSendingMedia(true);
+      const url = await uploadChatMedia(file, "video");
+      if (url) {
+        await sendMessage({ video_url: url });
+      }
+      setSendingMedia(false);
+    };
+    videoEl.src = URL.createObjectURL(file);
+    if (videoCaptureRef.current) videoCaptureRef.current.value = "";
+  };
+
+  // ── Gravação de áudio ──
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        const file = new File([blob], `audio_${Date.now()}.webm`, { type: "audio/webm" });
+        setSendingMedia(true);
+        const url = await uploadChatMedia(file, "audio");
+        if (url) {
+          await sendMessage({ audio_url: url });
+        }
+        setSendingMedia(false);
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime((prev) => {
+          if (prev >= 60) {
+            stopRecording();
+            return 60;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch {
+      toast.error("Não foi possível acessar o microfone. Verifique as permissões.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+    }
+  };
+
+  // Limpar ao desmontar
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
 
   const memberCount = members.length || room.memberCount || room.member_count || 0;
 
@@ -657,6 +799,10 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
             const sender = msg.sender || {};
             const showAvatar = !isMine && !msg.isGrouped;
             const showName = !isMine && !msg.isGrouped;
+            const hasImage = !!msg.image_url;
+            const hasVideo = !!msg.video_url;
+            const hasAudio = !!msg.audio_url;
+            const hasMedia = hasImage || hasVideo || hasAudio;
 
             return (
               <div key={msg.id} className={`flex gap-2.5 ${msg.isGrouped ? (isMine ? "pl-0 pr-0" : "pl-[38px]") : ""} ${isMine ? "justify-end" : ""}`}>
@@ -684,11 +830,37 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
                       <span className="text-[9px] text-muted-foreground/50 mb-1 shrink-0">{timeAgo(msg.created_at)}</span>
                     )}
                     <div className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed inline-block break-words ${
-                      isMine
-                        ? "bg-primary text-primary-foreground rounded-br-md"
-                        : "bg-muted rounded-bl-md"
+                      hasMedia && !msg.content?.trim()
+                        ? "bg-transparent p-0"
+                        : isMine
+                          ? "bg-primary text-primary-foreground rounded-br-md"
+                          : "bg-muted rounded-bl-md"
                     }`}>
-                      {msg.content}
+                      {hasImage && (
+                        <div className="mb-1">
+                          <img
+                            src={msg.image_url}
+                            alt="Foto"
+                            className="max-w-full max-h-64 rounded-xl object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                            onClick={() => window.open(msg.image_url, "_blank")}
+                          />
+                        </div>
+                      )}
+                      {hasVideo && (
+                        <div className="mb-1">
+                          <video
+                            src={msg.video_url}
+                            className="max-w-full max-h-64 rounded-xl object-cover"
+                            controls
+                            playsInline
+                            preload="metadata"
+                          />
+                        </div>
+                      )}
+                      {hasAudio && (
+                        <ChatAudioPlayer src={msg.audio_url} />
+                      )}
+                      {msg.content?.trim() && msg.content !== "📷" && <span>{msg.content}</span>}
                     </div>
                     {!isMine && (
                       <span className="text-[9px] text-muted-foreground/50 mb-1 shrink-0">{timeAgo(msg.created_at)}</span>
@@ -701,80 +873,97 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
         </div>
       )}
 
-           <div className="border-t px-4 py-3 bg-card/80 backdrop-blur-md">
+      {/* ── Barra de input do chat ── */}
+      <div className="border-t px-4 py-3 bg-card/80 backdrop-blur-md">
         {isMember ? (
           <>
-            {/* Recording indicator */}
-            {isRecording && (
-              <div className="mb-2 flex items-center justify-between rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                  </span>
-                  <span className="text-xs font-semibold text-red-600 dark:text-red-400">Gravando {formatRecDuration(recordingSeconds)}</span>
+            {isRecording ? (
+              <div className="flex items-center gap-3">
+                <div className="flex-1 flex items-center gap-2 rounded-full bg-destructive/10 px-4 py-2">
+                  <div className="h-3 w-3 rounded-full bg-destructive animate-pulse" />
+                  <span className="text-sm font-medium text-destructive">Gravando {formatDuration(recordingTime)}</span>
+                  <span className="text-[10px] text-muted-foreground">máx 60s</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <button onClick={cancelRecording} className="flex h-7 w-7 items-center justify-center rounded-full bg-muted hover:bg-destructive hover:text-destructive-foreground transition-colors" title="Cancelar">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                  <button onClick={stopRecording} className="flex h-7 items-center gap-1 rounded-full bg-primary px-3 text-xs font-medium text-primary-foreground" title="Enviar">
-                    <Send className="h-3 w-3" />
-                  </button>
+                <Button
+                  size="icon"
+                  onClick={stopRecording}
+                  className="h-11 w-11 rounded-full shrink-0 bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm"
+                >
+                  <StopCircle className="h-5 w-5" />
+                </Button>
+              </div>
+            ) : sendingMedia ? (
+              <div className="flex items-center justify-center gap-2 py-2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">Enviando mídia...</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                {/* Botão câmera (foto) */}
+                <button
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-primary transition-colors"
+                  title="Tirar foto"
+                >
+                  <Camera className="h-5 w-5" />
+                </button>
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  capture="environment"
+                  onChange={handleCameraCapture}
+                  className="hidden"
+                />
+
+                {/* Botão vídeo (câmera) */}
+                <button
+                  onClick={() => videoCaptureRef.current?.click()}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-primary transition-colors"
+                  title="Filmar vídeo (máx 30s)"
+                >
+                  <Video className="h-5 w-5" />
+                </button>
+                <input
+                  ref={videoCaptureRef}
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime"
+                  capture="environment"
+                  onChange={handleVideoCapture}
+                  className="hidden"
+                />
+
+                {/* Botão microfone */}
+                <button
+                  onClick={startRecording}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-primary transition-colors"
+                  title="Gravar áudio (máx 60s)"
+                >
+                  <Mic className="h-5 w-5" />
+                </button>
+
+                {/* Input de texto */}
+                <div className="flex-1 relative">
+                  <Input
+                    placeholder="Escreva uma mensagem..."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value.slice(0, 2000))}
+                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+                    className="h-11 rounded-full pl-4 pr-4 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
+                  />
                 </div>
+
+                {/* Botão enviar */}
+                <Button
+                  size="icon"
+                  onClick={() => sendMessage()}
+                  disabled={!input.trim()}
+                  className="h-11 w-11 rounded-full shrink-0 shadow-sm transition-all hover:shadow-md disabled:shadow-none"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
               </div>
             )}
-            <div className="flex items-center gap-1.5">
-              {/* Camera */}
-              <button
-                onClick={() => cameraRef.current?.click()}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-primary transition-colors"
-                title="Tirar foto"
-              >
-                <Camera className="h-4 w-4" />
-              </button>
-              <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={(e) => { const f = e.target.files?.[0]; if (f) { sendMessage("📷 Foto enviada"); if (cameraRef.current) cameraRef.current.value = ""; } }} className="hidden" />
-
-              {/* Gallery */}
-              <button
-                onClick={() => galleryRef.current?.click()}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-primary transition-colors"
-                title="Foto da galeria"
-              >
-                <ImagePlus className="h-4 w-4" />
-              </button>
-              <input ref={galleryRef} type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) { sendMessage("📷 Foto enviada"); if (galleryRef.current) galleryRef.current.value = ""; } }} className="hidden" />
-
-              {/* Input */}
-              <div className="flex-1 relative">
-                <Input
-                  placeholder="Escreva uma mensagem..."
-                  value={input}
-                  onChange={(e) => setInput(e.target.value.slice(0, 2000))}
-                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-                  className="h-11 rounded-full pl-4 pr-4 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
-                />
-              </div>
-
-              {/* Mic */}
-              <button
-                onClick={() => { if (!isRecording) startRecording(); }}
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${isRecording ? "text-red-500 bg-red-500/10" : "text-muted-foreground hover:bg-accent hover:text-primary"}`}
-                title="Gravar áudio"
-              >
-                {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-              </button>
-
-              {/* Send */}
-              <Button
-                size="icon"
-                onClick={sendMessage}
-                disabled={!input.trim() || isRecording}
-                className="h-11 w-11 rounded-full shrink-0 shadow-sm transition-all hover:shadow-md disabled:shadow-none"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
           </>
         ) : (
           <Button onClick={handleJoin} className="w-full h-11 rounded-full gap-2 shadow-sm">
@@ -782,5 +971,6 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
           </Button>
         )}
       </div>
+    </div>
   );
 }
