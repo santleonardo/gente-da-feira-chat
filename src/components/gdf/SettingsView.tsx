@@ -378,24 +378,32 @@ export function SettingsView() {
               <h3 className="text-sm font-semibold">Notificações recentes</h3>
             </div>
             <div className="space-y-2">
-              {notifications.slice(0, 5).map((notif: any) => (
-                <div key={notif.id} className={`flex items-center gap-3 rounded-lg border p-2.5 ${!notif.read ? "bg-primary/5 border-primary/20" : ""}`}>
+                           {notifications.slice(0, 5).map((notif: any) => {
+                const notifText: Record<string, string> = {
+                  follow: "começou a te seguir",
+                  follow_request: "solicitou te seguir",
+                  follow_accepted: "aceitou sua solicitação",
+                  reaction: "reagiu ao seu post",
+                  comment: "comentou no seu post",
+                };
+                return (
+                <div key={notif.id} className={`flex items-center gap-3 rounded-lg border p-2.5 ${!notif.is_read ? "bg-primary/5 border-primary/20" : ""}`}>
                   <UserAvatar
-                    user={{ id: notif.from_user?.id || "", display_name: notif.from_user?.display_name || "?", avatar_url: notif.from_user?.avatar_url }}
+                    user={{ id: notif.actor?.id || "", display_name: notif.actor?.display_name || "?", avatar_url: notif.actor?.avatar }}
                     className="h-8 w-8"
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm">
-                      <span className="font-medium">{notif.from_user?.display_name}</span>{" "}
-                      <span className="text-muted-foreground">{notif.content}</span>
+                      <span className="font-medium">{notif.actor?.display_name}</span>{" "}
+                      <span className="text-muted-foreground">{notifText[notif.type] || notif.type}</span>
                     </p>
                     <p className="text-[10px] text-muted-foreground">
                       {new Date(notif.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
                     </p>
                   </div>
-                  {!notif.read && <div className="h-2 w-2 rounded-full bg-primary shrink-0" />}
+                  {!notif.is_read && <div className="h-2 w-2 rounded-full bg-primary shrink-0" />}
                 </div>
-              ))}
+              );})}
             </div>
           </CardContent>
         </Card>
