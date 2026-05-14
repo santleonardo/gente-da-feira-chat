@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .single();
 
     if (error) throw error;
-    await supabase.rpc("increment_comment_count", { post_id: postId });
+    // Contagem de comentários é feita dinamicamente via comments(count) no GET /api/posts
     return NextResponse.json({ comment });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -64,7 +64,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     const { error } = await supabase.from("comments").update({ is_deleted: true }).eq("id", commentId).eq("author_id", user.id);
     if (error) throw error;
-    await supabase.rpc("decrement_comment_count", { post_id: postId });
+    // Contagem de comentários é feita dinamicamente via comments(count) no GET /api/posts
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
