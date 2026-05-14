@@ -31,6 +31,7 @@ import {
   Copy,
   ExternalLink,
   Camera,
+  Paperclip,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -398,6 +399,8 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const audioChunksRef = useRef<Blob[]>([]);
 
   // Viewer state
+  // Attach menu state
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [viewerPhotos, setViewerPhotos] = useState<string[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);
