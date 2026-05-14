@@ -29,8 +29,9 @@ import {
   Repeat2,
   Copy,
   ExternalLink,
-  MoreHorizontal,
-  Camera,
+  Paperclip,
+  Plus,
+  Square,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -358,40 +359,6 @@ function ShareMenu({
 }
 
 // ═══════════════════════════════════════════════════════════
-// ComposerMoreMenu — botões extras do composer
-// ═══════════════════════════════════════════════════════════
-function ComposerMoreMenu({
-  visibility,
-  setVisibility,
-  onClose,
-}: {
-  visibility: "public" | "followers";
-  setVisibility: (v: "public" | "followers") => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="absolute left-0 bottom-full mb-2 w-52 rounded-xl border bg-card p-1.5 shadow-xl z-30 animate-in fade-in-0 zoom-in-95">
-      <button
-        onClick={() => { setVisibility(visibility === "public" ? "followers" : "public"); onClose(); }}
-        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-accent"
-      >
-        {visibility === "public" ? (
-          <>
-            <Globe className="h-4 w-4 text-primary" />
-            <span>Público — todos verão</span>
-          </>
-        ) : (
-          <>
-            <UsersIcon className="h-4 w-4 text-amber-500" />
-            <span className="text-amber-500">Seguidores mútuos</span>
-          </>
-        )}
-      </button>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
 // FeedView
 // ═══════════════════════════════════════════════════════════
 export function FeedView({ openUserProfile }: { openUserProfile?: (userId: string) => void }) {
@@ -412,7 +379,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Composer state
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
@@ -422,8 +388,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [videoDuration, setVideoDuration] = useState<number>(0);
   const [audioDuration, setAudioDuration] = useState<number>(0);
   const [visibility, setVisibility] = useState<"public" | "followers">("public");
-  const [showMoreActions, setShowMoreActions] = useState(false);
-  const moreActionsRef = useRef<HTMLDivElement>(null);
 
   // Viewer state
   const [viewerPhotos, setViewerPhotos] = useState<string[]>([]);
@@ -437,17 +401,28 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [repostingPost, setRepostingPost] = useState<PostWithAuthor | null>(null);
   const [repostContent, setRepostContent] = useState("");
 
-  // Close more actions menu on outside click
+  // Attach menu state
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+
+  // Audio recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  // Fechar menu ao clicar fora
   useEffect(() => {
-    if (!showMoreActions) return;
+    if (!showAttachMenu) return;
     const handler = (e: MouseEvent) => {
-      if (moreActionsRef.current && !moreActionsRef.current.contains(e.target as Node)) {
-        setShowMoreActions(false);
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-attach-menu]')) {
+        setShowAttachMenu(false);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [showMoreActions]);
+  }, [showAttachMenu]);
 
   useEffect(() => {
     const nb = profile?.neighborhood || "all";
@@ -493,19 +468,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       setPreviewUrls((prev) => [...prev, createPreviewUrl(file)]);
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const handleCameraSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const remaining = MAX_PHOTOS_PER_POST - selectedFiles.length;
-    const toAdd = files.slice(0, remaining);
-    for (const file of toAdd) {
-      const error = validateImageFile(file);
-      if (error) { toast.error(error); continue; }
-      setSelectedFiles((prev) => [...prev, file]);
-      setPreviewUrls((prev) => [...prev, createPreviewUrl(file)]);
-    }
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
 
   const removeSelectedFile = (index: number) => {
@@ -570,6 +532,76 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     if (audioInputRef.current) audioInputRef.current.value = "";
   };
 
+  const startRecording = async () => {
+    if (hasPhotosInComposer || hasVideoInComposer || hasAudioInComposer) {
+      toast.error("Remova a mídia atual antes de gravar áudio");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm' });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const url = URL.createObjectURL(blob);
+        const file = new File([blob], `audio_${Date.now()}.webm`, { type: 'audio/webm' });
+
+        // Verificar duração
+        const audio = document.createElement('audio');
+        audio.preload = 'metadata';
+        audio.onloadedmetadata = () => {
+          const dur = audio.duration;
+          if (dur > MAX_AUDIO_DURATION) {
+            toast.error(`Áudio muito longo (máx ${MAX_AUDIO_DURATION}s)`);
+            URL.revokeObjectURL(url);
+          } else {
+            setAudioDuration(dur);
+            setSelectedAudio(file);
+            setAudioPreview(url);
+          }
+          URL.revokeObjectURL(audio.src);
+        };
+        audio.src = URL.createObjectURL(blob);
+
+        // Cleanup
+        if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
+        setIsRecording(false);
+        setRecordingSeconds(0);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      setShowAttachMenu(false);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((s) => {
+          if (s >= MAX_AUDIO_DURATION) {
+            stopRecording();
+            return s;
+          }
+          return s + 1;
+        });
+      }, 1000);
+    } catch {
+      toast.error('Não foi possível acessar o microfone');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
+  };
+
   const clearMedia = () => {
     setSelectedFiles([]);
     previewUrls.forEach(revokePreviewUrl);
@@ -582,6 +614,8 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     if (audioPreview) URL.revokeObjectURL(audioPreview);
     setAudioPreview(null);
     setAudioDuration(0);
+    // Parar gravação se ativa
+    if (isRecording) stopRecording();
   };
 
   const uploadPhotos = async (): Promise<string[]> => {
@@ -750,7 +784,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const hasAudioInComposer = !!selectedAudio;
   const canAddPhotos = !hasVideoInComposer && !hasAudioInComposer && selectedFiles.length < MAX_PHOTOS_PER_POST;
   const canAddVideo = !hasPhotosInComposer && !hasAudioInComposer && !hasVideoInComposer;
-  const canAddAudio = !hasPhotosInComposer && !hasVideoInComposer && !hasAudioInComposer;
+  const canAddAudio = !hasPhotosInComposer && !hasVideoInComposer && !hasAudioInComposer && !isRecording;
 
   if (loading) return <FeedSkeleton />;
 
@@ -760,7 +794,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       <div className="rounded-2xl border bg-card p-4 shadow-sm">
         <div className="flex items-start gap-3">
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-10 w-10 shrink-0" />
-          <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex-1 space-y-2">
             <textarea
               placeholder="O que está acontecendo no seu bairro?"
               value={content}
@@ -811,89 +845,115 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               </div>
             )}
 
-            {/* ═══════ ACTION BAR — REORGANIZADA ═══════ */}
-            <div className="flex items-center justify-between gap-2 pt-1">
-              {/* Lado esquerdo: 3 ícones principais + botão "mais" */}
-              <div className="flex items-center gap-0.5 shrink-0">
-                {/* Câmera (tirar foto) */}
-                <button
-                  onClick={() => canAddPhotos && cameraInputRef.current?.click()}
-                  disabled={!canAddPhotos}
-                  className={`rounded-lg p-2 text-xs transition-colors ${canAddPhotos ? "text-primary hover:bg-primary/10" : "text-muted-foreground/40 cursor-not-allowed"}`}
-                  title="Tirar foto"
-                >
-                  <Camera className="h-4 w-4" />
-                </button>
-                <input ref={cameraInputRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={handleCameraSelect} className="hidden" />
-
-                {/* Galeria (adicionar fotos) */}
-                <button
-                  onClick={() => canAddPhotos && fileInputRef.current?.click()}
-                  disabled={!canAddPhotos}
-                  className={`rounded-lg p-2 text-xs transition-colors ${canAddPhotos ? "text-primary hover:bg-primary/10" : "text-muted-foreground/40 cursor-not-allowed"}`}
-                  title="Adicionar fotos"
-                >
-                  <ImagePlus className="h-4 w-4" />
-                </button>
-                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
-
-                {/* Vídeo */}
-                <button
-                  onClick={() => canAddVideo && videoInputRef.current?.click()}
-                  disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
-                  className={`rounded-lg p-2 text-xs transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-primary hover:bg-primary/10" : "text-muted-foreground/40 cursor-not-allowed"}`}
-                  title={videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H ? `Limite de ${MAX_VIDEO_POSTS_PER_12H} vídeos/12h` : "Vídeo (máx 30s)"}
-                >
-                  <Video className="h-4 w-4" />
-                </button>
-                <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
-
-                {/* Microfone (áudio) */}
-                <button
-                  onClick={() => canAddAudio && audioInputRef.current?.click()}
-                  disabled={!canAddAudio}
-                  className={`rounded-lg p-2 text-xs transition-colors ${canAddAudio ? "text-primary hover:bg-primary/10" : "text-muted-foreground/40 cursor-not-allowed"}`}
-                  title="Áudio (máx 60s)"
-                >
-                  <Mic className="h-4 w-4" />
-                </button>
-                <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
-
-                {/* Botão "mais" — visibilidade e opções extras */}
-                <div className="relative" ref={moreActionsRef}>
-                  <button
-                    onClick={() => setShowMoreActions(!showMoreActions)}
-                    className={`rounded-lg p-2 text-xs transition-colors ${showMoreActions ? "bg-accent text-primary" : "text-muted-foreground hover:bg-accent hover:text-primary"}`}
-                    title="Mais opções"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
-                  {showMoreActions && (
-                    <ComposerMoreMenu
-                      visibility={visibility}
-                      setVisibility={setVisibility}
-                      onClose={() => setShowMoreActions(false)}
-                    />
-                  )}
+            {/* Recording indicator */}
+            {isRecording && (
+              <div className="flex items-center gap-3 rounded-xl border bg-red-500/10 border-red-500/20 p-3 mt-1">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-xs font-semibold text-red-500">Gravando</span>
                 </div>
+                <span className="text-sm font-mono tabular-nums text-red-500">{formatDuration(recordingSeconds)}</span>
+                <div className="flex-1" />
+                <button onClick={stopRecording} className="flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600 transition-colors">
+                  <Square className="h-3 w-3 fill-current" /> Parar
+                </button>
+              </div>
+            )}
+
+            {/* Action bar — Menu + Publicar */}
+            <div className="flex items-center justify-between pt-1">
+              <div className="relative" data-attach-menu>
+                {/* Botão Menu */}
+                <button
+                  onClick={() => { if (!isRecording) setShowAttachMenu(!showAttachMenu); }}
+                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${showAttachMenu ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-primary"}`}
+                  title="Opções"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Menu</span>
+                </button>
+
+                {/* Dropdown menu */}
+                {showAttachMenu && (
+                  <div className="absolute left-0 bottom-full mb-2 w-56 rounded-xl border bg-card p-1.5 shadow-xl z-30 animate-in fade-in-0 zoom-in-95">
+                    {/* Foto */}
+                    <button
+                      onClick={() => { if (canAddPhotos) fileInputRef.current?.click(); setShowAttachMenu(false); }}
+                      disabled={!canAddPhotos}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddPhotos ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                    >
+                      <ImagePlus className={`h-4 w-4 ${canAddPhotos ? "text-primary" : ""}`} />
+                      <span>Adicionar foto</span>
+                    </button>
+
+                    {/* Vídeo */}
+                    <button
+                      onClick={() => { if (canAddVideo) videoInputRef.current?.click(); setShowAttachMenu(false); }}
+                      disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                      title={videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H ? `Limite de ${MAX_VIDEO_POSTS_PER_12H} vídeos/12h atingido` : undefined}
+                    >
+                      <Video className={`h-4 w-4 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-primary" : ""}`} />
+                      <span>Adicionar vídeo</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground">máx 30s</span>
+                    </button>
+
+                    {/* Áudio arquivo */}
+                    <button
+                      onClick={() => { if (canAddAudio) audioInputRef.current?.click(); setShowAttachMenu(false); }}
+                      disabled={!canAddAudio}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddAudio ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                    >
+                      <Mic className={`h-4 w-4 ${canAddAudio ? "text-primary" : ""}`} />
+                      <span>Áudio do arquivo</span>
+                    </button>
+
+                    {/* Gravar áudio */}
+                    <button
+                      onClick={() => { if (canAddAudio) startRecording(); }}
+                      disabled={!canAddAudio}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddAudio ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                    >
+                      <div className="relative">
+                        <Mic className={`h-4 w-4 ${canAddAudio ? "text-red-500" : ""}`} />
+                        {canAddAudio && <div className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500" />}
+                      </div>
+                      <span>Gravar áudio</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground">máx 60s</span>
+                    </button>
+
+                    {/* Divisor */}
+                    <div className="my-1 border-t" />
+
+                    {/* Visibilidade */}
+                    <button
+                      onClick={() => { setVisibility(v => v === "public" ? "followers" : "public"); setShowAttachMenu(false); }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-accent"
+                    >
+                      {visibility === "public" ? <Globe className="h-4 w-4 text-primary" /> : <UsersIcon className="h-4 w-4 text-amber-500" />}
+                      <span>{visibility === "public" ? "Público" : "Somente seguidores"}</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Lado direito: visibilidade badge + contador + botão enviar */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                {/* Badge de visibilidade (compacto) */}
+              <div className="flex items-center gap-2">
                 {visibility === "followers" && (
-                  <span className="flex items-center gap-0.5 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-500 font-medium">
-                    <UsersIcon className="h-3 w-3" />
-                  </span>
+                  <UsersIcon className="h-3.5 w-3.5 text-amber-500" />
                 )}
-                <span className={`text-[10px] tabular-nums ${content.length > 450 ? "text-destructive" : "text-muted-foreground"}`}>
+                <span className={`text-[10px] ${content.length > 450 ? "text-destructive" : "text-muted-foreground"}`}>
                   {content.length}/500
                 </span>
-                <Button size="icon" disabled={!content.trim() || uploading} onClick={handlePost} className="h-8 w-8 shrink-0 rounded-full shadow-sm">
+                <Button size="icon" disabled={!content.trim() || uploading || isRecording} onClick={handlePost} className="h-8 w-8 rounded-full shadow-sm shrink-0">
                   {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
+
+            {/* Hidden file inputs — sempre no DOM para o file picker funcionar */}
+            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
+            <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
+            <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
 
             {activeMediaCount >= MAX_ACTIVE_MEDIA_POSTS && (
               <div className="flex items-center gap-1 text-[10px] text-amber-500 mt-1">
