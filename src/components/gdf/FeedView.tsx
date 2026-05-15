@@ -50,23 +50,23 @@ import {
 const MAX_PHOTOS_PER_POST = 5;
 const MAX_ACTIVE_MEDIA_POSTS = 5;
 const MAX_VIDEO_POSTS_PER_12H = 5;
-const MAX_VIDEO_DURATION = 30;
-const MAX_AUDIO_DURATION = 60;
+const MAX_VIDEO_DURATION = 30; // seconds
+const MAX_AUDIO_DURATION = 60; // seconds
 
 const REACTION_EMOJIS = [
-  { type: "like", emoji: "\u2764\uFE0F", label: "Curtir" },
-  { type: "laugh", emoji: "\uD83D\uDE02", label: "Engra\u00E7ado" },
-  { type: "sad", emoji: "\uD83D\uDE14", label: "Triste" },
-  { type: "wow", emoji: "\uD83D\uDE32", label: "Uau" },
-  { type: "angry", emoji: "\uD83D\uDE21", label: "Bravo" },
-  { type: "love", emoji: "\uD83D\uDE0D", label: "Amei" },
+  { type: "like", emoji: "❤️", label: "Curtir" },
+  { type: "laugh", emoji: "😂", label: "Engraçado" },
+  { type: "sad", emoji: "😔", label: "Triste" },
+  { type: "wow", emoji: "😲", label: "Uau" },
+  { type: "angry", emoji: "😡", label: "Bravo" },
+  { type: "love", emoji: "😍", label: "Amei" },
 ] as const;
 
 function buildReactionGroups(reactions: { user_id: string; type: string }[]) {
   const groups: Record<string, { emoji: string; count: number; types: string[] }> = {};
   for (const r of reactions) {
     const match = REACTION_EMOJIS.find((e) => e.type === r.type);
-    const emoji = match?.emoji || "\u2764\uFE0F";
+    const emoji = match?.emoji || "❤️";
     if (!groups[r.type]) groups[r.type] = { emoji, count: 0, types: [r.type] };
     groups[r.type].count++;
   }
@@ -136,11 +136,11 @@ function VideoPlayer({ src }: { src: string }) {
   };
 
   return (
-    <div className="relative rounded-xl overflow-hidden bg-black group">
+    <div className="mt-2.5 relative rounded-2xl overflow-hidden bg-black shadow-md group">
       <video
         ref={videoRef}
         src={src}
-        className="w-full max-h-80 object-contain"
+        className="w-full max-h-96 object-contain"
         playsInline
         preload="metadata"
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
@@ -149,28 +149,29 @@ function VideoPlayer({ src }: { src: string }) {
         onClick={toggle}
       />
       {!playing && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20 cursor-pointer" onClick={toggle}>
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/25 backdrop-blur-sm transition-transform hover:scale-110">
-            <Play className="h-6 w-6 text-white fill-white ml-0.5" />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer" onClick={toggle}>
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur-md shadow-lg transition-transform hover:scale-110">
+            <Play className="h-8 w-8 text-white fill-white ml-1" />
           </div>
         </div>
       )}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-3 pb-2 pt-6 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         <div className="flex items-center gap-2">
           <button onClick={toggle} className="text-white">
-            {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+            {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </button>
           <div className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
-            if (videoRef.current && duration) videoRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
+            const pct = (e.clientX - rect.left) / rect.width;
+            if (videoRef.current && duration) videoRef.current.currentTime = pct * duration;
           }}>
             <div className="h-full bg-white rounded-full transition-all" style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }} />
           </div>
-          <span className="text-[9px] text-white/70 tabular-nums">{formatDuration(currentTime)}/{formatDuration(duration)}</span>
+          <span className="text-[10px] text-white/80 tabular-nums">{formatDuration(currentTime)}/{formatDuration(duration)}</span>
         </div>
       </div>
-      <div className="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-black/50 backdrop-blur-sm px-1.5 py-0.5 text-[9px] text-white/80">
-        <Video className="h-2.5 w-2.5" />
+      <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-2.5 py-1 text-[10px] font-medium text-white">
+        <Video className="h-3 w-3" /> Vídeo
       </div>
     </div>
   );
@@ -193,21 +194,24 @@ function AudioPlayer({ src }: { src: string }) {
   };
 
   return (
-    <div className="flex items-center gap-3 rounded-lg bg-primary/5 border border-primary/10 p-3">
-      <button onClick={toggle} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
-        {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
-      </button>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1.5">
-          <Volume2 className="h-3.5 w-3.5 text-primary" />
-          <span className="text-[11px] font-medium">Áudio</span>
-          <span className="text-[10px] text-muted-foreground tabular-nums">{formatDuration(currentTime)} / {formatDuration(duration)}</span>
-        </div>
-        <div className="h-1.5 bg-primary/15 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          if (audioRef.current && duration) audioRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
-        }}>
-          <div className="h-full bg-primary rounded-full transition-all" style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }} />
+    <div className="mt-2.5 rounded-2xl border bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 p-4 shadow-sm">
+      <div className="flex items-center gap-3.5">
+        <button onClick={toggle} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-all hover:scale-105">
+          {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-2">
+            <Volume2 className="h-4 w-4 text-primary" />
+            <span className="text-xs font-semibold">Áudio</span>
+            <span className="text-[10px] text-muted-foreground tabular-nums">{formatDuration(currentTime)} / {formatDuration(duration)}</span>
+          </div>
+          <div className="h-2 bg-primary/20 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const pct = (e.clientX - rect.left) / rect.width;
+            if (audioRef.current && duration) audioRef.current.currentTime = pct * duration;
+          }}>
+            <div className="h-full bg-primary rounded-full transition-all" style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }} />
+          </div>
         </div>
       </div>
       <audio ref={audioRef} src={src} preload="metadata" onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)} onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)} onEnded={() => setPlaying(false)} />
@@ -224,17 +228,17 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
 
   if (count === 1) {
     return (
-      <button onClick={() => onPhotoClick?.(0)} className="w-full overflow-hidden rounded-xl">
-        <img src={photos[0]} alt="Foto do post" className="w-full max-h-72 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+      <button onClick={() => onPhotoClick?.(0)} className="mt-2.5 w-full overflow-hidden rounded-2xl shadow-sm">
+        <img src={photos[0]} alt="Foto do post" className="w-full max-h-80 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
       </button>
     );
   }
   if (count === 2) {
     return (
-      <div className="grid grid-cols-2 gap-0.5 overflow-hidden rounded-xl">
+      <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-2xl shadow-sm">
         {photos.map((url, i) => (
           <button key={i} onClick={() => onPhotoClick?.(i)} className="overflow-hidden">
-            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-36 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           </button>
         ))}
       </div>
@@ -242,26 +246,26 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
   }
   if (count === 3) {
     return (
-      <div className="grid grid-cols-2 gap-0.5 overflow-hidden rounded-xl">
+      <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-2xl shadow-sm">
         <button onClick={() => onPhotoClick?.(0)} className="row-span-2 overflow-hidden">
           <img src={photos[0]} alt="Foto 1" className="w-full h-full object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(1)} className="overflow-hidden">
-          <img src={photos[1]} alt="Foto 2" className="w-full h-36 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[1]} alt="Foto 2" className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(2)} className="overflow-hidden">
-          <img src={photos[2]} alt="Foto 3" className="w-full h-36 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[2]} alt="Foto 3" className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
       </div>
     );
   }
   return (
-    <div className="grid grid-cols-2 gap-0.5 overflow-hidden rounded-xl">
+    <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-2xl shadow-sm">
       {photos.slice(0, 4).map((url, i) => (
         <button key={i} onClick={() => onPhotoClick?.(i)} className="relative overflow-hidden">
-          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-36 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           {i === 3 && count > 4 && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-white font-semibold text-sm">+{count - 4}</div>
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-white font-bold text-lg">+{count - 4}</div>
           )}
         </button>
       ))}
@@ -292,29 +296,62 @@ function PhotoViewer({ photos, initialIndex, onClose }: { photos: string[]; init
 // ═══════════════════════════════════════════════════════════
 // ShareMenu
 // ═══════════════════════════════════════════════════════════
-function ShareMenu({ post, onClose, onRepost }: { post: PostWithAuthor; onClose: () => void; onRepost: (post: PostWithAuthor) => void }) {
+function ShareMenu({
+  post,
+  onClose,
+  onRepost,
+}: {
+  post: PostWithAuthor;
+  onClose: () => void;
+  onRepost: (post: PostWithAuthor) => void;
+}) {
   const handleExternalShare = async () => {
-    const shareData = { title: `Post de ${post.author.display_name}`, text: post.content.slice(0, 100) + (post.content.length > 100 ? "..." : ""), url: window.location.href };
+    const shareData = {
+      title: `Post de ${post.author.display_name}`,
+      text: post.content.slice(0, 100) + (post.content.length > 100 ? "..." : ""),
+      url: window.location.href,
+    };
     try {
-      if (navigator.share) await navigator.share(shareData);
-      else { await navigator.clipboard.writeText(`${shareData.text}\n\n\u2014 GDF Chat`); toast.success("Texto copiado!"); }
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(`${shareData.text}\n\n— GDF Chat`);
+        toast.success("Texto copiado!");
+      }
     } catch { /* cancelled */ }
     onClose();
   };
+
   const handleCopyLink = async () => {
-    try { await navigator.clipboard.writeText(post.content.slice(0, 200)); toast.success("Texto copiado!"); } catch { toast.error("Erro ao copiar"); }
+    try {
+      await navigator.clipboard.writeText(post.content.slice(0, 200));
+      toast.success("Texto copiado!");
+    } catch { toast.error("Erro ao copiar"); }
     onClose();
   };
+
   return (
-    <div className="absolute right-0 bottom-full mb-1.5 w-48 rounded-lg border bg-popover p-1 shadow-lg z-30 animate-in fade-in-0 zoom-in-95">
-      <button onClick={() => { onRepost(post); onClose(); }} className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-xs transition-colors hover:bg-accent">
-        <Repeat2 className="h-3.5 w-3.5 text-primary" /><span>Compartilhar no feed</span>
+    <div className="absolute right-0 bottom-full mb-2 w-52 rounded-xl border bg-card p-1.5 shadow-xl z-30 animate-in fade-in-0 zoom-in-95">
+      <button
+        onClick={() => { onRepost(post); onClose(); }}
+        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-accent"
+      >
+        <Repeat2 className="h-4 w-4 text-primary" />
+        <span>Compartilhar no feed</span>
       </button>
-      <button onClick={handleExternalShare} className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-xs transition-colors hover:bg-accent">
-        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" /><span>Compartilhar fora</span>
+      <button
+        onClick={handleExternalShare}
+        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-accent"
+      >
+        <ExternalLink className="h-4 w-4 text-muted-foreground" />
+        <span>Compartilhar fora</span>
       </button>
-      <button onClick={handleCopyLink} className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-xs transition-colors hover:bg-accent">
-        <Copy className="h-3.5 w-3.5 text-muted-foreground" /><span>Copiar texto</span>
+      <button
+        onClick={handleCopyLink}
+        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-accent"
+      >
+        <Copy className="h-4 w-4 text-muted-foreground" />
+        <span>Copiar texto</span>
       </button>
     </div>
   );
@@ -338,8 +375,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [uploading, setUploading] = useState(false);
   const [activeMediaCount, setActiveMediaCount] = useState(0);
   const [videoPostsInWindow, setVideoPostsInWindow] = useState(0);
-
-  // Input refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
@@ -367,11 +402,15 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
-  // Viewer / share / repost state
+  // Viewer state
   const [viewerPhotos, setViewerPhotos] = useState<string[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);
+
+  // Share state
   const [shareMenuOpen, setShareMenuOpen] = useState<string | null>(null);
+
+  // Repost state
   const [repostingPost, setRepostingPost] = useState<PostWithAuthor | null>(null);
   const [repostContent, setRepostContent] = useState("");
 
@@ -413,9 +452,16 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       const now = new Date().toISOString();
       const res = await fetch(`/api/posts?authorId=${profile.id}&limit=50`);
       const data = await res.json();
-      setActiveMediaCount((data.posts || []).filter((p: PostWithAuthor) => p.expires_at && p.expires_at > now).length);
+      const active = (data.posts || []).filter(
+        (p: PostWithAuthor) => p.expires_at && p.expires_at > now
+      );
+      setActiveMediaCount(active.length);
+
       const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-      setVideoPostsInWindow((data.posts || []).filter((p: PostWithAuthor) => p.video_url && p.created_at > twelveHoursAgo).length);
+      const recentVideos = (data.posts || []).filter(
+        (p: PostWithAuthor) => p.video_url && p.created_at > twelveHoursAgo
+      );
+      setVideoPostsInWindow(recentVideos.length);
     } catch { /* silent */ }
   };
 
@@ -430,7 +476,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       setPreviewUrls((prev) => [...prev, createPreviewUrl(file)]);
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
-    setMenuOpen(false);
   };
 
   const handleCameraPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -438,28 +483,13 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     if (!file) return;
     const error = validateImageFile(file);
     if (error) { toast.error(error); return; }
+    if (selectedFiles.length >= MAX_PHOTOS_PER_POST) {
+      toast.error(`Máximo de ${MAX_PHOTOS_PER_POST} fotos por post`);
+      return;
+    }
     setSelectedFiles((prev) => [...prev, file]);
     setPreviewUrls((prev) => [...prev, createPreviewUrl(file)]);
     if (cameraPhotoRef.current) cameraPhotoRef.current.value = "";
-    setMenuOpen(false);
-  };
-
-  const handleCameraVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 50 * 1024 * 1024) { toast.error("V\u00EDdeo muito grande (m\u00E1x 50MB)"); return; }
-    const video = document.createElement("video");
-    video.preload = "metadata";
-    video.onloadedmetadata = () => {
-      if (video.duration > MAX_VIDEO_DURATION) { toast.error(`V\u00EDdeo muito longo (m\u00E1x ${MAX_VIDEO_DURATION}s)`); URL.revokeObjectURL(video.src); return; }
-      setVideoDuration(video.duration);
-      setSelectedVideo(file);
-      setVideoPreview(URL.createObjectURL(file));
-      URL.revokeObjectURL(video.src);
-    };
-    video.src = URL.createObjectURL(file);
-    if (cameraVideoRef.current) cameraVideoRef.current.value = "";
-    setMenuOpen(false);
   };
 
   const removeSelectedFile = (index: number) => {
@@ -471,12 +501,22 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!["video/mp4", "video/webm", "video/quicktime"].includes(file.type)) { toast.error("Tipo n\u00E3o suportado. Use MP4, WebM ou MOV."); return; }
-    if (file.size > 50 * 1024 * 1024) { toast.error("V\u00EDdeo muito grande (m\u00E1x 50MB)"); return; }
+    if (!["video/mp4", "video/webm", "video/quicktime"].includes(file.type)) {
+      toast.error("Tipo não suportado. Use MP4, WebM ou MOV.");
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Vídeo muito grande (máx 50MB)");
+      return;
+    }
     const video = document.createElement("video");
     video.preload = "metadata";
     video.onloadedmetadata = () => {
-      if (video.duration > MAX_VIDEO_DURATION) { toast.error(`V\u00EDdeo muito longo (m\u00E1x ${MAX_VIDEO_DURATION}s)`); URL.revokeObjectURL(video.src); return; }
+      if (video.duration > MAX_VIDEO_DURATION) {
+        toast.error(`Vídeo muito longo (máx ${MAX_VIDEO_DURATION}s)`);
+        URL.revokeObjectURL(video.src);
+        return;
+      }
       setVideoDuration(video.duration);
       setSelectedVideo(file);
       setVideoPreview(URL.createObjectURL(file));
@@ -484,18 +524,51 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     };
     video.src = URL.createObjectURL(file);
     if (videoInputRef.current) videoInputRef.current.value = "";
-    setMenuOpen(false);
+  };
+
+  const handleCameraVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Vídeo muito grande (máx 50MB)");
+      return;
+    }
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      if (video.duration > MAX_VIDEO_DURATION) {
+        toast.error(`Vídeo muito longo (máx ${MAX_VIDEO_DURATION}s)`);
+        URL.revokeObjectURL(video.src);
+        return;
+      }
+      setVideoDuration(video.duration);
+      setSelectedVideo(file);
+      setVideoPreview(URL.createObjectURL(file));
+      URL.revokeObjectURL(video.src);
+    };
+    video.src = URL.createObjectURL(file);
+    if (cameraVideoRef.current) cameraVideoRef.current.value = "";
   };
 
   const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!["audio/mpeg", "audio/mp4", "audio/webm", "audio/ogg", "audio/wav", "audio/x-m4a"].includes(file.type)) { toast.error("Tipo n\u00E3o suportado. Use MP3, M4A, WebM, OGG ou WAV."); return; }
-    if (file.size > 10 * 1024 * 1024) { toast.error("\u00C1udio muito grande (m\u00E1x 10MB)"); return; }
+    if (!["audio/mpeg", "audio/mp4", "audio/webm", "audio/ogg", "audio/wav", "audio/x-m4a"].includes(file.type)) {
+      toast.error("Tipo não suportado. Use MP3, M4A, WebM, OGG ou WAV.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Áudio muito grande (máx 10MB)");
+      return;
+    }
     const audio = document.createElement("audio");
     audio.preload = "metadata";
     audio.onloadedmetadata = () => {
-      if (audio.duration > MAX_AUDIO_DURATION) { toast.error(`\u00C1udio muito longo (m\u00E1x ${MAX_AUDIO_DURATION}s)`); URL.revokeObjectURL(audio.src); return; }
+      if (audio.duration > MAX_AUDIO_DURATION) {
+        toast.error(`Áudio muito longo (máx ${MAX_AUDIO_DURATION}s)`);
+        URL.revokeObjectURL(audio.src);
+        return;
+      }
       setAudioDuration(audio.duration);
       setSelectedAudio(file);
       setAudioPreview(URL.createObjectURL(file));
@@ -503,65 +576,108 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     };
     audio.src = URL.createObjectURL(file);
     if (audioInputRef.current) audioInputRef.current.value = "";
-    setMenuOpen(false);
   };
 
-  // ═══════ Direct audio recording ═══════
   const startAudioRecording = async () => {
-    setMenuOpen(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
-      let mimeType = "audio/webm";
-      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "audio/webm;codecs=opus";
-      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "audio/mp4";
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
+
+      let mimeType = "";
+      if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+        mimeType = "audio/webm;codecs=opus";
+      } else if (MediaRecorder.isTypeSupported("audio/webm")) {
+        mimeType = "audio/webm";
+      } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+        mimeType = "audio/mp4";
+      }
+
+      const options: MediaRecorderOptions = {};
+      if (mimeType) options.mimeType = mimeType;
+
+      const recorder = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
-      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: mimeType });
-        const ext = mimeType.includes("mp4") ? "m4a" : "webm";
-        const file = new File([blob], `grava\u00E7\u00E3o.${ext}`, { type: mimeType });
-        const url = URL.createObjectURL(file);
-        const tempAudio = document.createElement("audio");
-        tempAudio.preload = "metadata";
-        tempAudio.onloadedmetadata = () => {
-          setAudioDuration(tempAudio.duration);
-          setSelectedAudio(file);
-          setAudioPreview(url);
-          URL.revokeObjectURL(tempAudio.src);
-        };
-        tempAudio.src = url;
-        if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach((t) => t.stop()); mediaStreamRef.current = null; }
-        mediaRecorderRef.current = null;
-        setIsRecordingAudio(false);
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
-      mediaRecorder.start(1000);
+
+      recorder.start(100);
       setIsRecordingAudio(true);
       setRecordingSeconds(0);
+
       recordingTimerRef.current = setInterval(() => {
         setRecordingSeconds((prev) => {
-          if (prev + 1 >= MAX_AUDIO_DURATION) { stopAudioRecording(); return MAX_AUDIO_DURATION; }
+          if (prev + 1 >= MAX_AUDIO_DURATION) {
+            stopAudioRecording();
+            return MAX_AUDIO_DURATION;
+          }
           return prev + 1;
         });
       }, 1000);
     } catch {
-      toast.error("N\u00E3o foi poss\u00EDvel acessar o microfone. Verifique as permiss\u00F5es.");
+      toast.error("Não foi possível acessar o microfone");
     }
   };
 
   const stopAudioRecording = () => {
-    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") mediaRecorderRef.current.stop();
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") return;
+
+    recorder.onstop = () => {
+      const chunks = audioChunksRef.current;
+      if (chunks.length === 0) return;
+
+      const mimeType = recorder.mimeType || "audio/webm";
+      const blob = new Blob(chunks, { type: mimeType });
+      const ext = mimeType.includes("mp4") ? "m4a" : "webm";
+      const file = new File([blob], `audio.${ext}`, { type: mimeType });
+
+      const url = URL.createObjectURL(blob);
+      const audio = document.createElement("audio");
+      audio.preload = "metadata";
+      audio.onloadedmetadata = () => {
+        setAudioDuration(audio.duration);
+        URL.revokeObjectURL(audio.src);
+      };
+      audio.src = url;
+
+      setSelectedAudio(file);
+      setAudioPreview(url);
+
+      // Clean up
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
+      }
+      audioChunksRef.current = [];
+      mediaRecorderRef.current = null;
+    };
+
+    recorder.stop();
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setIsRecordingAudio(false);
   };
 
   const cancelAudioRecording = () => {
-    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") { mediaRecorderRef.current.onstop = null; mediaRecorderRef.current.stop(); }
-    if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach((t) => t.stop()); mediaStreamRef.current = null; }
-    mediaRecorderRef.current = null;
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
     audioChunksRef.current = [];
+    mediaRecorderRef.current = null;
     setIsRecordingAudio(false);
     setRecordingSeconds(0);
   };
@@ -606,9 +722,9 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       const res = await fetch("/api/upload/video", { method: "POST", body: formData });
       const data = await res.json();
       if (data.url) return data.url;
-      toast.error(data.error || "Erro ao enviar v\u00EDdeo");
+      toast.error(data.error || "Erro ao enviar vídeo");
       return null;
-    } catch { toast.error("Erro ao enviar v\u00EDdeo"); return null; }
+    } catch { toast.error("Erro ao enviar vídeo"); return null; }
   };
 
   const uploadAudio = async (file: File): Promise<string | null> => {
@@ -619,22 +735,21 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       const res = await fetch("/api/upload/audio", { method: "POST", body: formData });
       const data = await res.json();
       if (data.url) return data.url;
-      toast.error(data.error || "Erro ao enviar \u00E1udio");
+      toast.error(data.error || "Erro ao enviar áudio");
       return null;
-    } catch { toast.error("Erro ao enviar \u00E1udio"); return null; }
+    } catch { toast.error("Erro ao enviar áudio"); return null; }
   };
 
   const handlePost = async () => {
     const hasMedia = selectedFiles.length > 0 || selectedVideo || selectedAudio;
-    if (!profile) return;
-    if (!content.trim() && !hasMedia) return;
+    if ((!content.trim() && !hasMedia) || !profile) return;
 
     if (hasMedia && activeMediaCount >= MAX_ACTIVE_MEDIA_POSTS) {
-      toast.error(`Voc\u00EA j\u00E1 tem ${MAX_ACTIVE_MEDIA_POSTS} posts com m\u00EDdia ativos. Aguarde a expira\u00E7\u00E3o.`);
+      toast.error(`Você já tem ${MAX_ACTIVE_MEDIA_POSTS} posts com mídia ativos. Aguarde a expiração.`);
       return;
     }
     if (selectedVideo && videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H) {
-      toast.error(`Voc\u00EA j\u00E1 postou ${MAX_VIDEO_POSTS_PER_12H} v\u00EDdeos nas \u00FAltimas 12h.`);
+      toast.error(`Você já postou ${MAX_VIDEO_POSTS_PER_12H} vídeos nas últimas 12h.`);
       return;
     }
 
@@ -646,7 +761,11 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 
       if (selectedFiles.length > 0) {
         imageUrls = await uploadPhotos();
-        if (imageUrls.length === 0 && selectedFiles.length > 0) { toast.error("Falha ao enviar fotos."); setUploading(false); return; }
+        if (imageUrls.length === 0 && selectedFiles.length > 0) {
+          toast.error("Falha ao enviar fotos.");
+          setUploading(false);
+          return;
+        }
       }
       if (selectedVideo) {
         videoUrl = await uploadVideo(selectedVideo);
@@ -661,7 +780,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: content.trim() || (hasMedia ? "\uD83D\uDCF7" : ""),
+          content: content.trim() || (hasMedia ? "📷" : ""),
           neighborhood: profile.neighborhood,
           imageUrls,
           videoUrl,
@@ -724,7 +843,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     try {
       await fetch(`/api/posts?id=${postId}`, { method: "DELETE" });
       setPosts((prev) => prev.filter((p) => p.id !== postId));
-      toast.success("Post exclu\u00EDdo");
+      toast.success("Post excluído");
       fetchMediaCounts();
     } catch { toast.error("Erro ao excluir"); }
   };
@@ -751,10 +870,10 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   if (loading) return <FeedSkeleton />;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* ═══════ COMPOSER ═══════ */}
       <div className="relative z-10 rounded-xl border bg-card p-3 shadow-sm">
-        {/* Recording banner */}
+        {/* Audio recording banner */}
         {isRecordingAudio && (
           <div className="-mx-3 -mt-3 mb-3 rounded-t-xl bg-red-500 px-3 py-2.5 text-white">
             <div className="flex items-center gap-2.5">
@@ -785,18 +904,18 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
           </div>
         )}
 
-        <div className="flex gap-2.5">
+        <div className="flex items-start gap-2.5">
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-8 w-8 shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex-1 space-y-1.5">
             <textarea
-              placeholder={hasAnyMedia ? "Texto (opcional)..." : "O que est\u00E1 acontecendo?"}
+              placeholder={hasAnyMedia ? "Texto (opcional)..." : "O que está acontecendo?"}
               value={content}
               onChange={(e) => setContent(e.target.value.slice(0, 500))}
               className="w-full min-h-[52px] resize-none rounded-lg border-0 bg-transparent px-0 py-1 text-sm focus:outline-none placeholder:text-muted-foreground/50"
               rows={2}
             />
 
-            {/* Photo previews - horizontal scroll */}
+            {/* Photo previews */}
             {hasPhotosInComposer && previewUrls.length > 0 && (
               <div className="flex gap-1.5 overflow-x-auto pb-0.5">
                 {previewUrls.map((url, i) => (
@@ -827,7 +946,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
             {hasAudioInComposer && audioPreview && (
               <div className="relative flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/10 px-2.5 py-2">
                 <Volume2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                <span className="text-[11px] font-medium">\u00C1udio</span>
+                <span className="text-[11px] font-medium">Áudio</span>
                 <span className="text-[10px] text-muted-foreground">{formatDuration(audioDuration)}</span>
                 <audio src={audioPreview} controls className="flex-1 h-6 min-w-0" />
                 <button onClick={() => { setSelectedAudio(null); if (audioPreview) URL.revokeObjectURL(audioPreview); setAudioPreview(null); setAudioDuration(0); }} className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground">
@@ -836,55 +955,88 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               </div>
             )}
 
-            {/* ═══════ Action bar ═══════ */}
+            {/* Action bar */}
             <div className="flex items-center justify-between -mx-1">
               <div className="relative" ref={menuRef}>
-                <button
-                  onClick={() => setMenuOpen(!menuOpen)}
-                  className={`flex items-center gap-0.5 rounded-full px-2 py-1 text-xs font-medium transition-colors ${menuOpen ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-primary hover:bg-primary/5"}`}
-                >
+                <button onClick={() => setMenuOpen(!menuOpen)} className={`flex items-center gap-0.5 rounded-full px-2 py-1 text-xs font-medium transition-colors ${menuOpen ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-primary hover:bg-primary/5"}`}>
                   <Plus className="h-3.5 w-3.5" />
                   <ChevronDown className={`h-3 w-3 transition-transform ${menuOpen ? "rotate-180" : ""}`} />
                 </button>
-
                 {menuOpen && (
-                  <div className="absolute left-0 top-full mt-1 w-48 max-w-[calc(100vw-3rem)] rounded-lg border bg-popover p-1 shadow-lg z-50 animate-in fade-in-0 zoom-in-95">
-                    <button onClick={() => { if (canAddPhotos) cameraPhotoRef.current?.click(); }} disabled={!canAddPhotos} className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-xs transition-colors ${canAddPhotos ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}>
-                      <Camera className={`h-3.5 w-3.5 ${canAddPhotos ? "text-primary" : ""}`} />Tirar foto
+                  <div className="absolute left-0 top-full mt-1 w-52 max-w-[calc(100vw-2rem)] rounded-xl border bg-popover p-1 shadow-lg z-50 animate-in fade-in-0 zoom-in-95">
+                    <button
+                      onClick={() => { setMenuOpen(false); if (canAddPhotos) cameraPhotoRef.current?.click(); }}
+                      disabled={!canAddPhotos}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddPhotos ? "hover:bg-accent" : "opacity-40 cursor-not-allowed"}`}
+                    >
+                      <Camera className="h-4 w-4 text-primary" />
+                      <span>Tirar foto</span>
                     </button>
-                    <button onClick={() => { if (canAddPhotos) fileInputRef.current?.click(); }} disabled={!canAddPhotos} className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-xs transition-colors ${canAddPhotos ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}>
-                      <ImagePlus className={`h-3.5 w-3.5 ${canAddPhotos ? "text-primary" : ""}`} />Escolher fotos
+                    <button
+                      onClick={() => { setMenuOpen(false); if (canAddPhotos) fileInputRef.current?.click(); }}
+                      disabled={!canAddPhotos}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddPhotos ? "hover:bg-accent" : "opacity-40 cursor-not-allowed"}`}
+                    >
+                      <ImagePlus className="h-4 w-4 text-primary" />
+                      <span>Escolher fotos</span>
                     </button>
-                    <div className="my-0.5 h-px bg-border" />
-                    <button onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) cameraVideoRef.current?.click(); }} disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H} className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-xs transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}>
-                      <Video className={`h-3.5 w-3.5 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-primary" : ""}`} />Gravar v\u00EDdeo
+
+                    <div className="my-1 h-px bg-border" />
+
+                    <button
+                      onClick={() => { setMenuOpen(false); if (canAddVideo) cameraVideoRef.current?.click(); }}
+                      disabled={!canAddVideo}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddVideo ? "hover:bg-accent" : "opacity-40 cursor-not-allowed"}`}
+                    >
+                      <Video className="h-4 w-4 text-primary" />
+                      <span>Gravar vídeo</span>
                     </button>
-                    <button onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) videoInputRef.current?.click(); }} disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H} className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-xs transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}>
-                      <Video className={`h-3.5 w-3.5 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-muted-foreground" : ""}`} />Escolher v\u00EDdeo
+                    <button
+                      onClick={() => { setMenuOpen(false); if (canAddVideo) videoInputRef.current?.click(); }}
+                      disabled={!canAddVideo}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddVideo ? "hover:bg-accent" : "opacity-40 cursor-not-allowed"}`}
+                    >
+                      <Video className="h-4 w-4 text-muted-foreground" />
+                      <span>Escolher vídeo</span>
                     </button>
-                    <div className="my-0.5 h-px bg-border" />
-                    <button onClick={() => { if (canAddAudio && !isRecordingAudio) startAudioRecording(); }} disabled={!canAddAudio || isRecordingAudio} className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-xs transition-colors ${canAddAudio && !isRecordingAudio ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}>
-                      <Mic className={`h-3.5 w-3.5 ${canAddAudio && !isRecordingAudio ? "text-primary" : ""}`} />Gravar \u00E1udio
+
+                    <div className="my-1 h-px bg-border" />
+
+                    <button
+                      onClick={() => { setMenuOpen(false); if (canAddAudio) startAudioRecording(); }}
+                      disabled={!canAddAudio}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddAudio ? "hover:bg-accent" : "opacity-40 cursor-not-allowed"}`}
+                    >
+                      <Mic className="h-4 w-4 text-primary" />
+                      <span>Gravar áudio</span>
                     </button>
-                    <button onClick={() => { if (canAddAudio) audioInputRef.current?.click(); }} disabled={!canAddAudio} className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-xs transition-colors ${canAddAudio ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}>
-                      <Music className={`h-3.5 w-3.5 ${canAddAudio ? "text-muted-foreground" : ""}`} />Escolher \u00E1udio
+                    <button
+                      onClick={() => { setMenuOpen(false); if (canAddAudio) audioInputRef.current?.click(); }}
+                      disabled={!canAddAudio}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddAudio ? "hover:bg-accent" : "opacity-40 cursor-not-allowed"}`}
+                    >
+                      <Music className="h-4 w-4 text-muted-foreground" />
+                      <span>Escolher áudio</span>
                     </button>
-                    <div className="my-0.5 h-px bg-border" />
-                    <button onClick={() => setVisibility((v) => v === "public" ? "followers" : "public")} className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-xs transition-colors hover:bg-accent">
-                      {visibility === "public" ? <Globe className="h-3.5 w-3.5 text-primary" /> : <UsersIcon className="h-3.5 w-3.5 text-amber-500" />}
-                      <span>{visibility === "public" ? "P\u00FAblico" : "Seguidores"}</span>
+
+                    <div className="my-1 h-px bg-border" />
+
+                    <button
+                      onClick={() => { setMenuOpen(false); setVisibility(v => v === "public" ? "followers" : "public"); }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent"
+                    >
+                      {visibility === "public" ? <Globe className="h-4 w-4 text-primary" /> : <UsersIcon className="h-4 w-4 text-amber-500" />}
+                      <span>{visibility === "public" ? "Público" : "Seguidores"}</span>
                     </button>
                   </div>
                 )}
-
-                {/* Hidden inputs */}
+                {/* Hidden file inputs */}
                 <input ref={cameraPhotoRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhotoSelect} className="hidden" />
-                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
                 <input ref={cameraVideoRef} type="file" accept="video/*" capture="environment" onChange={handleCameraVideoSelect} className="hidden" />
-                <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
                 <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
+                <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
               </div>
-
               <div className="flex items-center gap-1.5">
                 {content.length > 0 && (
                   <span className={`text-[9px] tabular-nums ${content.length > 450 ? "text-destructive" : "text-muted-foreground/60"}`}>
@@ -892,10 +1044,16 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                   </span>
                 )}
                 <Button size="sm" disabled={!canPost || uploading} onClick={handlePost} className="rounded-full px-4 h-7 text-xs shadow-sm">
-                  {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Publicar"}
+                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Publicar"}
                 </Button>
               </div>
             </div>
+
+            {activeMediaCount >= MAX_ACTIVE_MEDIA_POSTS && (
+              <div className="flex items-center gap-1 text-[10px] text-amber-500 mt-1">
+                <Clock className="h-3 w-3" /> {activeMediaCount}/{MAX_ACTIVE_MEDIA_POSTS} posts com mídia ativos
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -903,38 +1061,42 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       {/* Repost dialog */}
       {repostingPost && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => { setRepostingPost(null); setRepostContent(""); }}>
-          <div className="w-full max-w-md mx-4 rounded-xl border bg-card p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold mb-2">Compartilhar no feed</h3>
-            <div className="rounded-lg border bg-muted/30 p-2.5 mb-2.5">
+          <div className="w-full max-w-md mx-4 rounded-2xl border bg-card p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold mb-3">Compartilhar no feed</h3>
+            <div className="rounded-xl border bg-muted/30 p-3 mb-3">
               <div className="flex items-center gap-2 mb-1">
-                <UserAvatar user={repostingPost.author} className="h-5 w-5" />
-                <span className="text-[11px] font-semibold">{repostingPost.author.display_name}</span>
-                <span className="text-[9px] text-muted-foreground">@{repostingPost.author.username}</span>
+                <UserAvatar user={repostingPost.author} className="h-6 w-6" />
+                <span className="text-xs font-semibold">{repostingPost.author.display_name}</span>
+                <span className="text-[10px] text-muted-foreground">@{repostingPost.author.username}</span>
               </div>
-              <p className="text-[11px] text-muted-foreground line-clamp-3">{repostingPost.content}</p>
+              <p className="text-xs text-muted-foreground line-clamp-3">{repostingPost.content}</p>
             </div>
-            <textarea placeholder="Coment\u00E1rio (opcional)..." value={repostContent} onChange={(e) => setRepostContent(e.target.value.slice(0, 200))} className="w-full min-h-[48px] resize-none rounded-lg border-0 bg-muted/50 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/60" rows={2} />
-            <div className="flex items-center gap-2 mt-2.5">
-              <Button variant="outline" size="sm" onClick={() => { setRepostingPost(null); setRepostContent(""); }} className="rounded-full text-xs h-7">Cancelar</Button>
-              <Button size="sm" onClick={() => handleRepost(repostingPost)} className="rounded-full gap-1 text-xs h-7">
-                <Repeat2 className="h-3 w-3" /> Compartilhar
+            <textarea
+              placeholder="Adicione um comentário (opcional)..."
+              value={repostContent}
+              onChange={(e) => setRepostContent(e.target.value.slice(0, 200))}
+              className="w-full min-h-[60px] resize-none rounded-xl border-0 bg-muted/50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/60"
+              rows={2}
+            />
+            <div className="flex items-center gap-2 mt-3">
+              <Button variant="outline" size="sm" onClick={() => { setRepostingPost(null); setRepostContent(""); }} className="rounded-full">Cancelar</Button>
+              <Button size="sm" onClick={() => handleRepost(repostingPost)} className="rounded-full gap-1.5">
+                <Repeat2 className="h-3.5 w-3.5" /> Compartilhar
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Empty state */}
       {posts.length === 0 && (
-        <div className="py-12 text-center">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-muted">
-            <MessageCircle className="h-6 w-6 text-muted-foreground" />
+        <div className="py-16 text-center">
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
+            <MessageCircle className="h-8 w-8 text-muted-foreground" />
           </div>
-          <p className="text-xs text-muted-foreground">Nenhum post ainda. Seja o primeiro!</p>
+          <p className="text-sm text-muted-foreground">Nenhum post ainda. Seja o primeiro a publicar!</p>
         </div>
       )}
 
-      {/* Posts */}
       {posts.map((post) => (
         <PostThread
           key={post.id}
@@ -999,10 +1161,13 @@ function PostThread({
     return () => clearInterval(interval);
   }, [post.expires_at]);
 
+  // Close share menu on outside click
   useEffect(() => {
     if (shareMenuOpen !== post.id) return;
     const handler = (e: MouseEvent) => {
-      if (shareRef.current && !shareRef.current.contains(e.target as Node)) setShareMenuOpen(null);
+      if (shareRef.current && !shareRef.current.contains(e.target as Node)) {
+        setShareMenuOpen(null);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -1024,13 +1189,19 @@ function PostThread({
   };
 
   const openAndFocus = () => {
-    if (!showComments) { if (comments.length === 0) fetchComments(); setShowComments(true); }
+    if (!showComments) {
+      if (comments.length === 0) fetchComments();
+      setShowComments(true);
+    }
     setTimeout(() => commentInputRef.current?.focus(), 100);
   };
 
   const handleReply = (comment: Comment) => {
     setReplyTo(comment);
-    if (!showComments) { if (comments.length === 0) fetchComments(); setShowComments(true); }
+    if (!showComments) {
+      if (comments.length === 0) fetchComments();
+      setShowComments(true);
+    }
     setTimeout(() => commentInputRef.current?.focus(), 100);
   };
 
@@ -1057,8 +1228,11 @@ function PostThread({
     try {
       const res = await fetch(`/api/posts/${post.id}/comments?commentId=${commentId}`, { method: "DELETE" });
       const data = await res.json();
-      if (data.success) { setComments((prev) => prev.filter((c) => c.id !== commentId)); onUpdateCommentCount(post.id, -1); }
-    } catch { toast.error("Erro ao excluir coment\u00E1rio"); }
+      if (data.success) {
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+        onUpdateCommentCount(post.id, -1);
+      }
+    } catch { toast.error("Erro ao excluir comentário"); }
   };
 
   const handleCommentReaction = async (commentId: string, type: string) => {
@@ -1089,82 +1263,108 @@ function PostThread({
   const { roots: commentRoots, map: commentMap } = buildCommentTree(comments);
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm">
-      <div className="p-3">
+    <div className={`rounded-2xl border bg-card shadow-sm overflow-hidden transition-shadow hover:shadow-md ${isOwnPost ? "border-primary/10" : ""}`}>
+      <div className="p-4">
         {/* Header */}
-        <div className="flex items-start gap-2.5">
-          <button onClick={() => openUserProfile?.(post.author.id)} className="shrink-0">
-            <UserAvatar user={post.author} className="h-9 w-9 hover:opacity-80 transition-opacity" />
+        <div className="flex items-start gap-3">
+          <button onClick={() => openUserProfile?.(post.author.id)} className="shrink-0 group">
+            <UserAvatar user={post.author} className="h-11 w-11 hover:opacity-80 transition-opacity ring-2 ring-background shadow-sm" />
           </button>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <button onClick={() => openUserProfile?.(post.author.id)} className="text-[13px] font-semibold hover:underline underline-offset-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button onClick={() => openUserProfile?.(post.author.id)} className="text-sm font-bold hover:underline underline-offset-2 transition-all">
                 {post.author.display_name}
               </button>
-              <span className="text-[11px] text-muted-foreground">@{post.author.username}</span>
+              <span className="text-xs text-muted-foreground">@{post.author.username}</span>
               {post.author.neighborhood && (
-                <Badge variant="secondary" className="text-[9px] px-1 py-0 gap-0.5 h-4">
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5">
                   <MapPin className="h-2.5 w-2.5" />{post.author.neighborhood}
                 </Badge>
               )}
               {post.visibility === "followers" && (
-                <Badge variant="outline" className="text-[9px] px-1 py-0 gap-0.5 h-4 text-amber-500 border-amber-500/30">
-                  <UsersIcon className="h-2.5 w-2.5" />
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 text-amber-500 border-amber-500/30">
+                  <UsersIcon className="h-2.5 w-2.5" />Seguidores
                 </Badge>
               )}
-              <span className="text-[9px] text-muted-foreground/50">\u00B7</span>
+              {isOwnPost && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 text-primary/60 border-primary/20">
+                  Seu post
+                </Badge>
+              )}
+              <span className="text-[10px] text-muted-foreground/60">·</span>
               <span className="text-[10px] text-muted-foreground">{timeAgo(post.created_at)}</span>
             </div>
 
             {/* Content */}
-            {post.content && post.content !== "\uD83D\uDCF7" && (
-              <p className="mt-1 text-[13px] leading-relaxed whitespace-pre-wrap">{post.content}</p>
-            )}
+            <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
 
-            {/* Shared post */}
+            {/* Shared post (repost) */}
             {post.shared_post && (
-              <div className="mt-2 rounded-lg border bg-muted/20 p-2.5">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Repeat2 className="h-2.5 w-2.5 text-muted-foreground" />
-                  <span className="text-[9px] text-muted-foreground">Compartilhado de</span>
+              <div className="mt-2.5 rounded-xl border bg-muted/20 p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Repeat2 className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground">Compartilhado de</span>
                 </div>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <button onClick={() => openUserProfile?.(post.shared_post!.author.id)} className="shrink-0"><UserAvatar user={post.shared_post.author} className="h-5 w-5" /></button>
-                  <span className="text-[11px] font-semibold">{post.shared_post.author.display_name}</span>
+                <div className="flex items-center gap-2 mb-1">
+                  <button onClick={() => openUserProfile?.(post.shared_post!.author.id)} className="shrink-0">
+                    <UserAvatar user={post.shared_post.author} className="h-6 w-6" />
+                  </button>
+                  <button onClick={() => openUserProfile?.(post.shared_post!.author.id)} className="text-xs font-semibold hover:underline">
+                    {post.shared_post.author.display_name}
+                  </button>
+                  <span className="text-[10px] text-muted-foreground">@{post.shared_post.author.username}</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground line-clamp-3">{post.shared_post.content}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-4">{post.shared_post.content}</p>
+                {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
+                  <div className="mt-1.5 flex gap-1 overflow-x-auto">
+                    {post.shared_post.image_urls.slice(0, 2).map((url, i) => (
+                      <img key={i} src={url} alt="" className="h-16 w-16 rounded-lg object-cover shrink-0" />
+                    ))}
+                    {post.shared_post.image_urls.length > 2 && (
+                      <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center text-xs text-muted-foreground shrink-0">
+                        +{post.shared_post.image_urls.length - 2}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
             {/* Media */}
-            {hasPhotos && <div className="mt-2"><PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} /></div>}
-            {hasVideo && <div className="mt-2"><VideoPlayer src={post.video_url!} /></div>}
-            {hasAudio && <div className="mt-2"><AudioPlayer src={post.audio_url!} /></div>}
+            {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} />}
+            {hasVideo && <VideoPlayer src={post.video_url!} />}
+            {hasAudio && <AudioPlayer src={post.audio_url!} />}
 
             {/* Expiration */}
             {post.expires_at && expirationLabel && (
-              <div className="mt-2 inline-flex items-center gap-1 text-[9px] text-amber-500 bg-amber-500/5 rounded-full px-2 py-0.5">
-                <Clock className="h-2.5 w-2.5" />{expirationLabel}
+              <div className="mt-2.5 flex items-center gap-1.5 text-[10px] text-amber-500 bg-amber-500/5 rounded-full px-2.5 py-1 w-fit">
+                <Clock className="h-3 w-3" />
+                <span>{expirationLabel}</span>
               </div>
             )}
 
-            {/* Action bar */}
-            <div className="mt-2 flex items-center -ml-1">
+            {/* ═══════ ACTION BAR ═══════ */}
+            <div className="mt-3 flex items-center gap-0.5">
               {/* Reactions */}
               <div className="relative">
                 <button
                   onClick={() => setShowReactions(!showReactions)}
-                  className={`flex items-center gap-1 rounded-full px-2 py-1 text-[11px] transition-colors ${post.reactions?.some((r) => r.user_id === profile?.id) ? "text-primary bg-primary/5" : "text-muted-foreground hover:bg-accent"}`}
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs transition-colors ${post.reactions?.some((r) => r.user_id === profile?.id) ? "text-primary bg-primary/10 font-medium" : "text-muted-foreground hover:bg-accent hover:text-primary"}`}
                 >
-                  <Heart className="h-3.5 w-3.5" />
+                  <Heart className="h-4 w-4" />
                   {post.reactions?.length > 0 && <span>{post.reactions.length}</span>}
                 </button>
                 {showReactions && (
-                  <div className="absolute bottom-full left-0 mb-1 flex gap-0.5 rounded-lg border bg-popover p-1 shadow-lg z-20">
+                  <div className="absolute bottom-full left-0 mb-1.5 flex gap-0.5 rounded-xl border bg-card p-1.5 shadow-xl z-20">
                     {REACTION_EMOJIS.map(({ type, emoji, label }) => {
                       const isActive = post.reactions?.some((r) => r.user_id === profile?.id && r.type === type);
                       return (
-                        <button key={type} onClick={() => { onReaction(post.id, type); setShowReactions(false); }} className={`rounded p-1 text-base transition-all hover:scale-125 ${isActive ? "bg-primary/10 ring-1 ring-primary" : ""}`} title={label}>
+                        <button
+                          key={type}
+                          onClick={() => { onReaction(post.id, type); setShowReactions(false); }}
+                          className={`rounded-lg p-1.5 text-lg transition-all hover:scale-125 ${isActive ? "bg-primary/10 ring-1 ring-primary" : ""}`}
+                          title={label}
+                        >
                           {emoji}
                         </button>
                       );
@@ -1173,11 +1373,11 @@ function PostThread({
                 )}
               </div>
 
-              {/* Reaction pills */}
+              {/* Reaction summary pills */}
               {reactionGroups.length > 0 && (
-                <div className="flex gap-0.5">
+                <div className="flex gap-0.5 ml-0.5">
                   {reactionGroups.slice(0, 3).map((g, i) => (
-                    <span key={i} className="inline-flex items-center gap-0.5 rounded-full bg-muted/50 px-1 py-0.5 text-[9px]">
+                    <span key={i} className="inline-flex items-center gap-0.5 rounded-full bg-muted/60 px-1.5 py-0.5 text-[10px]">
                       {g.emoji} {g.count}
                     </span>
                   ))}
@@ -1187,23 +1387,32 @@ function PostThread({
               <div className="flex-1" />
 
               {/* Comment */}
-              <button onClick={openAndFocus} className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent transition-colors">
-                <MessageCircle className="h-3.5 w-3.5" />
+              <button onClick={openAndFocus} className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-primary">
+                <MessageCircle className="h-4 w-4" />
                 {commentCount > 0 && commentCount}
               </button>
 
-              {/* Share */}
+              {/* Share/Repost */}
               <div className="relative" ref={shareRef}>
-                <button onClick={() => setShareMenuOpen(shareMenuOpen === post.id ? null : post.id)} className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent transition-colors">
-                  <Share2 className="h-3.5 w-3.5" />
+                <button
+                  onClick={() => setShareMenuOpen(shareMenuOpen === post.id ? null : post.id)}
+                  className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
+                >
+                  <Share2 className="h-4 w-4" />
                 </button>
-                {shareMenuOpen === post.id && <ShareMenu post={post} onClose={() => setShareMenuOpen(null)} onRepost={onRepost} />}
+                {shareMenuOpen === post.id && (
+                  <ShareMenu
+                    post={post}
+                    onClose={() => setShareMenuOpen(null)}
+                    onRepost={onRepost}
+                  />
+                )}
               </div>
 
-              {/* Delete */}
+              {/* Delete (own posts only) */}
               {isOwnPost && (
-                <button onClick={() => onDelete(post.id)} className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
-                  <Trash2 className="h-3 w-3" />
+                <button onClick={() => onDelete(post.id)} className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
+                  <Trash2 className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
@@ -1213,21 +1422,21 @@ function PostThread({
 
       {/* Comments toggle */}
       {(commentCount > 0 || comments.length > 0) && (
-        <button onClick={toggleComments} className="flex w-full items-center justify-center gap-1 border-t py-2 text-[11px] text-muted-foreground hover:bg-accent/30 transition-colors">
-          {showComments ? <>Ocultar <ChevronUp className="h-3 w-3" /></> : <>{commentCount || comments.length} coment\u00E1rio{(commentCount || comments.length) !== 1 ? "s" : ""} <ChevronDown className="h-3 w-3" /></>}
+        <button onClick={toggleComments} className="flex w-full items-center justify-center gap-1.5 border-t py-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent/50 hover:text-primary">
+          {showComments ? <>Ocultar comentários <ChevronUp className="h-3 w-3" /></> : <>{commentCount || comments.length} comentário{(commentCount || comments.length) !== 1 ? "s" : ""} <ChevronDown className="h-3 w-3" /></>}
         </button>
       )}
 
-      {/* Comments */}
+      {/* Comments section */}
       {showComments && (
-        <div className="border-t bg-muted/5">
-          <div className="max-h-64 overflow-y-auto px-3 py-2">
+        <div className="border-t bg-muted/10">
+          <div className="max-h-72 overflow-y-auto px-4 py-3 custom-scrollbar">
             {commentsLoading ? (
-              <div className="space-y-2">{[1, 2].map((i) => (<div key={i} className="flex gap-2 animate-pulse"><div className="h-5 w-5 rounded-full bg-muted" /><div className="flex-1 space-y-1"><div className="h-2.5 w-20 rounded bg-muted" /><div className="h-2.5 w-full rounded bg-muted" /></div></div>))}</div>
+              <div className="space-y-3">{[1, 2].map((i) => (<div key={i} className="flex gap-2.5 animate-pulse"><div className="h-6 w-6 rounded-full bg-muted" /><div className="flex-1 space-y-1.5"><div className="h-3 w-24 rounded bg-muted" /><div className="h-3 w-full rounded bg-muted" /></div></div>))}</div>
             ) : comments.length === 0 ? (
-              <p className="text-center text-[11px] text-muted-foreground py-2">Nenhum coment\u00E1rio</p>
+              <p className="text-center text-xs text-muted-foreground py-2">Nenhum comentário ainda. Seja o primeiro!</p>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 {commentRoots.map((comment) => (
                   <CommentItem key={comment.id} comment={comment} replies={commentMap.get(comment.id) || []} profile={profile} commentMap={commentMap} onDelete={deleteComment} onReply={handleReply} onReaction={handleCommentReaction} openUserProfile={openUserProfile} depth={0} />
                 ))}
@@ -1236,29 +1445,29 @@ function PostThread({
           </div>
 
           {profile && (
-            <div className="border-t px-3 py-2">
+            <div className="border-t px-4 py-2.5">
               {replyTo && (
-                <div className="flex items-center gap-1 mb-1 text-[10px] text-muted-foreground">
-                  <Reply className="h-2.5 w-2.5" />
-                  <span>Respondendo <strong>@{replyTo.author.display_name}</strong></span>
-                  <button onClick={() => setReplyTo(null)} className="text-destructive hover:underline ml-0.5">Cancelar</button>
+                <div className="flex items-center gap-1.5 mb-1.5 text-xs text-muted-foreground">
+                  <Reply className="h-3 w-3" />
+                  <span>Respondendo a <strong>@{replyTo.author.display_name}</strong></span>
+                  <button onClick={() => setReplyTo(null)} className="text-destructive hover:underline ml-1">Cancelar</button>
                 </div>
               )}
-              <div className="flex items-center gap-1.5">
-                <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url }} className="h-5 w-5 shrink-0" />
-                <Input ref={commentInputRef} placeholder={replyTo ? `@${replyTo.author.display_name}...` : "Comentar..."} value={commentInput} onChange={(e) => setCommentInput(e.target.value.slice(0, 300))} onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && submitComment()} className="h-7 text-[11px] border-0 bg-muted/40 focus-visible:ring-1" />
-                <Button size="icon" onClick={submitComment} disabled={!commentInput.trim() || submitting} className="h-7 w-7 shrink-0 rounded-full"><Send className="h-3 w-3" /></Button>
+              <div className="flex items-center gap-2">
+                <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
+                <Input ref={commentInputRef} placeholder={replyTo ? `Responder @${replyTo.author.display_name}...` : "Escreva um comentário..."} value={commentInput} onChange={(e) => setCommentInput(e.target.value.slice(0, 300))} onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && submitComment()} className="h-8 text-xs border-0 bg-muted/50 focus-visible:ring-1" />
+                <Button size="icon" onClick={submitComment} disabled={!commentInput.trim() || submitting} className="h-8 w-8 shrink-0 rounded-full"><Send className="h-3.5 w-3.5" /></Button>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Quick comment */}
+      {/* Quick comment (when comments hidden) */}
       {!showComments && profile && (
-        <div className="flex items-center gap-1.5 border-t px-3 py-2">
-          <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url }} className="h-5 w-5 shrink-0" />
-          <Input placeholder="Comentar..." value={commentInput} onChange={(e) => setCommentInput(e.target.value.slice(0, 300))} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && commentInput.trim()) openAndFocus(); }} onFocus={openAndFocus} className="h-7 text-[11px] border-0 bg-muted/40 focus-visible:ring-1" />
+        <div className="flex items-center gap-2 border-t px-4 py-2.5">
+          <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
+          <Input placeholder="Escreva um comentário..." value={commentInput} onChange={(e) => setCommentInput(e.target.value.slice(0, 300))} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && commentInput.trim()) openAndFocus(); }} onFocus={openAndFocus} className="h-8 text-xs border-0 bg-muted/50 focus-visible:ring-1" />
         </div>
       )}
     </div>
@@ -1274,33 +1483,33 @@ function CommentItem({ comment, replies, profile, commentMap, onDelete, onReply,
   onReaction: (commentId: string, type: string) => void; openUserProfile?: (userId: string) => void; depth: number;
 }) {
   return (
-    <div className={depth > 0 ? "ml-5 border-l border-primary/15 pl-2.5" : ""}>
-      <div className="flex gap-2">
+    <div className={depth > 0 ? "ml-6 border-l-2 border-primary/20 pl-3" : ""}>
+      <div className="flex gap-2.5">
         <button onClick={() => openUserProfile?.(comment.author.id)} className="shrink-0">
-          <UserAvatar user={comment.author} className="h-5 w-5 hover:opacity-80 transition-opacity" />
+          <UserAvatar user={comment.author} className="h-6 w-6 hover:opacity-80 transition-opacity" />
         </button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <button onClick={() => openUserProfile?.(comment.author.id)} className="text-[11px] font-semibold hover:underline">{comment.author.display_name}</button>
-            <span className="text-[9px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => openUserProfile?.(comment.author.id)} className="text-xs font-semibold hover:underline underline-offset-2 transition-all">{comment.author.display_name}</button>
+            <span className="text-[10px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
           </div>
-          <p className="text-[11px] leading-relaxed">{comment.content}</p>
-          <div className="mt-0.5 flex items-center gap-2 flex-wrap">
+          <p className="text-xs leading-relaxed">{comment.content}</p>
+          <div className="mt-1 flex items-center gap-2 flex-wrap">
             {REACTION_EMOJIS.slice(0, 4).map(({ type, emoji }) => {
               const isActive = comment.reactions?.some((r) => r.user_id === profile?.id && r.type === type);
               const count = comment.reactions?.filter((r) => r.type === type).length || 0;
               if (count === 0 && !isActive) return null;
               return (
-                <button key={type} onClick={() => onReaction(comment.id, type)} className={`text-[9px] transition-colors ${isActive ? "text-primary font-semibold" : "hover:text-primary"}`}>
+                <button key={type} onClick={() => onReaction(comment.id, type)} className={`text-[10px] transition-colors ${isActive ? "text-primary font-semibold" : "hover:text-primary"}`}>
                   {emoji}{count > 0 && ` ${count}`}
                 </button>
               );
             })}
-            <button onClick={() => onReply(comment)} className="text-[9px] text-muted-foreground hover:text-primary">
+            <button onClick={() => onReply(comment)} className="text-[10px] text-muted-foreground hover:text-primary transition-colors">
               <Reply className="h-2.5 w-2.5 inline" /> Responder
             </button>
             {comment.author_id === profile?.id && (
-              <button onClick={() => onDelete(comment.id)} className="text-[9px] text-muted-foreground hover:text-destructive">
+              <button onClick={() => onDelete(comment.id)} className="text-[10px] text-muted-foreground hover:text-destructive">
                 <Trash2 className="h-2.5 w-2.5" />
               </button>
             )}
@@ -1319,15 +1528,15 @@ function CommentItem({ comment, replies, profile, commentMap, onDelete, onReply,
 // ═══════════════════════════════════════════════════════════
 function FeedSkeleton() {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="rounded-xl border bg-card p-3 animate-pulse">
-          <div className="flex gap-2.5">
-            <div className="h-9 w-9 rounded-full bg-muted" />
+        <div key={i} className="rounded-2xl border bg-card p-4 animate-pulse">
+          <div className="flex gap-3">
+            <div className="h-11 w-11 rounded-full bg-muted" />
             <div className="flex-1 space-y-2">
-              <div className="h-3 w-28 rounded bg-muted" />
-              <div className="h-2.5 w-full rounded bg-muted" />
-              <div className="h-2.5 w-2/3 rounded bg-muted" />
+              <div className="h-4 w-32 rounded bg-muted" />
+              <div className="h-3 w-full rounded bg-muted" />
+              <div className="h-3 w-3/4 rounded bg-muted" />
             </div>
           </div>
         </div>
