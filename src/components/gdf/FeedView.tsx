@@ -877,7 +877,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   return (
     <div className="space-y-4">
       {/* ═══════ COMPOSER ═══════ */}
-      <div className="rounded-2xl border bg-card p-3 shadow-sm overflow-hidden">
+      <div className="relative z-10 rounded-2xl border bg-card p-3 shadow-sm">
         {/* ═══════ AUDIO RECORDING BANNER (top, very visible) ═══════ */}
         {isRecordingAudio && (
           <div className="-mx-3 -mt-3 mb-3 bg-red-500 px-4 py-3 text-white">
