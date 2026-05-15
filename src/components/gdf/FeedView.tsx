@@ -57,10 +57,25 @@ const REACTION_EMOJIS = [
   { type: "like", emoji: "❤️", label: "Curtir" },
   { type: "laugh", emoji: "😂", label: "Engraçado" },
   { type: "sad", emoji: "😔", label: "Triste" },
-  { type: "wow", emoji: "😲", label: "Uau" },
+  { type: "wow", emoji: "😮", label: "Uau" },
   { type: "angry", emoji: "😡", label: "Bravo" },
   { type: "love", emoji: "😍", label: "Amei" },
 ] as const;
+
+const WARM_BGS = [
+  "bg-[#ece2d5]/40",
+  "bg-[#dfe6eb]/40",
+  "bg-[#eadbdd]/40",
+  "bg-[#dde5da]/40",
+];
+
+function getWarmBg(postId: string): string {
+  let hash = 0;
+  for (let i = 0; i < postId.length; i++) {
+    hash = (hash * 31 + postId.charCodeAt(i)) | 0;
+  }
+  return WARM_BGS[Math.abs(hash) % WARM_BGS.length];
+}
 
 function buildReactionGroups(reactions: { user_id: string; type: string }[]) {
   const groups: Record<string, { emoji: string; count: number; types: string[] }> = {};
@@ -74,12 +89,14 @@ function buildReactionGroups(reactions: { user_id: string; type: string }[]) {
 }
 
 function getExpirationLabel(expiresAt: string): string {
-  const diff = new Date(expiresAt).getTime() - Date.now();
+  const now = Date.now();
+  const expires = new Date(expiresAt).getTime();
+  const diff = expires - now;
   if (diff <= 0) return "Expirado";
-  const h = Math.floor(diff / 3600000);
-  const m = Math.floor((diff % 3600000) / 60000);
-  if (h > 0) return `${h}h${m > 0 ? `${m}min` : ""}`;
-  return `${m}min`;
+  const hours = Math.floor(diff / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  if (hours > 0) return `${hours}h${mins > 0 ? `${mins}min` : ""}`;
+  return `${mins}min`;
 }
 
 function formatDuration(seconds: number): string {
@@ -136,7 +153,7 @@ function VideoPlayer({ src }: { src: string }) {
   };
 
   return (
-    <div className="mt-2.5 relative rounded-2xl overflow-hidden bg-black shadow-md group">
+    <div className="mt-3 relative rounded-[20px] overflow-hidden bg-black shadow-[0_2px_8px_rgba(0,0,0,.03),0_10px_30px_rgba(0,0,0,.04)] group">
       <video
         ref={videoRef}
         src={src}
@@ -150,8 +167,8 @@ function VideoPlayer({ src }: { src: string }) {
       />
       {!playing && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer" onClick={toggle}>
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur-md shadow-lg transition-transform hover:scale-110">
-            <Play className="h-8 w-8 text-white fill-white ml-1" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#1f1f1f]/80 backdrop-blur-sm shadow-lg transition-transform hover:scale-110">
+            <Play className="h-7 w-7 text-white fill-white ml-0.5" />
           </div>
         </div>
       )}
@@ -170,7 +187,7 @@ function VideoPlayer({ src }: { src: string }) {
           <span className="text-[10px] text-white/80 tabular-nums">{formatDuration(currentTime)}/{formatDuration(duration)}</span>
         </div>
       </div>
-      <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-2.5 py-1 text-[10px] font-medium text-white">
+      <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 rounded-full bg-black/50 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium text-white/90">
         <Video className="h-3 w-3" /> Vídeo
       </div>
     </div>
@@ -194,23 +211,23 @@ function AudioPlayer({ src }: { src: string }) {
   };
 
   return (
-    <div className="mt-2.5 rounded-2xl border bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 p-4 shadow-sm">
+    <div className="mt-3 rounded-[20px] bg-[#ece2d5]/30 p-4 shadow-[0_2px_10px_rgba(0,0,0,.02)]">
       <div className="flex items-center gap-3.5">
-        <button onClick={toggle} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-all hover:scale-105">
+        <button onClick={toggle} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#161616] text-white shadow-md hover:bg-[#161616]/90 transition-all hover:scale-105">
           {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <Volume2 className="h-4 w-4 text-primary" />
-            <span className="text-xs font-semibold">Áudio</span>
-            <span className="text-[10px] text-muted-foreground tabular-nums">{formatDuration(currentTime)} / {formatDuration(duration)}</span>
+            <Music className="h-3.5 w-3.5 text-[#77736d]" />
+            <span className="text-[13px] font-medium text-[#1f1f1f]">Áudio</span>
+            <span className="text-[11px] text-[#77736d] tabular-nums">{formatDuration(currentTime)} / {formatDuration(duration)}</span>
           </div>
-          <div className="h-2 bg-primary/20 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
+          <div className="h-1.5 bg-[#1f1f1f]/10 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             const pct = (e.clientX - rect.left) / rect.width;
             if (audioRef.current && duration) audioRef.current.currentTime = pct * duration;
           }}>
-            <div className="h-full bg-primary rounded-full transition-all" style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }} />
+            <div className="h-full bg-[#1f1f1f] rounded-full transition-all" style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }} />
           </div>
         </div>
       </div>
@@ -228,14 +245,14 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
 
   if (count === 1) {
     return (
-      <button onClick={() => onPhotoClick?.(0)} className="mt-2.5 w-full overflow-hidden rounded-2xl shadow-sm">
+      <button onClick={() => onPhotoClick?.(0)} className="mt-3 w-full overflow-hidden rounded-[20px] shadow-[0_2px_10px_rgba(0,0,0,.02)]">
         <img src={photos[0]} alt="Foto do post" className="w-full max-h-80 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
       </button>
     );
   }
   if (count === 2) {
     return (
-      <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-2xl shadow-sm">
+      <div className="mt-3 grid grid-cols-2 gap-2 overflow-hidden rounded-[20px] shadow-[0_2px_10px_rgba(0,0,0,.02)]">
         {photos.map((url, i) => (
           <button key={i} onClick={() => onPhotoClick?.(i)} className="overflow-hidden">
             <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
@@ -246,7 +263,7 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
   }
   if (count === 3) {
     return (
-      <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-2xl shadow-sm">
+      <div className="mt-3 grid grid-cols-2 gap-2 overflow-hidden rounded-[20px] shadow-[0_2px_10px_rgba(0,0,0,.02)]">
         <button onClick={() => onPhotoClick?.(0)} className="row-span-2 overflow-hidden">
           <img src={photos[0]} alt="Foto 1" className="w-full h-full object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
@@ -260,7 +277,7 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
     );
   }
   return (
-    <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-2xl shadow-sm">
+    <div className="mt-3 grid grid-cols-2 gap-2 overflow-hidden rounded-[20px] shadow-[0_2px_10px_rgba(0,0,0,.02)]">
       {photos.slice(0, 4).map((url, i) => (
         <button key={i} onClick={() => onPhotoClick?.(i)} className="relative overflow-hidden">
           <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
@@ -315,7 +332,7 @@ function ShareMenu({
       if (navigator.share) {
         await navigator.share(shareData);
       } else {
-        await navigator.clipboard.writeText(`${shareData.text}\n\n— GDF Chat`);
+        await navigator.clipboard.writeText(`${shareData.text}\n\n--- GDF Chat`);
         toast.success("Texto copiado!");
       }
     } catch { /* cancelled */ }
@@ -331,26 +348,26 @@ function ShareMenu({
   };
 
   return (
-    <div className="absolute right-0 bottom-full mb-2 w-52 rounded-xl border bg-card p-1.5 shadow-xl z-30 animate-in fade-in-0 zoom-in-95">
+    <div className="absolute right-0 bottom-full mb-2 w-52 rounded-[20px] border border-black/[.04] bg-white p-1.5 shadow-[0_10px_30px_rgba(0,0,0,.06)] z-30 animate-in fade-in-0 zoom-in-95">
       <button
         onClick={() => { onRepost(post); onClose(); }}
-        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-accent"
+        className="flex w-full items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-sm text-[#1f1f1f] transition-colors hover:bg-[#ece2d5]/50"
       >
-        <Repeat2 className="h-4 w-4 text-primary" />
+        <Repeat2 className="h-4 w-4 text-[#1f1f1f]" />
         <span>Compartilhar no feed</span>
       </button>
       <button
         onClick={handleExternalShare}
-        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-accent"
+        className="flex w-full items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-sm text-[#1f1f1f] transition-colors hover:bg-[#ece2d5]/50"
       >
-        <ExternalLink className="h-4 w-4 text-muted-foreground" />
+        <ExternalLink className="h-4 w-4 text-[#77736d]" />
         <span>Compartilhar fora</span>
       </button>
       <button
         onClick={handleCopyLink}
-        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-accent"
+        className="flex w-full items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-sm text-[#1f1f1f] transition-colors hover:bg-[#ece2d5]/50"
       >
-        <Copy className="h-4 w-4 text-muted-foreground" />
+        <Copy className="h-4 w-4 text-[#77736d]" />
         <span>Copiar texto</span>
       </button>
     </div>
@@ -375,6 +392,8 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [uploading, setUploading] = useState(false);
   const [activeMediaCount, setActiveMediaCount] = useState(0);
   const [videoPostsInWindow, setVideoPostsInWindow] = useState(0);
+
+  // Input refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
@@ -394,7 +413,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Audio recording state
+  // Audio recording state (direct in-app recording)
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -418,7 +437,9 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   useEffect(() => {
     if (!menuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -428,7 +449,9 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   useEffect(() => {
     return () => {
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
-      if (mediaStreamRef.current) mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
     };
   }, []);
 
@@ -476,6 +499,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       setPreviewUrls((prev) => [...prev, createPreviewUrl(file)]);
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
+    setMenuOpen(false);
   };
 
   const handleCameraPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -483,13 +507,35 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     if (!file) return;
     const error = validateImageFile(file);
     if (error) { toast.error(error); return; }
-    if (selectedFiles.length >= MAX_PHOTOS_PER_POST) {
-      toast.error(`Máximo de ${MAX_PHOTOS_PER_POST} fotos por post`);
-      return;
-    }
     setSelectedFiles((prev) => [...prev, file]);
     setPreviewUrls((prev) => [...prev, createPreviewUrl(file)]);
     if (cameraPhotoRef.current) cameraPhotoRef.current.value = "";
+    setMenuOpen(false);
+  };
+
+  const handleCameraVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Vídeo muito grande (máx 50MB)");
+      return;
+    }
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      if (video.duration > MAX_VIDEO_DURATION) {
+        toast.error(`Vídeo muito longo (máx ${MAX_VIDEO_DURATION}s)`);
+        URL.revokeObjectURL(video.src);
+        return;
+      }
+      setVideoDuration(video.duration);
+      setSelectedVideo(file);
+      setVideoPreview(URL.createObjectURL(file));
+      URL.revokeObjectURL(video.src);
+    };
+    video.src = URL.createObjectURL(file);
+    if (cameraVideoRef.current) cameraVideoRef.current.value = "";
+    setMenuOpen(false);
   };
 
   const removeSelectedFile = (index: number) => {
@@ -524,30 +570,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     };
     video.src = URL.createObjectURL(file);
     if (videoInputRef.current) videoInputRef.current.value = "";
-  };
-
-  const handleCameraVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error("Vídeo muito grande (máx 50MB)");
-      return;
-    }
-    const video = document.createElement("video");
-    video.preload = "metadata";
-    video.onloadedmetadata = () => {
-      if (video.duration > MAX_VIDEO_DURATION) {
-        toast.error(`Vídeo muito longo (máx ${MAX_VIDEO_DURATION}s)`);
-        URL.revokeObjectURL(video.src);
-        return;
-      }
-      setVideoDuration(video.duration);
-      setSelectedVideo(file);
-      setVideoPreview(URL.createObjectURL(file));
-      URL.revokeObjectURL(video.src);
-    };
-    video.src = URL.createObjectURL(file);
-    if (cameraVideoRef.current) cameraVideoRef.current.value = "";
+    setMenuOpen(false);
   };
 
   const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -576,34 +599,58 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     };
     audio.src = URL.createObjectURL(file);
     if (audioInputRef.current) audioInputRef.current.value = "";
+    setMenuOpen(false);
   };
 
+  // ═══════ Direct audio recording ═══════
   const startAudioRecording = async () => {
+    setMenuOpen(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
 
-      let mimeType = "";
-      if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+      let mimeType = "audio/webm";
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
         mimeType = "audio/webm;codecs=opus";
-      } else if (MediaRecorder.isTypeSupported("audio/webm")) {
-        mimeType = "audio/webm";
-      } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
         mimeType = "audio/mp4";
       }
 
-      const options: MediaRecorderOptions = {};
-      if (mimeType) options.mimeType = mimeType;
-
-      const recorder = new MediaRecorder(stream, options);
-      mediaRecorderRef.current = recorder;
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
-      recorder.ondataavailable = (e) => {
+      mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
 
-      recorder.start(100);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        const ext = mimeType.includes("mp4") ? "m4a" : "webm";
+        const file = new File([blob], `gravação.${ext}`, { type: mimeType });
+        const url = URL.createObjectURL(file);
+
+        const tempAudio = document.createElement("audio");
+        tempAudio.preload = "metadata";
+        tempAudio.onloadedmetadata = () => {
+          const dur = tempAudio.duration;
+          setAudioDuration(dur);
+          setSelectedAudio(file);
+          setAudioPreview(url);
+          URL.revokeObjectURL(tempAudio.src);
+        };
+        tempAudio.src = url;
+
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+          mediaStreamRef.current = null;
+        }
+        mediaRecorderRef.current = null;
+        setIsRecordingAudio(false);
+      };
+
+      mediaRecorder.start(1000);
       setIsRecordingAudio(true);
       setRecordingSeconds(0);
 
@@ -617,67 +664,35 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         });
       }, 1000);
     } catch {
-      toast.error("Não foi possível acessar o microfone");
+      toast.error("Não foi possível acessar o microfone. Verifique as permissões.");
     }
   };
 
   const stopAudioRecording = () => {
-    const recorder = mediaRecorderRef.current;
-    if (!recorder || recorder.state === "inactive") return;
-
-    recorder.onstop = () => {
-      const chunks = audioChunksRef.current;
-      if (chunks.length === 0) return;
-
-      const mimeType = recorder.mimeType || "audio/webm";
-      const blob = new Blob(chunks, { type: mimeType });
-      const ext = mimeType.includes("mp4") ? "m4a" : "webm";
-      const file = new File([blob], `audio.${ext}`, { type: mimeType });
-
-      const url = URL.createObjectURL(blob);
-      const audio = document.createElement("audio");
-      audio.preload = "metadata";
-      audio.onloadedmetadata = () => {
-        setAudioDuration(audio.duration);
-        URL.revokeObjectURL(audio.src);
-      };
-      audio.src = url;
-
-      setSelectedAudio(file);
-      setAudioPreview(url);
-
-      // Clean up
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-        mediaStreamRef.current = null;
-      }
-      audioChunksRef.current = [];
-      mediaRecorderRef.current = null;
-    };
-
-    recorder.stop();
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
     }
-    setIsRecordingAudio(false);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
   };
 
   const cancelAudioRecording = () => {
-    const recorder = mediaRecorderRef.current;
-    if (recorder && recorder.state !== "inactive") {
-      recorder.stop();
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
     }
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((t) => t.stop());
       mediaStreamRef.current = null;
     }
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
-    audioChunksRef.current = [];
     mediaRecorderRef.current = null;
+    audioChunksRef.current = [];
     setIsRecordingAudio(false);
     setRecordingSeconds(0);
   };
@@ -861,68 +876,35 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const hasPhotosInComposer = selectedFiles.length > 0;
   const hasVideoInComposer = !!selectedVideo;
   const hasAudioInComposer = !!selectedAudio;
-  const hasAnyMedia = hasPhotosInComposer || hasVideoInComposer || hasAudioInComposer;
   const canAddPhotos = !hasVideoInComposer && !hasAudioInComposer && selectedFiles.length < MAX_PHOTOS_PER_POST;
   const canAddVideo = !hasPhotosInComposer && !hasAudioInComposer && !hasVideoInComposer;
   const canAddAudio = !hasPhotosInComposer && !hasVideoInComposer && !hasAudioInComposer;
-  const canPost = content.trim() || hasAnyMedia;
 
   if (loading) return <FeedSkeleton />;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5 bg-[#f5f2ec] min-h-screen">
       {/* ═══════ COMPOSER ═══════ */}
-      <div className="relative z-10 rounded-xl border bg-card p-3 shadow-sm">
-        {/* Audio recording banner */}
-        {isRecordingAudio && (
-          <div className="-mx-3 -mt-3 mb-3 rounded-t-xl bg-red-500 px-3 py-2.5 text-white">
-            <div className="flex items-center gap-2.5">
-              <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20">
-                <Mic className="h-4 w-4" />
-                <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold">Gravando</span>
-                  <span className="text-sm font-bold tabular-nums">{formatDuration(recordingSeconds)}</span>
-                  <span className="text-[9px] text-white/60">/ {formatDuration(MAX_AUDIO_DURATION)}</span>
-                </div>
-                <div className="mt-1 h-1 bg-white/25 rounded-full overflow-hidden">
-                  <div className="h-full bg-white rounded-full transition-all" style={{ width: `${(recordingSeconds / MAX_AUDIO_DURATION) * 100}%` }} />
-                </div>
-              </div>
-              <button onClick={stopAudioRecording} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-red-500 shadow hover:bg-white/90" title="Parar">
-                <Square className="h-3.5 w-3.5" />
-              </button>
-              <button onClick={cancelAudioRecording} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 hover:bg-white/30" title="Cancelar">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-start gap-2.5">
-          <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-8 w-8 shrink-0 mt-0.5" />
-          <div className="flex-1 space-y-1.5">
+      <div className="rounded-[24px] border border-black/[.04] bg-[#fcfaf7] p-5 shadow-[0_2px_10px_rgba(0,0,0,.02)]">
+        <div className="flex items-start gap-3">
+          <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-9 w-9 shrink-0" />
+          <div className="flex-1 space-y-2">
             <textarea
-              placeholder={hasAnyMedia ? "Texto (opcional)..." : "O que está acontecendo?"}
+              placeholder="O que está acontecendo no seu bairro?"
               value={content}
               onChange={(e) => setContent(e.target.value.slice(0, 500))}
-              className="w-full min-h-[52px] resize-none rounded-lg border-0 bg-transparent px-0 py-1 text-sm focus:outline-none placeholder:text-muted-foreground/50"
+              className="w-full min-h-[72px] resize-none border-0 bg-transparent p-0 text-[15px] leading-[1.7] text-[#1f1f1f] placeholder:text-[#77736d]/60 focus:outline-none"
               rows={2}
             />
 
             {/* Photo previews */}
             {hasPhotosInComposer && previewUrls.length > 0 && (
-              <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+              <div className="flex gap-2 flex-wrap">
                 {previewUrls.map((url, i) => (
-                  <div key={i} className="relative shrink-0 group">
-                    <img src={url} alt="" className="h-14 w-14 rounded-lg object-cover" />
-                    <button onClick={() => removeSelectedFile(i)} className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                      <X className="h-2.5 w-2.5" />
+                  <div key={i} className="relative group">
+                    <img src={url} alt={`Preview ${i + 1}`} className="h-20 w-20 rounded-[14px] object-cover shadow-sm" />
+                    <button onClick={() => removeSelectedFile(i)} className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#1f1f1f] text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
+                      <X className="h-3 w-3" />
                     </button>
                   </div>
                 ))}
@@ -931,126 +913,177 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 
             {/* Video preview */}
             {hasVideoInComposer && videoPreview && (
-              <div className="relative rounded-lg overflow-hidden">
-                <video src={videoPreview} className="w-full max-h-32 object-cover" playsInline muted />
-                <div className="absolute top-1 left-1 flex items-center gap-1 rounded bg-black/50 px-1 py-0.5 text-[8px] text-white">
-                  <Video className="h-2.5 w-2.5" />{formatDuration(videoDuration)}
+              <div className="relative">
+                <video src={videoPreview} className="w-full max-h-48 rounded-[14px] object-cover" playsInline muted />
+                <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-black/50 backdrop-blur-sm px-2 py-0.5 text-[10px] text-white/90">
+                  <Video className="h-3 w-3" /> {formatDuration(videoDuration)}
                 </div>
-                <button onClick={() => { setSelectedVideo(null); if (videoPreview) URL.revokeObjectURL(videoPreview); setVideoPreview(null); setVideoDuration(0); }} className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white">
-                  <X className="h-2.5 w-2.5" />
+                <button onClick={() => { setSelectedVideo(null); if (videoPreview) URL.revokeObjectURL(videoPreview); setVideoPreview(null); setVideoDuration(0); }} className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#1f1f1f] text-white shadow-sm">
+                  <X className="h-3 w-3" />
                 </button>
               </div>
             )}
 
             {/* Audio preview */}
             {hasAudioInComposer && audioPreview && (
-              <div className="relative flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/10 px-2.5 py-2">
-                <Volume2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                <span className="text-[11px] font-medium">Áudio</span>
-                <span className="text-[10px] text-muted-foreground">{formatDuration(audioDuration)}</span>
-                <audio src={audioPreview} controls className="flex-1 h-6 min-w-0" />
-                <button onClick={() => { setSelectedAudio(null); if (audioPreview) URL.revokeObjectURL(audioPreview); setAudioPreview(null); setAudioDuration(0); }} className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground">
+              <div className="relative rounded-[14px] bg-[#ece2d5]/30 p-3">
+                <div className="flex items-center gap-2">
+                  <Music className="h-4 w-4 text-[#77736d]" />
+                  <span className="text-xs font-medium text-[#1f1f1f]">Áudio</span>
+                  <span className="text-[10px] text-[#77736d]">{formatDuration(audioDuration)}</span>
+                </div>
+                <audio src={audioPreview} controls className="mt-2 w-full h-8" />
+                <button onClick={() => { setSelectedAudio(null); if (audioPreview) URL.revokeObjectURL(audioPreview); setAudioPreview(null); setAudioDuration(0); }} className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#1f1f1f] text-white">
                   <X className="h-2.5 w-2.5" />
                 </button>
               </div>
             )}
 
-            {/* Action bar */}
-            <div className="flex items-center justify-between -mx-1">
+            {/* Audio recording indicator */}
+            {isRecordingAudio && (
+              <div className="relative rounded-t-[20px] border border-red-200 bg-red-50 p-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500 text-white animate-pulse">
+                    <Mic className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-red-600">Gravando áudio...</span>
+                      <span className="text-sm font-bold tabular-nums text-red-600">{formatDuration(recordingSeconds)}</span>
+                      <span className="text-[10px] text-[#77736d]">/ {formatDuration(MAX_AUDIO_DURATION)}</span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 bg-red-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-red-500 rounded-full transition-all" style={{ width: `${(recordingSeconds / MAX_AUDIO_DURATION) * 100}%` }} />
+                    </div>
+                  </div>
+                  <button onClick={stopAudioRecording} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500 text-white shadow-md hover:bg-red-600 transition-colors" title="Parar gravação">
+                    <Square className="h-4 w-4" />
+                  </button>
+                  <button onClick={cancelAudioRecording} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ece2d5]/50 text-[#77736d] hover:bg-red-500 hover:text-white transition-colors" title="Cancelar">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ═══════ ACTION BAR ═══════ */}
+            <div className="flex items-center justify-between pt-1">
+              {/* Menu button */}
               <div className="relative" ref={menuRef}>
-                <button onClick={() => setMenuOpen(!menuOpen)} className={`flex items-center gap-0.5 rounded-full px-2 py-1 text-xs font-medium transition-colors ${menuOpen ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-primary hover:bg-primary/5"}`}>
-                  <Plus className="h-3.5 w-3.5" />
+                <button
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${menuOpen ? "bg-[#ece2d5]/50 text-[#1f1f1f]" : "text-[#77736d] hover:text-[#1f1f1f] hover:bg-[#ece2d5]/50"}`}
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Menu</span>
                   <ChevronDown className={`h-3 w-3 transition-transform ${menuOpen ? "rotate-180" : ""}`} />
                 </button>
+
+                {/* Dropdown menu - opens DOWNWARD */}
                 {menuOpen && (
-                  <div className="absolute left-0 top-full mt-1 w-52 max-w-[calc(100vw-2rem)] rounded-xl border bg-popover p-1 shadow-lg z-50 animate-in fade-in-0 zoom-in-95">
+                  <div className="absolute left-0 top-full mt-1 w-56 rounded-[20px] border border-black/[.04] bg-white p-1.5 shadow-[0_10px_30px_rgba(0,0,0,.06)] z-50 animate-in fade-in-0 zoom-in-95">
+                    {/* Camera photo */}
                     <button
-                      onClick={() => { setMenuOpen(false); if (canAddPhotos) cameraPhotoRef.current?.click(); }}
+                      onClick={() => { if (canAddPhotos) cameraPhotoRef.current?.click(); }}
                       disabled={!canAddPhotos}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddPhotos ? "hover:bg-accent" : "opacity-40 cursor-not-allowed"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-sm transition-colors ${canAddPhotos ? "text-[#1f1f1f] hover:bg-[#ece2d5]/50" : "text-[#77736d]/40 cursor-not-allowed"}`}
                     >
-                      <Camera className="h-4 w-4 text-primary" />
+                      <Camera className={`h-4 w-4 ${canAddPhotos ? "text-[#1f1f1f]" : ""}`} />
                       <span>Tirar foto</span>
                     </button>
+
+                    {/* Gallery photos */}
                     <button
-                      onClick={() => { setMenuOpen(false); if (canAddPhotos) fileInputRef.current?.click(); }}
+                      onClick={() => { if (canAddPhotos) fileInputRef.current?.click(); }}
                       disabled={!canAddPhotos}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddPhotos ? "hover:bg-accent" : "opacity-40 cursor-not-allowed"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-sm transition-colors ${canAddPhotos ? "text-[#1f1f1f] hover:bg-[#ece2d5]/50" : "text-[#77736d]/40 cursor-not-allowed"}`}
                     >
-                      <ImagePlus className="h-4 w-4 text-primary" />
+                      <ImagePlus className={`h-4 w-4 ${canAddPhotos ? "text-[#1f1f1f]" : ""}`} />
                       <span>Escolher fotos</span>
                     </button>
 
-                    <div className="my-1 h-px bg-border" />
+                    <div className="my-1 h-px bg-[#e7e0d7]" />
 
+                    {/* Camera video */}
                     <button
-                      onClick={() => { setMenuOpen(false); if (canAddVideo) cameraVideoRef.current?.click(); }}
-                      disabled={!canAddVideo}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddVideo ? "hover:bg-accent" : "opacity-40 cursor-not-allowed"}`}
+                      onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) cameraVideoRef.current?.click(); }}
+                      disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
+                      className={`flex w-full items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#1f1f1f] hover:bg-[#ece2d5]/50" : "text-[#77736d]/40 cursor-not-allowed"}`}
                     >
-                      <Video className="h-4 w-4 text-primary" />
+                      <Video className={`h-4 w-4 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#1f1f1f]" : ""}`} />
                       <span>Gravar vídeo</span>
                     </button>
+
+                    {/* Video from file */}
                     <button
-                      onClick={() => { setMenuOpen(false); if (canAddVideo) videoInputRef.current?.click(); }}
-                      disabled={!canAddVideo}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddVideo ? "hover:bg-accent" : "opacity-40 cursor-not-allowed"}`}
+                      onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) videoInputRef.current?.click(); }}
+                      disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
+                      className={`flex w-full items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#1f1f1f] hover:bg-[#ece2d5]/50" : "text-[#77736d]/40 cursor-not-allowed"}`}
                     >
-                      <Video className="h-4 w-4 text-muted-foreground" />
+                      <Video className={`h-4 w-4 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#77736d]" : ""}`} />
                       <span>Escolher vídeo</span>
                     </button>
 
-                    <div className="my-1 h-px bg-border" />
+                    <div className="my-1 h-px bg-[#e7e0d7]" />
 
+                    {/* Record audio (direct) */}
                     <button
-                      onClick={() => { setMenuOpen(false); if (canAddAudio) startAudioRecording(); }}
-                      disabled={!canAddAudio}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddAudio ? "hover:bg-accent" : "opacity-40 cursor-not-allowed"}`}
+                      onClick={() => { if (canAddAudio && !isRecordingAudio) startAudioRecording(); }}
+                      disabled={!canAddAudio || isRecordingAudio}
+                      className={`flex w-full items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-sm transition-colors ${canAddAudio && !isRecordingAudio ? "text-[#1f1f1f] hover:bg-[#ece2d5]/50" : "text-[#77736d]/40 cursor-not-allowed"}`}
                     >
-                      <Mic className="h-4 w-4 text-primary" />
+                      <Mic className={`h-4 w-4 ${canAddAudio && !isRecordingAudio ? "text-[#1f1f1f]" : ""}`} />
                       <span>Gravar áudio</span>
                     </button>
+
+                    {/* Audio from file */}
                     <button
-                      onClick={() => { setMenuOpen(false); if (canAddAudio) audioInputRef.current?.click(); }}
+                      onClick={() => { if (canAddAudio) audioInputRef.current?.click(); }}
                       disabled={!canAddAudio}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddAudio ? "hover:bg-accent" : "opacity-40 cursor-not-allowed"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-sm transition-colors ${canAddAudio ? "text-[#1f1f1f] hover:bg-[#ece2d5]/50" : "text-[#77736d]/40 cursor-not-allowed"}`}
                     >
-                      <Music className="h-4 w-4 text-muted-foreground" />
+                      <Music className={`h-4 w-4 ${canAddAudio ? "text-[#77736d]" : ""}`} />
                       <span>Escolher áudio</span>
                     </button>
 
-                    <div className="my-1 h-px bg-border" />
+                    <div className="my-1 h-px bg-[#e7e0d7]" />
 
+                    {/* Visibility toggle */}
                     <button
-                      onClick={() => { setMenuOpen(false); setVisibility(v => v === "public" ? "followers" : "public"); }}
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent"
+                      onClick={() => setVisibility((v) => v === "public" ? "followers" : "public")}
+                      className="flex w-full items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-sm text-[#1f1f1f] transition-colors hover:bg-[#ece2d5]/50"
                     >
-                      {visibility === "public" ? <Globe className="h-4 w-4 text-primary" /> : <UsersIcon className="h-4 w-4 text-amber-500" />}
+                      {visibility === "public" ? (
+                        <Globe className="h-4 w-4 text-[#1f1f1f]" />
+                      ) : (
+                        <UsersIcon className="h-4 w-4 text-[#77736d]" />
+                      )}
                       <span>{visibility === "public" ? "Público" : "Seguidores"}</span>
                     </button>
                   </div>
                 )}
-                {/* Hidden file inputs */}
+
+                {/* Hidden inputs */}
                 <input ref={cameraPhotoRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhotoSelect} className="hidden" />
-                <input ref={cameraVideoRef} type="file" accept="video/*" capture="environment" onChange={handleCameraVideoSelect} className="hidden" />
-                <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
                 <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
+                <input ref={cameraVideoRef} type="file" accept="video/*" capture="environment" onChange={handleCameraVideoSelect} className="hidden" />
                 <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
+                <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
               </div>
-              <div className="flex items-center gap-1.5">
-                {content.length > 0 && (
-                  <span className={`text-[9px] tabular-nums ${content.length > 450 ? "text-destructive" : "text-muted-foreground/60"}`}>
-                    {content.length}/500
-                  </span>
-                )}
-                <Button size="sm" disabled={!canPost || uploading} onClick={handlePost} className="rounded-full px-4 h-7 text-xs shadow-sm">
-                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Publicar"}
+
+              {/* Publish button */}
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] ${content.length > 450 ? "text-red-500" : "text-[#77736d]"}`}>
+                  {content.length}/500
+                </span>
+                <Button size="sm" disabled={(!content.trim() && !selectedFiles.length && !selectedVideo && !selectedAudio) || uploading} onClick={handlePost} className="bg-[#1f1f1f] text-white rounded-full px-5 shadow-sm hover:bg-[#1f1f1f]/90">
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Publicar"}
                 </Button>
               </div>
             </div>
 
             {activeMediaCount >= MAX_ACTIVE_MEDIA_POSTS && (
-              <div className="flex items-center gap-1 text-[10px] text-amber-500 mt-1">
+              <div className="flex items-center gap-1 text-[10px] text-[#77736d] mt-1">
                 <Clock className="h-3 w-3" /> {activeMediaCount}/{MAX_ACTIVE_MEDIA_POSTS} posts com mídia ativos
               </div>
             )}
@@ -1061,26 +1094,26 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       {/* Repost dialog */}
       {repostingPost && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => { setRepostingPost(null); setRepostContent(""); }}>
-          <div className="w-full max-w-md mx-4 rounded-2xl border bg-card p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-bold mb-3">Compartilhar no feed</h3>
-            <div className="rounded-xl border bg-muted/30 p-3 mb-3">
+          <div className="w-full max-w-md mx-4 rounded-[24px] border border-black/[.04] bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,.06)]" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-[#1f1f1f] mb-3">Compartilhar no feed</h3>
+            <div className="rounded-[14px] bg-[#ece2d5]/30 p-3 mb-3">
               <div className="flex items-center gap-2 mb-1">
                 <UserAvatar user={repostingPost.author} className="h-6 w-6" />
-                <span className="text-xs font-semibold">{repostingPost.author.display_name}</span>
-                <span className="text-[10px] text-muted-foreground">@{repostingPost.author.username}</span>
+                <span className="text-xs font-semibold text-[#1f1f1f]">{repostingPost.author.display_name}</span>
+                <span className="text-[10px] text-[#77736d]">@{repostingPost.author.username}</span>
               </div>
-              <p className="text-xs text-muted-foreground line-clamp-3">{repostingPost.content}</p>
+              <p className="text-xs text-[#77736d] line-clamp-3">{repostingPost.content}</p>
             </div>
             <textarea
               placeholder="Adicione um comentário (opcional)..."
               value={repostContent}
               onChange={(e) => setRepostContent(e.target.value.slice(0, 200))}
-              className="w-full min-h-[60px] resize-none rounded-xl border-0 bg-muted/50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/60"
+              className="w-full min-h-[60px] resize-none border-0 bg-transparent p-0 text-[15px] text-[#1f1f1f] placeholder:text-[#77736d]/60 focus:outline-none"
               rows={2}
             />
             <div className="flex items-center gap-2 mt-3">
-              <Button variant="outline" size="sm" onClick={() => { setRepostingPost(null); setRepostContent(""); }} className="rounded-full">Cancelar</Button>
-              <Button size="sm" onClick={() => handleRepost(repostingPost)} className="rounded-full gap-1.5">
+              <Button variant="outline" size="sm" onClick={() => { setRepostingPost(null); setRepostContent(""); }} className="rounded-full border-[#e7e0d7] text-[#77736d]">Cancelar</Button>
+              <Button size="sm" onClick={() => handleRepost(repostingPost)} className="bg-[#1f1f1f] text-white rounded-full gap-1.5 hover:bg-[#1f1f1f]/90">
                 <Repeat2 className="h-3.5 w-3.5" /> Compartilhar
               </Button>
             </div>
@@ -1090,10 +1123,10 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 
       {posts.length === 0 && (
         <div className="py-16 text-center">
-          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
-            <MessageCircle className="h-8 w-8 text-muted-foreground" />
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#ece2d5]/30">
+            <MessageCircle className="h-8 w-8 text-[#77736d]" />
           </div>
-          <p className="text-sm text-muted-foreground">Nenhum post ainda. Seja o primeiro a publicar!</p>
+          <p className="text-sm text-[#77736d]">Nenhum post ainda. Seja o primeiro a publicar!</p>
         </div>
       )}
 
@@ -1150,7 +1183,10 @@ function PostThread({
   const hasPhotos = post.image_urls && post.image_urls.length > 0;
   const hasVideo = !!post.video_url;
   const hasAudio = !!post.audio_url;
+  const hasMedia = hasPhotos || hasVideo || hasAudio;
   const isOwnPost = post.author_id === profile?.id;
+  const warmBg = !hasMedia ? getWarmBg(post.id) : "";
+  const isShortText = !hasMedia && post.content.length < 80;
 
   const [expirationLabel, setExpirationLabel] = useState<string>("");
   useEffect(() => {
@@ -1263,65 +1299,64 @@ function PostThread({
   const { roots: commentRoots, map: commentMap } = buildCommentTree(comments);
 
   return (
-    <div className={`rounded-2xl border bg-card shadow-sm overflow-hidden transition-shadow hover:shadow-md ${isOwnPost ? "border-primary/10" : ""}`}>
-      <div className="p-4">
+    <div className={`rounded-[24px] overflow-hidden border border-black/[.04] bg-white shadow-[0_2px_10px_rgba(0,0,0,.02)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,.03),0_10px_30px_rgba(0,0,0,.04)] ${warmBg}`}>
+      <div className="p-5">
         {/* Header */}
         <div className="flex items-start gap-3">
           <button onClick={() => openUserProfile?.(post.author.id)} className="shrink-0 group">
-            <UserAvatar user={post.author} className="h-11 w-11 hover:opacity-80 transition-opacity ring-2 ring-background shadow-sm" />
+            <UserAvatar user={post.author} className="h-8 w-8 hover:opacity-80 transition-opacity" />
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <button onClick={() => openUserProfile?.(post.author.id)} className="text-sm font-bold hover:underline underline-offset-2 transition-all">
+              <button onClick={() => openUserProfile?.(post.author.id)} className="text-[13px] font-semibold text-[#1f1f1f] hover:underline underline-offset-2 transition-all">
                 {post.author.display_name}
               </button>
-              <span className="text-xs text-muted-foreground">@{post.author.username}</span>
+              <span className="text-[11px] text-[#77736d]">@{post.author.username}</span>
               {post.author.neighborhood && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5">
+                <span className="inline-flex items-center gap-0.5 text-[10px] text-[#77736d]">
                   <MapPin className="h-2.5 w-2.5" />{post.author.neighborhood}
-                </Badge>
+                </span>
               )}
               {post.visibility === "followers" && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 text-amber-500 border-amber-500/30">
+                <span className="inline-flex items-center gap-0.5 text-[10px] text-[#77736d]">
                   <UsersIcon className="h-2.5 w-2.5" />Seguidores
-                </Badge>
+                </span>
               )}
-              {isOwnPost && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 text-primary/60 border-primary/20">
-                  Seu post
-                </Badge>
-              )}
-              <span className="text-[10px] text-muted-foreground/60">·</span>
-              <span className="text-[10px] text-muted-foreground">{timeAgo(post.created_at)}</span>
+              <span className="text-[11px] text-[#77736d]">·</span>
+              <span className="text-[11px] text-[#77736d]">{timeAgo(post.created_at)}</span>
             </div>
 
             {/* Content */}
-            <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
+            {isShortText ? (
+              <p className="mt-2 font-serif text-2xl leading-tight text-[#1f1f1f] whitespace-pre-wrap">{post.content}</p>
+            ) : (
+              <p className="mt-2 text-[15px] leading-[1.7] text-[#444] whitespace-pre-wrap">{post.content}</p>
+            )}
 
             {/* Shared post (repost) */}
             {post.shared_post && (
-              <div className="mt-2.5 rounded-xl border bg-muted/20 p-3">
+              <div className="mt-3 rounded-[14px] border border-black/[.04] bg-[#fcfaf7] p-3">
                 <div className="flex items-center gap-2 mb-1.5">
-                  <Repeat2 className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-[10px] text-muted-foreground">Compartilhado de</span>
+                  <Repeat2 className="h-3 w-3 text-[#77736d]" />
+                  <span className="text-[10px] text-[#77736d]">Compartilhado de</span>
                 </div>
                 <div className="flex items-center gap-2 mb-1">
                   <button onClick={() => openUserProfile?.(post.shared_post!.author.id)} className="shrink-0">
                     <UserAvatar user={post.shared_post.author} className="h-6 w-6" />
                   </button>
-                  <button onClick={() => openUserProfile?.(post.shared_post!.author.id)} className="text-xs font-semibold hover:underline">
+                  <button onClick={() => openUserProfile?.(post.shared_post!.author.id)} className="text-xs font-semibold text-[#1f1f1f] hover:underline">
                     {post.shared_post.author.display_name}
                   </button>
-                  <span className="text-[10px] text-muted-foreground">@{post.shared_post.author.username}</span>
+                  <span className="text-[10px] text-[#77736d]">@{post.shared_post.author.username}</span>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-4">{post.shared_post.content}</p>
+                <p className="text-xs text-[#77736d] leading-relaxed line-clamp-4">{post.shared_post.content}</p>
                 {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
                   <div className="mt-1.5 flex gap-1 overflow-x-auto">
                     {post.shared_post.image_urls.slice(0, 2).map((url, i) => (
-                      <img key={i} src={url} alt="" className="h-16 w-16 rounded-lg object-cover shrink-0" />
+                      <img key={i} src={url} alt="" className="h-16 w-16 rounded-[12px] object-cover shrink-0" />
                     ))}
                     {post.shared_post.image_urls.length > 2 && (
-                      <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center text-xs text-muted-foreground shrink-0">
+                      <div className="h-16 w-16 rounded-[12px] bg-[#ece2d5]/30 flex items-center justify-center text-xs text-[#77736d] shrink-0">
                         +{post.shared_post.image_urls.length - 2}
                       </div>
                     )}
@@ -1337,8 +1372,8 @@ function PostThread({
 
             {/* Expiration */}
             {post.expires_at && expirationLabel && (
-              <div className="mt-2.5 flex items-center gap-1.5 text-[10px] text-amber-500 bg-amber-500/5 rounded-full px-2.5 py-1 w-fit">
-                <Clock className="h-3 w-3" />
+              <div className="mt-3 flex items-center gap-1.5 text-[11px] text-[#77736d] w-fit">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#77736d]/40" />
                 <span>{expirationLabel}</span>
               </div>
             )}
@@ -1349,20 +1384,20 @@ function PostThread({
               <div className="relative">
                 <button
                   onClick={() => setShowReactions(!showReactions)}
-                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs transition-colors ${post.reactions?.some((r) => r.user_id === profile?.id) ? "text-primary bg-primary/10 font-medium" : "text-muted-foreground hover:bg-accent hover:text-primary"}`}
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs transition-colors ${post.reactions?.some((r) => r.user_id === profile?.id) ? "text-[#1f1f1f] bg-[#ece2d5]/50 font-medium" : "text-[#77736d] hover:text-[#1f1f1f] hover:bg-[#ece2d5]/50"}`}
                 >
                   <Heart className="h-4 w-4" />
                   {post.reactions?.length > 0 && <span>{post.reactions.length}</span>}
                 </button>
                 {showReactions && (
-                  <div className="absolute bottom-full left-0 mb-1.5 flex gap-0.5 rounded-xl border bg-card p-1.5 shadow-xl z-20">
+                  <div className="absolute bottom-full left-0 mb-1.5 flex gap-0.5 rounded-[16px] border border-black/[.04] bg-white p-1.5 shadow-[0_10px_30px_rgba(0,0,0,.06)] z-20">
                     {REACTION_EMOJIS.map(({ type, emoji, label }) => {
                       const isActive = post.reactions?.some((r) => r.user_id === profile?.id && r.type === type);
                       return (
                         <button
                           key={type}
                           onClick={() => { onReaction(post.id, type); setShowReactions(false); }}
-                          className={`rounded-lg p-1.5 text-lg transition-all hover:scale-125 ${isActive ? "bg-primary/10 ring-1 ring-primary" : ""}`}
+                          className={`rounded-[10px] p-1.5 text-lg transition-all hover:scale-125 ${isActive ? "bg-[#ece2d5]/50 ring-1 ring-[#1f1f1f]/20" : ""}`}
                           title={label}
                         >
                           {emoji}
@@ -1377,7 +1412,7 @@ function PostThread({
               {reactionGroups.length > 0 && (
                 <div className="flex gap-0.5 ml-0.5">
                   {reactionGroups.slice(0, 3).map((g, i) => (
-                    <span key={i} className="inline-flex items-center gap-0.5 rounded-full bg-muted/60 px-1.5 py-0.5 text-[10px]">
+                    <span key={i} className="inline-flex items-center gap-0.5 rounded-full bg-[#ece2d5]/30 px-1.5 py-0.5 text-[10px] text-[#77736d]">
                       {g.emoji} {g.count}
                     </span>
                   ))}
@@ -1387,7 +1422,7 @@ function PostThread({
               <div className="flex-1" />
 
               {/* Comment */}
-              <button onClick={openAndFocus} className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-primary">
+              <button onClick={openAndFocus} className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs text-[#77736d] transition-colors hover:text-[#1f1f1f] hover:bg-[#ece2d5]/50">
                 <MessageCircle className="h-4 w-4" />
                 {commentCount > 0 && commentCount}
               </button>
@@ -1396,7 +1431,7 @@ function PostThread({
               <div className="relative" ref={shareRef}>
                 <button
                   onClick={() => setShareMenuOpen(shareMenuOpen === post.id ? null : post.id)}
-                  className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
+                  className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs text-[#77736d] transition-colors hover:text-[#1f1f1f] hover:bg-[#ece2d5]/50"
                 >
                   <Share2 className="h-4 w-4" />
                 </button>
@@ -1411,7 +1446,7 @@ function PostThread({
 
               {/* Delete (own posts only) */}
               {isOwnPost && (
-                <button onClick={() => onDelete(post.id)} className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
+                <button onClick={() => onDelete(post.id)} className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-[#77736d] transition-colors hover:bg-red-50 hover:text-red-500">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               )}
@@ -1422,19 +1457,19 @@ function PostThread({
 
       {/* Comments toggle */}
       {(commentCount > 0 || comments.length > 0) && (
-        <button onClick={toggleComments} className="flex w-full items-center justify-center gap-1.5 border-t py-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent/50 hover:text-primary">
+        <button onClick={toggleComments} className="flex w-full items-center justify-center gap-1.5 border-t border-[#e7e0d7]/60 py-2.5 text-[12px] text-[#77736d] transition-colors hover:bg-[#fcfaf7]">
           {showComments ? <>Ocultar comentários <ChevronUp className="h-3 w-3" /></> : <>{commentCount || comments.length} comentário{(commentCount || comments.length) !== 1 ? "s" : ""} <ChevronDown className="h-3 w-3" /></>}
         </button>
       )}
 
       {/* Comments section */}
       {showComments && (
-        <div className="border-t bg-muted/10">
-          <div className="max-h-72 overflow-y-auto px-4 py-3 custom-scrollbar">
+        <div className="border-t border-[#e7e0d7]/60 bg-[#fcfaf7]/50">
+          <div className="max-h-72 overflow-y-auto px-5 py-3 custom-scrollbar">
             {commentsLoading ? (
-              <div className="space-y-3">{[1, 2].map((i) => (<div key={i} className="flex gap-2.5 animate-pulse"><div className="h-6 w-6 rounded-full bg-muted" /><div className="flex-1 space-y-1.5"><div className="h-3 w-24 rounded bg-muted" /><div className="h-3 w-full rounded bg-muted" /></div></div>))}</div>
+              <div className="space-y-3">{[1, 2].map((i) => (<div key={i} className="flex gap-2.5 animate-pulse"><div className="h-6 w-6 rounded-full bg-[#ece2d5]/30" /><div className="flex-1 space-y-1.5"><div className="h-3 w-24 rounded bg-[#ece2d5]/30" /><div className="h-3 w-full rounded bg-[#ece2d5]/30" /></div></div>))}</div>
             ) : comments.length === 0 ? (
-              <p className="text-center text-xs text-muted-foreground py-2">Nenhum comentário ainda. Seja o primeiro!</p>
+              <p className="text-center text-xs text-[#77736d] py-2">Nenhum comentário ainda. Seja o primeiro!</p>
             ) : (
               <div className="space-y-3">
                 {commentRoots.map((comment) => (
@@ -1445,18 +1480,18 @@ function PostThread({
           </div>
 
           {profile && (
-            <div className="border-t px-4 py-2.5">
+            <div className="border-t border-[#e7e0d7]/60 px-5 py-2.5">
               {replyTo && (
-                <div className="flex items-center gap-1.5 mb-1.5 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5 mb-1.5 text-xs text-[#77736d]">
                   <Reply className="h-3 w-3" />
                   <span>Respondendo a <strong>@{replyTo.author.display_name}</strong></span>
-                  <button onClick={() => setReplyTo(null)} className="text-destructive hover:underline ml-1">Cancelar</button>
+                  <button onClick={() => setReplyTo(null)} className="text-red-400 hover:underline ml-1">Cancelar</button>
                 </div>
               )}
               <div className="flex items-center gap-2">
                 <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
-                <Input ref={commentInputRef} placeholder={replyTo ? `Responder @${replyTo.author.display_name}...` : "Escreva um comentário..."} value={commentInput} onChange={(e) => setCommentInput(e.target.value.slice(0, 300))} onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && submitComment()} className="h-8 text-xs border-0 bg-muted/50 focus-visible:ring-1" />
-                <Button size="icon" onClick={submitComment} disabled={!commentInput.trim() || submitting} className="h-8 w-8 shrink-0 rounded-full"><Send className="h-3.5 w-3.5" /></Button>
+                <Input ref={commentInputRef} placeholder={replyTo ? `Responder @${replyTo.author.display_name}...` : "Escreva um comentário..."} value={commentInput} onChange={(e) => setCommentInput(e.target.value.slice(0, 300))} onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && submitComment()} className="h-8 text-xs border-0 bg-[#ece2d5]/20 focus-visible:ring-1 focus-visible:ring-[#e7e0d7] placeholder:text-[#77736d]/60" />
+                <Button size="icon" onClick={submitComment} disabled={!commentInput.trim() || submitting} className="h-8 w-8 shrink-0 rounded-full bg-[#1f1f1f] text-white hover:bg-[#1f1f1f]/90"><Send className="h-3.5 w-3.5" /></Button>
               </div>
             </div>
           )}
@@ -1465,9 +1500,9 @@ function PostThread({
 
       {/* Quick comment (when comments hidden) */}
       {!showComments && profile && (
-        <div className="flex items-center gap-2 border-t px-4 py-2.5">
+        <div className="flex items-center gap-2 border-t border-[#e7e0d7]/60 px-5 py-2.5">
           <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
-          <Input placeholder="Escreva um comentário..." value={commentInput} onChange={(e) => setCommentInput(e.target.value.slice(0, 300))} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && commentInput.trim()) openAndFocus(); }} onFocus={openAndFocus} className="h-8 text-xs border-0 bg-muted/50 focus-visible:ring-1" />
+          <Input placeholder="Escreva um comentário..." value={commentInput} onChange={(e) => setCommentInput(e.target.value.slice(0, 300))} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && commentInput.trim()) openAndFocus(); }} onFocus={openAndFocus} className="h-8 text-xs border-0 bg-[#ece2d5]/20 focus-visible:ring-1 focus-visible:ring-[#e7e0d7] placeholder:text-[#77736d]/60" />
         </div>
       )}
     </div>
@@ -1483,33 +1518,33 @@ function CommentItem({ comment, replies, profile, commentMap, onDelete, onReply,
   onReaction: (commentId: string, type: string) => void; openUserProfile?: (userId: string) => void; depth: number;
 }) {
   return (
-    <div className={depth > 0 ? "ml-6 border-l-2 border-primary/20 pl-3" : ""}>
+    <div className={depth > 0 ? "ml-6 border-l-2 border-[#ece2d5] pl-3" : ""}>
       <div className="flex gap-2.5">
         <button onClick={() => openUserProfile?.(comment.author.id)} className="shrink-0">
           <UserAvatar user={comment.author} className="h-6 w-6 hover:opacity-80 transition-opacity" />
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <button onClick={() => openUserProfile?.(comment.author.id)} className="text-xs font-semibold hover:underline underline-offset-2 transition-all">{comment.author.display_name}</button>
-            <span className="text-[10px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
+            <button onClick={() => openUserProfile?.(comment.author.id)} className="text-xs font-semibold text-[#1f1f1f] hover:underline underline-offset-2 transition-all">{comment.author.display_name}</button>
+            <span className="text-[10px] text-[#77736d]">{timeAgo(comment.created_at)}</span>
           </div>
-          <p className="text-xs leading-relaxed">{comment.content}</p>
+          <p className="text-xs leading-relaxed text-[#444]">{comment.content}</p>
           <div className="mt-1 flex items-center gap-2 flex-wrap">
             {REACTION_EMOJIS.slice(0, 4).map(({ type, emoji }) => {
               const isActive = comment.reactions?.some((r) => r.user_id === profile?.id && r.type === type);
               const count = comment.reactions?.filter((r) => r.type === type).length || 0;
               if (count === 0 && !isActive) return null;
               return (
-                <button key={type} onClick={() => onReaction(comment.id, type)} className={`text-[10px] transition-colors ${isActive ? "text-primary font-semibold" : "hover:text-primary"}`}>
+                <button key={type} onClick={() => onReaction(comment.id, type)} className={`text-[10px] transition-colors ${isActive ? "text-[#1f1f1f] font-semibold" : "text-[#77736d] hover:text-[#1f1f1f]"}`}>
                   {emoji}{count > 0 && ` ${count}`}
                 </button>
               );
             })}
-            <button onClick={() => onReply(comment)} className="text-[10px] text-muted-foreground hover:text-primary transition-colors">
+            <button onClick={() => onReply(comment)} className="text-[10px] text-[#77736d] hover:text-[#1f1f1f] transition-colors">
               <Reply className="h-2.5 w-2.5 inline" /> Responder
             </button>
             {comment.author_id === profile?.id && (
-              <button onClick={() => onDelete(comment.id)} className="text-[10px] text-muted-foreground hover:text-destructive">
+              <button onClick={() => onDelete(comment.id)} className="text-[10px] text-[#77736d] hover:text-red-500">
                 <Trash2 className="h-2.5 w-2.5" />
               </button>
             )}
@@ -1528,16 +1563,22 @@ function CommentItem({ comment, replies, profile, commentMap, onDelete, onReply,
 // ═══════════════════════════════════════════════════════════
 function FeedSkeleton() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5 bg-[#f5f2ec] min-h-screen">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="rounded-2xl border bg-card p-4 animate-pulse">
+        <div key={i} className="rounded-[24px] border border-black/[.04] bg-white p-5 animate-pulse">
           <div className="flex gap-3">
-            <div className="h-11 w-11 rounded-full bg-muted" />
+            <div className="h-8 w-8 rounded-full bg-[#ece2d5]/30" />
             <div className="flex-1 space-y-2">
-              <div className="h-4 w-32 rounded bg-muted" />
-              <div className="h-3 w-full rounded bg-muted" />
-              <div className="h-3 w-3/4 rounded bg-muted" />
+              <div className="h-3 w-24 rounded-full bg-[#ece2d5]/30" />
+              <div className="h-3 w-full rounded-full bg-[#ece2d5]/30" />
+              <div className="h-3 w-2/3 rounded-full bg-[#ece2d5]/30" />
             </div>
+          </div>
+          <div className="mt-4 h-40 rounded-[20px] bg-[#ece2d5]/20" />
+          <div className="mt-4 flex gap-4">
+            <div className="h-4 w-10 rounded-full bg-[#ece2d5]/30" />
+            <div className="h-4 w-10 rounded-full bg-[#ece2d5]/30" />
+            <div className="h-4 w-10 rounded-full bg-[#ece2d5]/30" />
           </div>
         </div>
       ))}
