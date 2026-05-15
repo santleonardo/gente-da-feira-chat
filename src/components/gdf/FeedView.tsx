@@ -80,8 +80,8 @@ function getExpirationLabel(expiresAt: string): string {
   if (diff <= 0) return "Expirado";
   const hours = Math.floor(diff / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
-  if (hours > 0) return `Expira em ${hours}h${mins > 0 ? ` ${mins}min` : ""}`;
-  return `Expira em ${mins}min`;
+  if (hours > 0) return `${hours}h${mins > 0 ? `${mins}min` : ""}`;
+  return `${mins}min`;
 }
 
 function formatDuration(seconds: number): string {
@@ -746,8 +746,9 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   };
 
   const handlePost = async () => {
-    if (!content.trim() || !profile) return;
     const hasMedia = selectedFiles.length > 0 || selectedVideo || selectedAudio;
+    if (!profile) return;
+    if (!content.trim() && !hasMedia) return;
 
     if (hasMedia && activeMediaCount >= MAX_ACTIVE_MEDIA_POSTS) {
       toast.error(`Você já tem ${MAX_ACTIVE_MEDIA_POSTS} posts com mídia ativos. Aguarde a expiração.`);
@@ -781,11 +782,12 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         if (!audioUrl) { setUploading(false); return; }
       }
 
+      const hasMedia = selectedFiles.length > 0 || selectedVideo || selectedAudio;
       const res = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: content.trim(),
+          content: content.trim() || (hasMedia ? "📷" : ""),
           neighborhood: profile.neighborhood,
           imageUrls,
           videoUrl,
@@ -875,26 +877,56 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   return (
     <div className="space-y-4">
       {/* ═══════ COMPOSER ═══════ */}
-      <div className="rounded-2xl border bg-card p-4 shadow-sm">
-        <div className="flex items-start gap-3">
-          <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-10 w-10 shrink-0" />
-          <div className="flex-1 space-y-2">
+      <div className="rounded-2xl border bg-card p-3 shadow-sm overflow-hidden">
+        {/* ═══════ AUDIO RECORDING BANNER (top, very visible) ═══════ */}
+        {isRecordingAudio && (
+          <div className="-mx-3 -mt-3 mb-3 bg-red-500 px-4 py-3 text-white">
+            <div className="flex items-center gap-3">
+              <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20">
+                <Mic className="h-5 w-5" />
+                <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                  <span className="relative inline-flex h-3 w-3 rounded-full bg-white" />
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-bold">Gravando áudio</span>
+                  <span className="text-lg font-bold tabular-nums">{formatDuration(recordingSeconds)}</span>
+                </div>
+                <div className="h-2 bg-white/30 rounded-full overflow-hidden">
+                  <div className="h-full bg-white rounded-full transition-all" style={{ width: `${(recordingSeconds / MAX_AUDIO_DURATION) * 100}%` }} />
+                </div>
+              </div>
+              <button onClick={stopAudioRecording} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-red-500 shadow-lg hover:bg-white/90 transition-colors" title="Parar e salvar">
+                <Square className="h-4 w-4" />
+              </button>
+              <button onClick={cancelAudioRecording} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors" title="Cancelar">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-start gap-2.5">
+          <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-9 w-9 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0 space-y-2">
             <textarea
-              placeholder="O que está acontecendo no seu bairro?"
+              placeholder={hasPhotosInComposer || hasVideoInComposer || hasAudioInComposer ? "Adicione um texto (opcional)..." : "O que está acontecendo no seu bairro?"}
               value={content}
               onChange={(e) => setContent(e.target.value.slice(0, 500))}
-              className="w-full min-h-[72px] resize-none rounded-xl border-0 bg-muted/50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/60"
+              className="w-full min-h-[60px] resize-none rounded-xl border-0 bg-muted/50 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/60"
               rows={2}
             />
 
             {/* Photo previews */}
             {hasPhotosInComposer && previewUrls.length > 0 && (
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
                 {previewUrls.map((url, i) => (
-                  <div key={i} className="relative group">
-                    <img src={url} alt={`Preview ${i + 1}`} className="h-20 w-20 rounded-xl object-cover border shadow-sm" />
-                    <button onClick={() => removeSelectedFile(i)} className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
-                      <X className="h-3 w-3" />
+                  <div key={i} className="relative shrink-0">
+                    <img src={url} alt={`Preview ${i + 1}`} className="h-16 w-16 rounded-lg object-cover border shadow-sm" />
+                    <button onClick={() => removeSelectedFile(i)} className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm">
+                      <X className="h-2.5 w-2.5" />
                     </button>
                   </div>
                 ))}
@@ -904,79 +936,51 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
             {/* Video preview */}
             {hasVideoInComposer && videoPreview && (
               <div className="relative">
-                <video src={videoPreview} className="w-full max-h-48 rounded-xl object-cover" playsInline muted />
-                <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-black/60 backdrop-blur-sm px-2 py-0.5 text-[10px] text-white">
-                  <Video className="h-3 w-3" /> {formatDuration(videoDuration)}
+                <video src={videoPreview} className="w-full max-h-40 rounded-xl object-cover" playsInline muted />
+                <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded-full bg-black/60 backdrop-blur-sm px-1.5 py-0.5 text-[9px] text-white">
+                  <Video className="h-2.5 w-2.5" /> {formatDuration(videoDuration)}
                 </div>
-                <button onClick={() => { setSelectedVideo(null); if (videoPreview) URL.revokeObjectURL(videoPreview); setVideoPreview(null); setVideoDuration(0); }} className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm">
-                  <X className="h-3 w-3" />
+                <button onClick={() => { setSelectedVideo(null); if (videoPreview) URL.revokeObjectURL(videoPreview); setVideoPreview(null); setVideoDuration(0); }} className="absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm">
+                  <X className="h-2.5 w-2.5" />
                 </button>
               </div>
             )}
 
             {/* Audio preview */}
             {hasAudioInComposer && audioPreview && (
-              <div className="relative rounded-xl border bg-primary/5 p-3">
+              <div className="relative rounded-xl border bg-primary/5 p-2.5">
                 <div className="flex items-center gap-2">
-                  <Mic className="h-4 w-4 text-primary" />
+                  <Volume2 className="h-3.5 w-3.5 text-primary" />
                   <span className="text-xs font-medium">Áudio</span>
                   <span className="text-[10px] text-muted-foreground">{formatDuration(audioDuration)}</span>
                 </div>
-                <audio src={audioPreview} controls className="mt-2 w-full h-8" />
-                <button onClick={() => { setSelectedAudio(null); if (audioPreview) URL.revokeObjectURL(audioPreview); setAudioPreview(null); setAudioDuration(0); }} className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground">
+                <audio src={audioPreview} controls className="mt-1.5 w-full h-7" />
+                <button onClick={() => { setSelectedAudio(null); if (audioPreview) URL.revokeObjectURL(audioPreview); setAudioPreview(null); setAudioDuration(0); }} className="absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground">
                   <X className="h-2.5 w-2.5" />
                 </button>
               </div>
             )}
 
-            {/* Audio recording indicator */}
-            {isRecordingAudio && (
-              <div className="relative rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500 text-white animate-pulse">
-                    <Mic className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-red-600 dark:text-red-400">Gravando áudio...</span>
-                      <span className="text-sm font-bold tabular-nums text-red-600 dark:text-red-400">{formatDuration(recordingSeconds)}</span>
-                      <span className="text-[10px] text-muted-foreground">/ {formatDuration(MAX_AUDIO_DURATION)}</span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 bg-red-200 dark:bg-red-900 rounded-full overflow-hidden">
-                      <div className="h-full bg-red-500 rounded-full transition-all" style={{ width: `${(recordingSeconds / MAX_AUDIO_DURATION) * 100}%` }} />
-                    </div>
-                  </div>
-                  <button onClick={stopAudioRecording} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500 text-white shadow-md hover:bg-red-600 transition-colors" title="Parar gravação">
-                    <Square className="h-4 w-4" />
-                  </button>
-                  <button onClick={cancelAudioRecording} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-destructive hover:text-destructive-foreground transition-colors" title="Cancelar">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* ═══════ ACTION BAR ═══════ */}
-            <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center justify-between gap-2 pt-0.5">
               {/* Menu button */}
               <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setMenuOpen(!menuOpen)}
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${menuOpen ? "bg-primary/10 text-primary" : "text-primary hover:bg-primary/10"}`}
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium transition-colors ${menuOpen ? "bg-primary/10 text-primary" : "text-primary hover:bg-primary/10"}`}
                 >
-                  <Plus className="h-4 w-4" />
-                  <span>Menu</span>
+                  <Plus className="h-3.5 w-3.5" />
                   <ChevronDown className={`h-3 w-3 transition-transform ${menuOpen ? "rotate-180" : ""}`} />
                 </button>
 
                 {/* Dropdown menu - opens DOWNWARD */}
                 {menuOpen && (
-                  <div className="absolute left-0 top-full mt-1 w-56 rounded-xl border bg-card p-1.5 shadow-xl z-50 animate-in fade-in-0 zoom-in-95">
+                  <div className="absolute left-0 top-full mt-1 w-52 max-w-[calc(100vw-2rem)] rounded-xl border bg-card p-1 shadow-xl z-50 animate-in fade-in-0 zoom-in-95">
                     {/* Camera photo */}
                     <button
                       onClick={() => { if (canAddPhotos) cameraPhotoRef.current?.click(); }}
                       disabled={!canAddPhotos}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddPhotos ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddPhotos ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
                     >
                       <Camera className={`h-4 w-4 ${canAddPhotos ? "text-primary" : ""}`} />
                       <span>Tirar foto</span>
@@ -986,19 +990,19 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                     <button
                       onClick={() => { if (canAddPhotos) fileInputRef.current?.click(); }}
                       disabled={!canAddPhotos}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddPhotos ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddPhotos ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
                     >
                       <ImagePlus className={`h-4 w-4 ${canAddPhotos ? "text-primary" : ""}`} />
                       <span>Escolher fotos</span>
                     </button>
 
-                    <div className="my-1 h-px bg-border" />
+                    <div className="my-0.5 h-px bg-border" />
 
                     {/* Camera video */}
                     <button
                       onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) cameraVideoRef.current?.click(); }}
                       disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
                     >
                       <Video className={`h-4 w-4 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-primary" : ""}`} />
                       <span>Gravar vídeo</span>
@@ -1008,19 +1012,19 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                     <button
                       onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) videoInputRef.current?.click(); }}
                       disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
                     >
                       <Video className={`h-4 w-4 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-muted-foreground" : ""}`} />
                       <span>Escolher vídeo</span>
                     </button>
 
-                    <div className="my-1 h-px bg-border" />
+                    <div className="my-0.5 h-px bg-border" />
 
                     {/* Record audio (direct) */}
                     <button
                       onClick={() => { if (canAddAudio && !isRecordingAudio) startAudioRecording(); }}
                       disabled={!canAddAudio || isRecordingAudio}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddAudio && !isRecordingAudio ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddAudio && !isRecordingAudio ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
                     >
                       <Mic className={`h-4 w-4 ${canAddAudio && !isRecordingAudio ? "text-primary" : ""}`} />
                       <span>Gravar áudio</span>
@@ -1030,18 +1034,18 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                     <button
                       onClick={() => { if (canAddAudio) audioInputRef.current?.click(); }}
                       disabled={!canAddAudio}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddAudio ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${canAddAudio ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
                     >
                       <Music className={`h-4 w-4 ${canAddAudio ? "text-muted-foreground" : ""}`} />
                       <span>Escolher áudio</span>
                     </button>
 
-                    <div className="my-1 h-px bg-border" />
+                    <div className="my-0.5 h-px bg-border" />
 
                     {/* Visibility toggle */}
                     <button
                       onClick={() => setVisibility((v) => v === "public" ? "followers" : "public")}
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-accent"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent"
                     >
                       {visibility === "public" ? (
                         <Globe className="h-4 w-4 text-primary" />
@@ -1061,19 +1065,26 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                 <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
               </div>
 
-              {/* Publish button */}
-              <div className="flex items-center gap-2">
-                <span className={`text-[10px] ${content.length > 450 ? "text-destructive" : "text-muted-foreground"}`}>
-                  {content.length}/500
-                </span>
-                <Button size="sm" disabled={!content.trim() || uploading} onClick={handlePost} className="rounded-full px-5 shadow-sm">
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Publicar"}
+              {/* Right side: char count + publish */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {(content.length > 0 || hasPhotosInComposer || hasVideoInComposer || hasAudioInComposer) && (
+                  <span className={`text-[10px] tabular-nums ${content.length > 450 ? "text-destructive" : "text-muted-foreground"}`}>
+                    {content.length}/500
+                  </span>
+                )}
+                <Button
+                  size="sm"
+                  disabled={(!content.trim() && !(hasPhotosInComposer || hasVideoInComposer || hasAudioInComposer)) || uploading}
+                  onClick={handlePost}
+                  className="rounded-full px-4 shadow-sm text-xs h-8"
+                >
+                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Publicar"}
                 </Button>
               </div>
             </div>
 
             {activeMediaCount >= MAX_ACTIVE_MEDIA_POSTS && (
-              <div className="flex items-center gap-1 text-[10px] text-amber-500 mt-1">
+              <div className="flex items-center gap-1 text-[10px] text-amber-500 mt-0.5">
                 <Clock className="h-3 w-3" /> {activeMediaCount}/{MAX_ACTIVE_MEDIA_POSTS} posts com mídia ativos
               </div>
             )}
