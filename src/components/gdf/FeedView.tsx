@@ -33,7 +33,6 @@ import {
   Plus,
   Square,
   Music,
-  ArrowUp,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -367,27 +366,27 @@ function ShareMenu({
   };
 
   return (
-    <div className="absolute right-0 bottom-full mb-2 w-52 rounded-2xl bg-[#f7f9fa] p-1.5 shadow-lg border border-[#0A4D5C]/10 z-30 animate-in fade-in-0 zoom-in-95">
+    <div className="absolute right-0 bottom-full mb-2 w-12 rounded-2xl bg-[#f7f9fa] p-1 shadow-lg border border-[#0A4D5C]/10 z-30 animate-in fade-in-0 zoom-in-95 flex flex-col items-center gap-0.5">
       <button
         onClick={() => { onRepost(post); onClose(); }}
-        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-[#000305] transition-colors hover:bg-[#f7f75e]/20"
+        className="flex items-center justify-center rounded-xl p-2.5 text-[#000305] transition-colors hover:bg-[#f7f75e]/20"
+        title="Compartilhar no feed"
       >
         <Repeat2 className="h-4 w-4 text-[#0A4D5C]" />
-        <span>Compartilhar no feed</span>
       </button>
       <button
         onClick={handleExternalShare}
-        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-[#000305] transition-colors hover:bg-[#f7f75e]/20"
+        className="flex items-center justify-center rounded-xl p-2.5 text-[#000305] transition-colors hover:bg-[#f7f75e]/20"
+        title="Compartilhar fora"
       >
         <ExternalLink className="h-4 w-4 text-[#0A4D5C]/50" />
-        <span>Compartilhar fora</span>
       </button>
       <button
         onClick={handleCopyLink}
-        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-[#000305] transition-colors hover:bg-[#f7f75e]/20"
+        className="flex items-center justify-center rounded-xl p-2.5 text-[#000305] transition-colors hover:bg-[#f7f75e]/20"
+        title="Copiar texto"
       >
         <Copy className="h-4 w-4 text-[#0A4D5C]/50" />
-        <span>Copiar texto</span>
       </button>
     </div>
   );
@@ -469,6 +468,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   // Audio recording state (direct in-app recording)
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [isPausedRecording, setIsPausedRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -708,6 +708,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         }
         mediaRecorderRef.current = null;
         setIsRecordingAudio(false);
+        setIsPausedRecording(false);
       };
 
       mediaRecorder.start(1000);
@@ -755,7 +756,32 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     mediaRecorderRef.current = null;
     audioChunksRef.current = [];
     setIsRecordingAudio(false);
+    setIsPausedRecording(false);
     setRecordingSeconds(0);
+  };
+
+  const togglePauseRecording = () => {
+    if (!mediaRecorderRef.current) return;
+    if (isPausedRecording) {
+      mediaRecorderRef.current.resume();
+      setIsPausedRecording(false);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => {
+          if (prev + 1 >= MAX_AUDIO_DURATION) {
+            stopAudioRecording();
+            return MAX_AUDIO_DURATION;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } else {
+      mediaRecorderRef.current.pause();
+      setIsPausedRecording(true);
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+    }
   };
 
   const clearMedia = () => {
@@ -1014,32 +1040,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               </div>
             )}
 
-            {/* Audio recording indicator */}
-            {isRecordingAudio && (
-              <div className="relative rounded-2xl bg-[#0A4D5C]/[0.04] p-3 border border-[#f7f75e]/40">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa] animate-pulse">
-                    <Mic className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-[#0A4D5C]">Gravando áudio...</span>
-                      <span className="text-sm font-bold tabular-nums text-[#0A4D5C]">{formatDuration(recordingSeconds)}</span>
-                      <span className="text-[10px] text-[#0A4D5C]/40">/ {formatDuration(MAX_AUDIO_DURATION)}</span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 bg-[#0A4D5C]/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#f7f75e] rounded-full transition-all" style={{ width: `${(recordingSeconds / MAX_AUDIO_DURATION) * 100}%` }} />
-                    </div>
-                  </div>
-                  <button onClick={stopAudioRecording} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa] shadow-md hover:bg-[#0A4D5C]/90 transition-colors" title="Parar gravação">
-                    <Square className="h-4 w-4" />
-                  </button>
-                  <button onClick={cancelAudioRecording} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f7f9fa] text-[#0A4D5C]/40 hover:bg-[#0A4D5C] hover:text-[#f7f9fa] transition-colors" title="Cancelar">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+
 
             {/* ═══════ ACTION BAR ═══════ */}
             <div className="flex items-center justify-between pt-1">
@@ -1159,7 +1160,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] shadow-md hover:bg-[#25b0a3] active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
                   title="Publicar"
                 >
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-5 w-5" />}
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </button>
               </div>
             </div>
@@ -1231,6 +1232,35 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
           </div>
         ))}
       </div>
+
+      {/* Recording overlay */}
+      {isRecordingAudio && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#000305]/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-6 p-8">
+            <div className={`flex h-24 w-24 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa] shadow-2xl ${isPausedRecording ? "" : "animate-pulse"}`}>
+              <Mic className="h-12 w-12" />
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-[#f7f9fa] tabular-nums">{formatDuration(recordingSeconds)}</p>
+              <p className="text-xs text-[#f7f9fa]/50 mt-1">{isPausedRecording ? "Pausado" : "Gravando áudio..."}</p>
+            </div>
+            <div className="w-48 h-2 bg-[#f7f9fa]/20 rounded-full overflow-hidden">
+              <div className="h-full bg-[#f7f75e] rounded-full transition-all" style={{ width: `${(recordingSeconds / MAX_AUDIO_DURATION) * 100}%` }} />
+            </div>
+            <div className="flex items-center gap-4">
+              <button onClick={togglePauseRecording} className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f7f9fa]/10 text-[#f7f9fa] hover:bg-[#f7f9fa]/20 transition-colors" title={isPausedRecording ? "Continuar" : "Pausar"}>
+                {isPausedRecording ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+              </button>
+              <button onClick={stopAudioRecording} className="flex h-14 w-14 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] shadow-lg hover:bg-[#25b0a3] transition-colors" title="Enviar">
+                <Send className="h-6 w-6" />
+              </button>
+              <button onClick={cancelAudioRecording} className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f7f9fa]/10 text-[#f7f9fa] hover:bg-red-500/80 transition-colors" title="Cancelar">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {viewerOpen && <PhotoViewer photos={viewerPhotos} initialIndex={viewerIndex} onClose={() => setViewerOpen(false)} />}
     </div>
@@ -1410,12 +1440,7 @@ function PostThread({
               <button onClick={() => openUserProfile?.(post.author.id)} className={`text-sm font-semibold hover:underline underline-offset-2 transition-all ${isTextOnly ? postItColor?.text || "text-[#000305]" : "text-[#000305]"}`}>
                 {post.author.display_name}
               </button>
-              <span className={`text-xs ${isTextOnly ? "text-[#000305]/50" : "text-[#0A4D5C]/40"}`}>@{post.author.username}</span>
-              {post.author.neighborhood && (
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-[#0A4D5C] px-2 py-0.5 text-[10px] font-medium text-[#f7f9fa]">
-                  <MapPin className="h-2.5 w-2.5" />{post.author.neighborhood}
-                </span>
-              )}
+
               {post.visibility === "followers" && (
                 <span className="inline-flex items-center gap-0.5 rounded-full bg-[#f7f75e] px-2 py-0.5 text-[10px] font-semibold text-[#000305]">
                   <UsersIcon className="h-2.5 w-2.5" />Seguidores
@@ -1451,7 +1476,7 @@ function PostThread({
                   <button onClick={() => openUserProfile?.(post.shared_post!.author.id)} className="text-xs font-semibold text-[#000305] hover:underline">
                     {post.shared_post.author.display_name}
                   </button>
-                  <span className="text-[10px] text-[#0A4D5C]/40">@{post.shared_post.author.username}</span>
+
                 </div>
                 <p className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-4">{post.shared_post.content}</p>
                 {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
@@ -1613,7 +1638,7 @@ function PostThread({
                         disabled={!commentInput.trim() || submitting}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] hover:bg-[#25b0a3] transition-colors disabled:opacity-30"
                       >
-                        {submitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowUp className="h-3.5 w-3.5" />}
+                        {submitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                       </button>
                     </div>
                   </div>

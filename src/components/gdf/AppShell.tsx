@@ -15,11 +15,11 @@ import { Home, Users, MessageSquare, Compass, User, Loader2 } from "lucide-react
 import { cn } from "@/lib/utils";
 
 const tabs = [
-  { id: "feed" as const, label: "Feed", icon: Home },
-  { id: "rooms" as const, label: "Salas", icon: Users },
-  { id: "dms" as const, label: "DMs", icon: MessageSquare },
-  { id: "discover" as const, label: "Descobrir", icon: Compass },
-  { id: "profile" as const, label: "Perfil", icon: User },
+  { id: "feed" as const, icon: Home },
+  { id: "rooms" as const, icon: Users },
+  { id: "dms" as const, icon: MessageSquare },
+  { id: "discover" as const, icon: Compass },
+  { id: "profile" as const, icon: User },
 ];
 
 export function AppShell() {
@@ -119,7 +119,7 @@ export function AppShell() {
             <p className="text-[10px] text-[#0A4D5C]/40 leading-none">Feira de Santana</p>
           </div>
         </div>
-        <nav className="flex items-center gap-0.5 bg-[#0A4D5C]/[0.04] rounded-full p-1">
+        <nav className="flex items-center gap-1 bg-[#0A4D5C]/[0.04] rounded-full p-1">
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -130,22 +130,20 @@ export function AppShell() {
                 setTab(t.id);
               }}
               className={cn(
-                "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
-                tab === t.id ? "bg-[#0A4D5C] text-[#f7f9fa] shadow-sm" : "text-[#0A4D5C]/60 hover:text-[#000305]"
+                "flex items-center justify-center rounded-full p-2.5 transition-all duration-200",
+                tab === t.id ? "bg-[#0A4D5C] text-[#f7f9fa] shadow-sm" : "text-[#0A4D5C]/50 hover:text-[#000305]"
               )}
+              title={t.id.charAt(0).toUpperCase() + t.id.slice(1)}
             >
-              <t.icon className="h-4 w-4" />
-              {t.label}
+              <t.icon className="h-5 w-5" />
             </button>
           ))}
         </nav>
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2.5">
-            <div className="h-7 w-7 rounded-full bg-[#2EC4B6]/30 flex items-center justify-center">
-              <span className="text-[10px] font-bold text-[#0A4D5C]">{profile.display_name?.charAt(0)?.toUpperCase()}</span>
-            </div>
-            <span className="text-sm font-medium text-[#000305]">{profile.display_name}</span>
+          <div className="h-7 w-7 rounded-full bg-[#2EC4B6]/30 flex items-center justify-center">
+            <span className="text-[10px] font-bold text-[#0A4D5C]">{profile.display_name?.charAt(0)?.toUpperCase()}</span>
           </div>
+          <span className="text-sm font-medium text-[#000305]">{profile.display_name}</span>
         </div>
       </header>
 
@@ -162,7 +160,7 @@ export function AppShell() {
       <UserProfileDialog userId={profileDialogUserId} open={profileDialogOpen} onOpenChange={setProfileDialogOpen} />
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden">
-        <div className="mx-3 mb-3 flex items-center justify-around rounded-2xl border border-[#0A4D5C]/10 bg-[#f7f9fa]/95 backdrop-blur-xl shadow-lg px-1 py-1">
+        <div className="mx-3 mb-3 flex items-center justify-around rounded-2xl border border-[#0A4D5C]/10 bg-[#f7f9fa]/95 backdrop-blur-xl shadow-lg px-2 py-1.5">
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -173,12 +171,11 @@ export function AppShell() {
                 setTab(t.id);
               }}
               className={cn(
-                "flex flex-col items-center gap-0.5 rounded-xl px-3.5 py-2 transition-all duration-200",
+                "flex items-center justify-center rounded-xl p-2.5 transition-all duration-200",
                 tab === t.id ? "bg-[#0A4D5C] text-[#f7f9fa]" : "text-[#0A4D5C]/40 active:scale-95"
               )}
             >
               <t.icon className={cn("h-5 w-5", tab === t.id && "stroke-[2.5px]")} />
-              <span className={cn("text-[10px] font-medium", tab === t.id && "font-semibold")}>{t.label}</span>
             </button>
           ))}
         </div>
