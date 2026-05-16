@@ -44,42 +44,43 @@
 :root {
   --radius: 0.625rem;
   /* ═══════ GDF Chat - 4 Color Palette ═══════ */
-  /* #01386A (Navy)  → Primary */
-  /* #f7f9fa (Light) → Background */
-  /* #000305 (Dark)  → Foreground/Text */
-  /* #f7f75e (Yellow)→ Accent */
+  /* #0A4D5C (Teal profundo) → Primary */
+  /* #f7f9fa (Branco suave)   → Background */
+  /* #000305 (Quase preto)    → Foreground/Text */
+  /* #f7f75e (Amarelo)        → Accent */
+  /* #2EC4B6 (Teal vivo)      → Botão/Vivo */
   --background: #f7f9fa;
   --foreground: #000305;
   --card: #ffffff;
   --card-foreground: #000305;
   --popover: #ffffff;
   --popover-foreground: #000305;
-  --primary: #01386A;
+  --primary: #0A4D5C;
   --primary-foreground: #f7f9fa;
-  --secondary: #e8ecf0;
-  --secondary-foreground: #01386A;
-  --muted: #e8ecf0;
-  --muted-foreground: #4a5568;
+  --secondary: #e0eef2;
+  --secondary-foreground: #0A4D5C;
+  --muted: #e0eef2;
+  --muted-foreground: #4a6370;
   --accent: #f7f75e;
   --accent-foreground: #000305;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #d1d9e0;
-  --input: #d1d9e0;
-  --ring: #01386A;
-  --chart-1: #01386A;
+  --border: #c8dde3;
+  --input: #c8dde3;
+  --ring: #0A4D5C;
+  --chart-1: #0A4D5C;
   --chart-2: #f7f75e;
-  --chart-3: #4a90d9;
-  --chart-4: #2dd4bf;
+  --chart-3: #2EC4B6;
+  --chart-4: #3dd9c6;
   --chart-5: #f59e0b;
-  --sidebar: #f0f3f5;
+  --sidebar: #eaf3f5;
   --sidebar-foreground: #000305;
-  --sidebar-primary: #01386A;
+  --sidebar-primary: #0A4D5C;
   --sidebar-primary-foreground: #f7f9fa;
   --sidebar-accent: #f7f75e;
   --sidebar-accent-foreground: #000305;
-  --sidebar-border: #d1d9e0;
-  --sidebar-ring: #01386A;
+  --sidebar-border: #c8dde3;
+  --sidebar-ring: #0A4D5C;
 }
 
 @layer base {
