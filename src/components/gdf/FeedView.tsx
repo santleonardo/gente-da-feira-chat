@@ -33,7 +33,6 @@ import {
   Plus,
   Square,
   Music,
-  Zap,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -114,11 +113,12 @@ function getExpirationLabel(expiresAt: string): string {
   if (diff <= 0) return "Expirado";
   const hours = Math.floor(diff / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
-  if (hours > 0) return `Expira em ${hours}h${mins > 0 ? ` ${mins}min` : ""}`;
-  return `Expira em ${mins}min`;
+  if (hours > 0) return `${hours}h${mins > 0 ? ` ${mins}min` : ""}`;
+  return `${mins}min`;
 }
 
 function formatDuration(seconds: number): string {
+  if (!isFinite(seconds) || isNaN(seconds) || seconds < 0) return "0:00";
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
@@ -244,13 +244,13 @@ function AudioPlayer({ src }: { src: string }) {
           <div className="h-1.5 bg-[#0A4D5C]/20 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             const pct = (e.clientX - rect.left) / rect.width;
-            if (audioRef.current && duration) audioRef.current.currentTime = pct * duration;
+            if (audioRef.current && duration > 0 && isFinite(duration)) audioRef.current.currentTime = pct * duration;
           }}>
-            <div className="h-full bg-[#0A4D5C] rounded-full transition-all" style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }} />
+            <div className="h-full bg-[#0A4D5C] rounded-full transition-all" style={{ width: duration > 0 && isFinite(duration) ? `${(currentTime / duration) * 100}%` : "0%" }} />
           </div>
         </div>
       </div>
-      <audio ref={audioRef} src={src} preload="metadata" onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)} onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)} onEnded={() => setPlaying(false)} />
+      <audio ref={audioRef} src={src} preload="metadata" onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)} onLoadedMetadata={() => { const d = audioRef.current?.duration || 0; setDuration(isFinite(d) ? d : 0); }} onEnded={() => setPlaying(false)} />
     </div>
   );
 }
@@ -922,7 +922,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: repostContent.trim() || `Compartilhado de ${post.author.display_name}`,
+          content: repostContent.trim() || `Compartilhado de @${post.author.username}`,
           neighborhood: profile.neighborhood,
           imageUrls: [],
           videoUrl: null,
@@ -987,6 +987,9 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         <div className="flex items-start gap-3.5">
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-12 w-12 shrink-0" />
           <div className="flex-1 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xl" style={{ color: "#2EC4B6" }}>💬</span>
+            </div>
             <textarea
               placeholder=""
               value={content}
@@ -1040,6 +1043,8 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                 </button>
               </div>
             )}
+
+
 
             {/* ═══════ ACTION BAR ═══════ */}
             <div className="flex items-center justify-between pt-1">
@@ -1159,7 +1164,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] shadow-md hover:bg-[#25b0a3] active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
                   title="Publicar"
                 >
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="text-lg leading-none">💬</span>}
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </button>
               </div>
             </div>
@@ -1182,6 +1187,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               <div className="flex items-center gap-2 mb-1">
                 <UserAvatar user={repostingPost.author} className="h-6 w-6" />
                 <span className="text-xs font-semibold text-[#000305]">{repostingPost.author.display_name}</span>
+                <span className="text-[10px] text-[#0A4D5C]/40">@{repostingPost.author.username}</span>
               </div>
               <p className="text-xs text-[#0A4D5C]/60 line-clamp-3">{repostingPost.content}</p>
             </div>
@@ -1315,14 +1321,6 @@ function PostThread({
       ? "bg-[#0A4D5C]/[0.04]"
       : "bg-[#0A4D5C]/[0.04]";
 
-  const [expirationLabel, setExpirationLabel] = useState<string>("");
-  useEffect(() => {
-    if (!post.expires_at) return;
-    const update = () => setExpirationLabel(getExpirationLabel(post.expires_at!));
-    update();
-    const interval = setInterval(update, 60000);
-    return () => clearInterval(interval);
-  }, [post.expires_at]);
 
   // Close share menu on outside click
   useEffect(() => {
@@ -1497,13 +1495,7 @@ function PostThread({
             {hasVideo && <VideoPlayer src={post.video_url!} />}
             {hasAudio && <AudioPlayer src={post.audio_url!} />}
 
-            {/* Expiration */}
-            {post.expires_at && expirationLabel && (
-              <div className="mt-2.5 flex items-center gap-1.5 text-[10px] font-semibold text-[#000305] bg-[#f7f75e] rounded-full px-2.5 py-1 w-fit">
-                <Clock className="h-3 w-3" />
-                <span>{expirationLabel}</span>
-              </div>
-            )}
+
 
             {/* ═══════ ACTION BAR ═══════ */}
             <div className="mt-3 flex items-center gap-0.5">
@@ -1534,10 +1526,10 @@ function PostThread({
                 )}
               </div>
 
-              {/* Reaction summary pills */}
+              {/* Reaction summary pills — per emoji only */}
               {reactionGroups.length > 0 && (
                 <div className="flex gap-0.5 ml-0.5">
-                  {reactionGroups.slice(0, 3).map((g, i) => (
+                  {reactionGroups.slice(0, 4).map((g, i) => (
                     <span key={i} className="inline-flex items-center gap-0.5 rounded-full bg-[#0A4D5C]/[0.06] px-1.5 py-0.5 text-[10px]">
                       {g.emoji} {g.count}
                     </span>
@@ -1611,32 +1603,34 @@ function PostThread({
                 )}
 
                 {/* Comment input */}
-                <div className="flex items-center gap-2 mt-2">
-                  <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-6 w-6 shrink-0" />
-                  <div className="flex-1 relative">
-                    {replyTo && (
-                      <div className="absolute -top-4 left-0 flex items-center gap-1 text-[10px] text-[#0A4D5C]/40">
-                        <Reply className="h-2.5 w-2.5" />
-                        <span>Respondendo a {replyTo.author.display_name}</span>
-                        <button onClick={() => setReplyTo(null)} className="text-[#0A4D5C]/60 hover:text-[#0A4D5C] ml-1">✕</button>
+                <div className="mt-2 overflow-hidden">
+                  <div className="flex items-center gap-2">
+                    <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-6 w-6 shrink-0" />
+                    <div className="flex-1 min-w-0 relative">
+                      {replyTo && (
+                        <div className="mb-1 flex items-center gap-1 text-[10px] text-[#0A4D5C]/40">
+                          <Reply className="h-2.5 w-2.5" />
+                          <span>Respondendo a {replyTo.author.display_name}</span>
+                          <button onClick={() => setReplyTo(null)} className="text-[#0A4D5C]/60 hover:text-[#0A4D5C] ml-1">✕</button>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          ref={commentInputRef}
+                          placeholder="Escreva um comentário..."
+                          value={commentInput}
+                          onChange={(e) => setCommentInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && submitComment()}
+                          className="flex-1 min-w-0 rounded-full border border-[#0A4D5C]/10 bg-[#f7f9fa] px-3 py-1.5 text-xs text-[#000305] focus:outline-none focus:border-[#2EC4B6] placeholder:text-[#0A4D5C]/30"
+                        />
+                        <button
+                          onClick={submitComment}
+                          disabled={!commentInput.trim() || submitting}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] hover:bg-[#25b0a3] transition-colors disabled:opacity-30"
+                        >
+                          {submitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                        </button>
                       </div>
-                    )}
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        ref={commentInputRef}
-                        placeholder="Escreva um comentário..."
-                        value={commentInput}
-                        onChange={(e) => setCommentInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && submitComment()}
-                        className="flex-1 min-w-0 rounded-full border border-[#0A4D5C]/10 bg-[#f7f9fa] px-3 py-1.5 text-xs text-[#000305] focus:outline-none focus:border-[#2EC4B6] placeholder:text-[#0A4D5C]/30"
-                      />
-                      <button
-                        onClick={submitComment}
-                        disabled={!commentInput.trim() || submitting}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa] shadow-sm hover:bg-[#0A4D5C]/90 transition-colors disabled:opacity-30"
-                      >
-                        {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-4 w-4" />}
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -1665,6 +1659,7 @@ function CommentItem({
 }) {
   const isOwn = comment.author_id === profile?.id;
   const [showCommentReactions, setShowCommentReactions] = useState(false);
+  const commentReactionGroups = buildReactionGroups(comment.reactions || []);
 
   return (
     <div>
@@ -1686,23 +1681,30 @@ function CommentItem({
                 onClick={() => setShowCommentReactions(!showCommentReactions)}
                 className="text-[10px] text-[#0A4D5C]/30 hover:text-[#0A4D5C] transition-colors"
               >
-                +️⃣
+                💬
               </button>
               {showCommentReactions && (
-                <div className="absolute bottom-full left-0 mb-1 flex gap-0.5 rounded-xl bg-[#f7f9fa] p-1 shadow-lg border border-[#0A4D5C]/10 z-30">
-                  {REACTION_EMOJIS.map(({ type, emoji }) => (
-                    <button key={type} onClick={() => { onReaction(comment.id, type); setShowCommentReactions(false); }} className="rounded-lg p-1 text-sm hover:scale-110 transition-transform">
-                      {emoji}
-                    </button>
-                  ))}
+                <div className="absolute bottom-full left-0 mb-1 flex gap-0.5 rounded-xl bg-[#f7f9fa] p-1 shadow-lg border border-[#0A4D5C]/10 z-20">
+                  {REACTION_EMOJIS.map(({ type, emoji }) => {
+                    const isActive = (comment.reactions || []).some((r) => r.user_id === profile?.id && r.type === type);
+                    return (
+                      <button key={type} onClick={() => { onReaction(comment.id, type); setShowCommentReactions(false); }} className={`rounded-lg p-1 text-sm hover:scale-110 transition-transform ${isActive ? "bg-[#0A4D5C]/10 ring-1 ring-[#0A4D5C]" : ""}`}>
+                        {emoji}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
-            {buildReactionGroups(comment.reactions || []).map((g, i) => (
-              <span key={i} className="inline-flex items-center gap-0.5 rounded-full bg-[#0A4D5C]/[0.06] px-1.5 py-0.5 text-[10px]">
-                {g.emoji} {g.count}
-              </span>
-            ))}
+            {commentReactionGroups.length > 0 && (
+              <div className="flex gap-0.5">
+                {commentReactionGroups.map((g, i) => (
+                  <span key={i} className="inline-flex items-center gap-0.5 rounded-full bg-[#0A4D5C]/[0.06] px-1 py-0 text-[9px]">
+                    {g.emoji}{g.count}
+                  </span>
+                ))}
+              </div>
+            )}
             <button onClick={() => onReply(comment)} className="text-[10px] text-[#0A4D5C]/30 hover:text-[#0A4D5C] transition-colors">Responder</button>
             {isOwn && (
               <button onClick={() => onDelete(comment.id)} className="text-[10px] text-[#0A4D5C]/20 hover:text-red-500 transition-colors">Excluir</button>
