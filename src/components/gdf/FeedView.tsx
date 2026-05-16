@@ -33,6 +33,7 @@ import {
   Plus,
   Square,
   Music,
+  Zap,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -921,7 +922,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: repostContent.trim() || `Compartilhado de @${post.author.username}`,
+          content: repostContent.trim() || `Compartilhado de ${post.author.display_name}`,
           neighborhood: profile.neighborhood,
           imageUrls: [],
           videoUrl: null,
@@ -987,7 +988,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-12 w-12 shrink-0" />
           <div className="flex-1 space-y-2">
             <textarea
-              placeholder="O que está acontecendo no seu bairro?"
+              placeholder=""
               value={content}
               onChange={(e) => setContent(e.target.value.slice(0, 500))}
               className="w-full min-h-[72px] resize-none border-0 bg-transparent p-0 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
@@ -1039,8 +1040,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                 </button>
               </div>
             )}
-
-
 
             {/* ═══════ ACTION BAR ═══════ */}
             <div className="flex items-center justify-between pt-1">
@@ -1160,7 +1159,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] shadow-md hover:bg-[#25b0a3] active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
                   title="Publicar"
                 >
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="text-lg leading-none">💬</span>}
                 </button>
               </div>
             </div>
@@ -1183,7 +1182,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               <div className="flex items-center gap-2 mb-1">
                 <UserAvatar user={repostingPost.author} className="h-6 w-6" />
                 <span className="text-xs font-semibold text-[#000305]">{repostingPost.author.display_name}</span>
-                <span className="text-[10px] text-[#0A4D5C]/40">@{repostingPost.author.username}</span>
               </div>
               <p className="text-xs text-[#0A4D5C]/60 line-clamp-3">{repostingPost.content}</p>
             </div>
@@ -1516,7 +1514,6 @@ function PostThread({
                   className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs transition-colors ${post.reactions?.some((r) => r.user_id === profile?.id) ? "text-[#0A4D5C] bg-[#0A4D5C]/10 font-medium" : "text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C]"}`}
                 >
                   <Heart className="h-4 w-4" />
-                  {post.reactions?.length > 0 && <span>{post.reactions.length}</span>}
                 </button>
                 {showReactions && (
                   <div className="absolute bottom-full left-0 mb-1.5 flex gap-0.5 rounded-2xl bg-[#f7f9fa] p-1.5 shadow-lg border border-[#0A4D5C]/10 z-20">
@@ -1636,9 +1633,9 @@ function PostThread({
                       <button
                         onClick={submitComment}
                         disabled={!commentInput.trim() || submitting}
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] hover:bg-[#25b0a3] transition-colors disabled:opacity-30"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa] shadow-sm hover:bg-[#0A4D5C]/90 transition-colors disabled:opacity-30"
                       >
-                        {submitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                        {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-4 w-4" />}
                       </button>
                     </div>
                   </div>
@@ -1683,16 +1680,16 @@ function CommentItem({
             <span className="text-[10px] text-[#0A4D5C]/30">{timeAgo(comment.created_at)}</span>
           </div>
           <p className="text-xs text-[#000305]/80 leading-relaxed">{comment.content}</p>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <div className="relative">
               <button
                 onClick={() => setShowCommentReactions(!showCommentReactions)}
                 className="text-[10px] text-[#0A4D5C]/30 hover:text-[#0A4D5C] transition-colors"
               >
-                {comment.reactions?.length > 0 ? `❤️ ${comment.reactions.length}` : "❤️"}
+                +️⃣
               </button>
               {showCommentReactions && (
-                <div className="absolute bottom-full left-0 mb-1 flex gap-0.5 rounded-xl bg-[#f7f9fa] p-1 shadow-lg border border-[#0A4D5C]/10 z-20">
+                <div className="absolute bottom-full left-0 mb-1 flex gap-0.5 rounded-xl bg-[#f7f9fa] p-1 shadow-lg border border-[#0A4D5C]/10 z-30">
                   {REACTION_EMOJIS.map(({ type, emoji }) => (
                     <button key={type} onClick={() => { onReaction(comment.id, type); setShowCommentReactions(false); }} className="rounded-lg p-1 text-sm hover:scale-110 transition-transform">
                       {emoji}
@@ -1701,6 +1698,11 @@ function CommentItem({
                 </div>
               )}
             </div>
+            {buildReactionGroups(comment.reactions || []).map((g, i) => (
+              <span key={i} className="inline-flex items-center gap-0.5 rounded-full bg-[#0A4D5C]/[0.06] px-1.5 py-0.5 text-[10px]">
+                {g.emoji} {g.count}
+              </span>
+            ))}
             <button onClick={() => onReply(comment)} className="text-[10px] text-[#0A4D5C]/30 hover:text-[#0A4D5C] transition-colors">Responder</button>
             {isOwn && (
               <button onClick={() => onDelete(comment.id)} className="text-[10px] text-[#0A4D5C]/20 hover:text-red-500 transition-colors">Excluir</button>
