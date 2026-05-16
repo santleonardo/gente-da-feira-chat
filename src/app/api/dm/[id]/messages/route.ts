@@ -33,12 +33,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { data: chat } = await supabase.from("direct_chats").select("id").eq("id", id).or(`initiator_id.eq.${user.id},receiver_id.eq.${user.id}`).maybeSingle();
     if (!chat) return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
 
-    const { content } = await req.json();
-    if (!content || !content.trim()) return NextResponse.json({ error: "Mensagem vazia" }, { status: 400 });
-    if (content.length > 2000) return NextResponse.json({ error: "Mensagem muito longa (máx 2000 chars)" }, { status: 400 });
+    const body = await req.json();
+    const { content, image_url, video_url, audio_url } = body;
+
+    if ((!content || !content.trim()) && !image_url && !video_url && !audio_url) {
+      return NextResponse.json({ error: "Mensagem vazia" }, { status: 400 });
+    }
+    if (content && content.length > 2000) {
+      return NextResponse.json({ error: "Mensagem muito longa (máx 2000 chars)" }, { status: 400 });
+    }
+
+    const insertData: any = {
+      content: content?.trim() || "",
+      sender_id: user.id,
+      dm_id: id,
+      target_type: "dm",
+    };
+    if (image_url) insertData.image_url = image_url;
+    if (video_url) insertData.video_url = video_url;
+    if (audio_url) insertData.audio_url = audio_url;
 
     const { data: message, error } = await supabase.from("messages")
-      .insert({ content: content.trim(), sender_id: user.id, dm_id: id, target_type: "dm" })
+      .insert(insertData)
       .select(`*, sender:profiles(id, display_name, username, avatar_url)`).single();
 
     if (error) throw error;
