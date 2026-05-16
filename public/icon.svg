@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0A4D5C"/>
+      <stop offset="100%" stop-color="#083D4A"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect width="512" height="512" rx="108" fill="url(#bgGrad)"/>
+  <!-- Chat bubble shape -->
+  <path d="M128 136 h256 c26.4 0 48 21.6 48 48 v144 c0 26.4 -21.6 48 -48 48 h-64 l-64 64 v-64 h-128 c-26.4 0 -48 -21.6 -48 -48 v-144 c0 -26.4 21.6 -48 48 -48z" fill="#2EC4B6" opacity="0.2"/>
+  <!-- G letter path (bold geometric) -->
+  <path d="M328 228 c-6-36-36-60-72-60 c-44 0-80 36-80 80 s36 80 80 80 c28 0 52-14 66-36 h-66 v-32 h104 c2 8 2 16 2 24 c0 60-44 108-106 108 c-60 0-108-48-108-108 s48-108 108-108 c48 0 88 30 100 72 h-28z" fill="#f7f9fa"/>
+  <!-- Yellow accent dot (notification indicator) -->
+  <circle cx="404" cy="136" r="28" fill="#f7f75e"/>
+  <!-- Small teal accent line under G -->
+  <rect x="258" y="340" width="60" height="8" rx="4" fill="#2EC4B6" opacity="0.6"/>
+</svg>
