@@ -147,6 +147,8 @@ interface PostWithAuthor {
   image_urls?: string[];
   video_url?: string | null;
   audio_url?: string | null;
+  audio_duration?: number | null;
+  video_duration?: number | null;
   expires_at?: string | null;
   visibility?: "public" | "followers";
   shared_post_id?: string | null;
@@ -216,11 +218,14 @@ function VideoPlayer({ src }: { src: string }) {
 // ═══════════════════════════════════════════════════════════
 // AudioPlayer
 // ═══════════════════════════════════════════════════════════
-function AudioPlayer({ src }: { src: string }) {
+function AudioPlayer({ src, knownDuration }: { src: string; knownDuration?: number | null }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [duration, setDuration] = useState<number>(() => {
+    if (knownDuration && isFinite(knownDuration) && knownDuration > 0) return knownDuration;
+    return 0;
+  });
 
   const toggle = () => {
     if (!audioRef.current) return;
@@ -228,6 +233,9 @@ function AudioPlayer({ src }: { src: string }) {
     else audioRef.current.play();
     setPlaying(!playing);
   };
+
+  const displayDuration = duration > 0 ? duration : (knownDuration && isFinite(knownDuration) && knownDuration > 0 ? knownDuration : 0);
+  const durationLabel = displayDuration > 0 ? `${Math.round(displayDuration)}s` : "";
 
   return (
     <div className="mt-2.5 rounded-3xl bg-[#0A4D5C]/[0.06] p-4 shadow-sm border border-[#0A4D5C]/10">
@@ -237,20 +245,22 @@ function AudioPlayer({ src }: { src: string }) {
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
+            <Music className="h-3.5 w-3.5 text-[#0A4D5C]/50" />
+            {durationLabel && <span className="text-[11px] font-semibold text-[#2EC4B6]">{durationLabel}</span>}
             <span className="text-[11px] font-semibold text-[#000305]/70 tabular-nums">{formatDuration(currentTime)}</span>
             <span className="text-[10px] text-[#0A4D5C]/30">/</span>
-            <span className="text-[11px] text-[#0A4D5C]/40 tabular-nums">{formatDuration(duration)}</span>
+            <span className="text-[11px] text-[#0A4D5C]/40 tabular-nums">{formatDuration(displayDuration)}</span>
           </div>
           <div className="h-1.5 bg-[#0A4D5C]/20 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             const pct = (e.clientX - rect.left) / rect.width;
-            if (audioRef.current && duration > 0 && isFinite(duration)) audioRef.current.currentTime = pct * duration;
+            if (audioRef.current && displayDuration > 0 && isFinite(displayDuration)) audioRef.current.currentTime = pct * displayDuration;
           }}>
-            <div className="h-full bg-[#0A4D5C] rounded-full transition-all" style={{ width: duration > 0 && isFinite(duration) ? `${(currentTime / duration) * 100}%` : "0%" }} />
+            <div className="h-full bg-[#0A4D5C] rounded-full transition-all" style={{ width: displayDuration > 0 && isFinite(displayDuration) ? `${(currentTime / displayDuration) * 100}%` : "0%" }} />
           </div>
         </div>
       </div>
-      <audio ref={audioRef} src={src} preload="metadata" onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)} onLoadedMetadata={() => { const d = audioRef.current?.duration || 0; setDuration(isFinite(d) ? d : 0); }} onEnded={() => setPlaying(false)} />
+      <audio ref={audioRef} src={src} preload="metadata" onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)} onLoadedMetadata={() => { const d = audioRef.current?.duration || 0; setDuration(isFinite(d) && d > 0 ? d : (knownDuration && isFinite(knownDuration) ? knownDuration : 0)); }} onEnded={() => setPlaying(false)} />
     </div>
   );
 }
@@ -1452,11 +1462,14 @@ function PostThread({
             </div>
 
             {/* Content */}
-            {isTextOnly ? (
-              <p className={`mt-2 font-serif text-lg leading-snug whitespace-pre-wrap ${postItColor?.text || "text-[#000305]"}`}>{post.content}</p>
-            ) : (
-              <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap text-[#000305]">{post.content}</p>
-            )}
+            <div className="flex items-start gap-1.5 mt-2">
+              <span className="text-sm shrink-0 mt-0.5" style={{ color: "#2EC4B6" }}>💬</span>
+              {isTextOnly ? (
+                <p className={`font-serif text-lg leading-snug whitespace-pre-wrap flex-1 ${postItColor?.text || "text-[#000305]"}`}>{post.content}</p>
+              ) : (
+                <p className="text-sm leading-relaxed whitespace-pre-wrap text-[#000305] flex-1">{post.content}</p>
+              )}
+            </div>
 
             {/* Shared post (repost) */}
             {post.shared_post && (
@@ -1493,7 +1506,7 @@ function PostThread({
             {/* Media */}
             {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} />}
             {hasVideo && <VideoPlayer src={post.video_url!} />}
-            {hasAudio && <AudioPlayer src={post.audio_url!} />}
+            {hasAudio && <AudioPlayer src={post.audio_url!} knownDuration={post.audio_duration} />}
 
 
 
