@@ -86,12 +86,12 @@ export function AppShell() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f7f9fa]">
         <div className="flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#01386A] animate-pulse">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0A4D5C] animate-pulse">
             <span className="text-xl font-bold text-[#f7f9fa]">G</span>
           </div>
           <div className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin text-[#01386A]/40" />
-            <p className="text-sm text-[#01386A]/40">Carregando...</p>
+            <Loader2 className="h-4 w-4 animate-spin text-[#0A4D5C]/40" />
+            <p className="text-sm text-[#0A4D5C]/40">Carregando...</p>
           </div>
         </div>
       </div>
@@ -109,17 +109,17 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#f7f9fa]">
-      <header className="sticky top-0 z-40 hidden md:flex items-center justify-between border-b border-[#01386A]/10 px-6 py-2.5 bg-[#f7f9fa]/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 hidden md:flex items-center justify-between border-b border-[#0A4D5C]/10 px-6 py-2.5 bg-[#f7f9fa]/90 backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#01386A] shadow-sm">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0A4D5C] shadow-sm">
             <span className="text-sm font-bold text-[#f7f9fa]">G</span>
           </div>
           <div>
             <h1 className="text-base font-bold leading-tight tracking-tight text-[#000305]">GDF Chat</h1>
-            <p className="text-[10px] text-[#01386A]/40 leading-none">Feira de Santana</p>
+            <p className="text-[10px] text-[#0A4D5C]/40 leading-none">Feira de Santana</p>
           </div>
         </div>
-        <nav className="flex items-center gap-0.5 bg-[#01386A]/[0.04] rounded-full p-1">
+        <nav className="flex items-center gap-0.5 bg-[#0A4D5C]/[0.04] rounded-full p-1">
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -131,7 +131,7 @@ export function AppShell() {
               }}
               className={cn(
                 "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
-                tab === t.id ? "bg-[#01386A] text-[#f7f9fa] shadow-sm" : "text-[#01386A]/60 hover:text-[#000305]"
+                tab === t.id ? "bg-[#0A4D5C] text-[#f7f9fa] shadow-sm" : "text-[#0A4D5C]/60 hover:text-[#000305]"
               )}
             >
               <t.icon className="h-4 w-4" />
@@ -141,8 +141,8 @@ export function AppShell() {
         </nav>
         <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-2.5">
-            <div className="h-7 w-7 rounded-full bg-[#f7f75e]/30 flex items-center justify-center">
-              <span className="text-[10px] font-bold text-[#01386A]">{profile.display_name?.charAt(0)?.toUpperCase()}</span>
+            <div className="h-7 w-7 rounded-full bg-[#2EC4B6]/30 flex items-center justify-center">
+              <span className="text-[10px] font-bold text-[#0A4D5C]">{profile.display_name?.charAt(0)?.toUpperCase()}</span>
             </div>
             <span className="text-sm font-medium text-[#000305]">{profile.display_name}</span>
           </div>
@@ -162,7 +162,7 @@ export function AppShell() {
       <UserProfileDialog userId={profileDialogUserId} open={profileDialogOpen} onOpenChange={setProfileDialogOpen} />
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden">
-        <div className="mx-3 mb-3 flex items-center justify-around rounded-2xl border border-[#01386A]/10 bg-[#f7f9fa]/95 backdrop-blur-xl shadow-lg px-1 py-1">
+        <div className="mx-3 mb-3 flex items-center justify-around rounded-2xl border border-[#0A4D5C]/10 bg-[#f7f9fa]/95 backdrop-blur-xl shadow-lg px-1 py-1">
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -174,7 +174,7 @@ export function AppShell() {
               }}
               className={cn(
                 "flex flex-col items-center gap-0.5 rounded-xl px-3.5 py-2 transition-all duration-200",
-                tab === t.id ? "bg-[#01386A] text-[#f7f9fa]" : "text-[#01386A]/40 active:scale-95"
+                tab === t.id ? "bg-[#0A4D5C] text-[#f7f9fa]" : "text-[#0A4D5C]/40 active:scale-95"
               )}
             >
               <t.icon className={cn("h-5 w-5", tab === t.id && "stroke-[2.5px]")} />

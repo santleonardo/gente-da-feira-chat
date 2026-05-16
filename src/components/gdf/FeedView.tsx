@@ -33,6 +33,7 @@ import {
   Plus,
   Square,
   Music,
+  ArrowUp,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -63,19 +64,28 @@ const REACTION_EMOJIS = [
 ] as const;
 
 // ═══════════════════════════════════════════════════════════
-// Post-it colors for text-only posts
+// PALETA GDF - Cores principais
+// #0A4D5C (Teal profundo) → Primary
+// #f7f9fa (Branco suave)  → Background
+// #000305 (Quase preto)   → Texto
+// #f7f75e (Amarelo)       → Acento
+// #2EC4B6 (Teal vivo)     → Cor viva para botões
+// ═══════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════
+// Post-it colors for text-only posts (suaves/pastel)
 // ═══════════════════════════════════════════════════════════
 const POST_IT_COLORS = [
-  { bg: "bg-[#f7f75e]", text: "text-[#000305]", border: "border-[#e0e040]" },       // Amarelo
-  { bg: "bg-[#ffb3ba]", text: "text-[#000305]", border: "border-[#ff9da5]" },        // Rosa
-  { bg: "bg-[#bae1ff]", text: "text-[#000305]", border: "border-[#8fc9f2]" },        // Azul
-  { bg: "bg-[#baffc9]", text: "text-[#000305]", border: "border-[#8ce6a1]" },        // Verde
-  { bg: "bg-[#ffd9a0]", text: "text-[#000305]", border: "border-[#f0be73]" },        // Laranja
-  { bg: "bg-[#e2baff]", text: "text-[#000305]", border: "border-[#c78ef0]" },        // Roxo
-  { bg: "bg-[#ffb3b3]", text: "text-[#000305]", border: "border-[#ff8a8a]" },        // Coral
-  { bg: "bg-[#b3ffd9]", text: "text-[#000305]", border: "border-[#80f0be]" },        // Menta
-  { bg: "bg-[#d4b3ff]", text: "text-[#000305]", border: "border-[#b58aff]" },        // Lavanda
-  { bg: "bg-[#ffdfb3]", text: "text-[#000305]", border: "border-[#f0c080]" },        // Pêssego
+  { bg: "bg-[#fdf6b2]", text: "text-[#3d3a1a]", border: "border-[#f0e68c]" },       // Amarelo suave
+  { bg: "bg-[#fde2e4]", text: "text-[#5a2d30]", border: "border-[#f0c4c7]" },        // Rosa suave
+  { bg: "bg-[#dfeef7]", text: "text-[#1e3d52]", border: "border-[#bdd8e8]" },        // Azul suave
+  { bg: "bg-[#daf0db]", text: "text-[#2a4a2c]", border: "border-[#b5ddb7]" },        // Verde suave
+  { bg: "bg-[#fde8d0]", text: "text-[#4a3520]", border: "border-[#f5d5b0]" },        // Laranja suave
+  { bg: "bg-[#e8ddf5]", text: "text-[#3d2a5c]", border: "border-[#d1c0e8]" },        // Roxo suave
+  { bg: "bg-[#f7d7d7]", text: "text-[#5a2525]", border: "border-[#ecbcbc]" },        // Coral suave
+  { bg: "bg-[#d0f0e0]", text: "text-[#1e4a35]", border: "border-[#a8e0c0]" },        // Menta suave
+  { bg: "bg-[#ddd5f0]", text: "text-[#2e1f5a]", border: "border-[#c4b8e0]" },        // Lavanda suave
+  { bg: "bg-[#f5e5d0]", text: "text-[#4a3520]", border: "border-[#e8d0a8]" },        // Pêssego suave
 ] as const;
 
 function getPostItColor(postId: string) {
@@ -176,7 +186,7 @@ function VideoPlayer({ src }: { src: string }) {
       />
       {!playing && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#000305]/30 cursor-pointer" onClick={toggle}>
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#01386A] shadow-lg transition-transform hover:scale-110">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#0A4D5C] shadow-lg transition-transform hover:scale-110">
             <Play className="h-8 w-8 text-[#f7f9fa] fill-[#f7f9fa] ml-1" />
           </div>
         </div>
@@ -220,23 +230,23 @@ function AudioPlayer({ src }: { src: string }) {
   };
 
   return (
-    <div className="mt-2.5 rounded-3xl bg-[#01386A]/[0.06] p-4 shadow-sm border border-[#01386A]/10">
+    <div className="mt-2.5 rounded-3xl bg-[#0A4D5C]/[0.06] p-4 shadow-sm border border-[#0A4D5C]/10">
       <div className="flex items-center gap-3.5">
-        <button onClick={toggle} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#01386A] text-[#f7f9fa] shadow-md hover:bg-[#01386A]/90 transition-all hover:scale-105">
+        <button onClick={toggle} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa] shadow-md hover:bg-[#0A4D5C]/90 transition-all hover:scale-105">
           {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-[11px] font-semibold text-[#000305]/70 tabular-nums">{formatDuration(currentTime)}</span>
-            <span className="text-[10px] text-[#01386A]/30">/</span>
-            <span className="text-[11px] text-[#01386A]/40 tabular-nums">{formatDuration(duration)}</span>
+            <span className="text-[10px] text-[#0A4D5C]/30">/</span>
+            <span className="text-[11px] text-[#0A4D5C]/40 tabular-nums">{formatDuration(duration)}</span>
           </div>
-          <div className="h-1.5 bg-[#01386A]/20 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
+          <div className="h-1.5 bg-[#0A4D5C]/20 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             const pct = (e.clientX - rect.left) / rect.width;
             if (audioRef.current && duration) audioRef.current.currentTime = pct * duration;
           }}>
-            <div className="h-full bg-[#01386A] rounded-full transition-all" style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }} />
+            <div className="h-full bg-[#0A4D5C] rounded-full transition-all" style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }} />
           </div>
         </div>
       </div>
@@ -357,28 +367,62 @@ function ShareMenu({
   };
 
   return (
-    <div className="absolute right-0 bottom-full mb-2 w-52 rounded-2xl bg-[#f7f9fa] p-1.5 shadow-lg border border-[#01386A]/10 z-30 animate-in fade-in-0 zoom-in-95">
+    <div className="absolute right-0 bottom-full mb-2 w-52 rounded-2xl bg-[#f7f9fa] p-1.5 shadow-lg border border-[#0A4D5C]/10 z-30 animate-in fade-in-0 zoom-in-95">
       <button
         onClick={() => { onRepost(post); onClose(); }}
         className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-[#000305] transition-colors hover:bg-[#f7f75e]/20"
       >
-        <Repeat2 className="h-4 w-4 text-[#01386A]" />
+        <Repeat2 className="h-4 w-4 text-[#0A4D5C]" />
         <span>Compartilhar no feed</span>
       </button>
       <button
         onClick={handleExternalShare}
         className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-[#000305] transition-colors hover:bg-[#f7f75e]/20"
       >
-        <ExternalLink className="h-4 w-4 text-[#01386A]/50" />
+        <ExternalLink className="h-4 w-4 text-[#0A4D5C]/50" />
         <span>Compartilhar fora</span>
       </button>
       <button
         onClick={handleCopyLink}
         className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-[#000305] transition-colors hover:bg-[#f7f75e]/20"
       >
-        <Copy className="h-4 w-4 text-[#01386A]/50" />
+        <Copy className="h-4 w-4 text-[#0A4D5C]/50" />
         <span>Copiar texto</span>
       </button>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// FeedSkeleton
+// ═══════════════════════════════════════════════════════════
+function FeedSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="rounded-3xl bg-[#f7f9fa] p-5 shadow-lg border border-[#0A4D5C]/8">
+        <div className="flex items-start gap-3.5">
+          <div className="h-12 w-12 rounded-full bg-[#0A4D5C]/10 shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 bg-[#0A4D5C]/8 rounded w-3/4" />
+            <div className="h-4 bg-[#0A4D5C]/8 rounded w-1/2" />
+          </div>
+        </div>
+      </div>
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="rounded-3xl bg-[#f7f9fa] p-4 shadow-lg border border-[#0A4D5C]/8">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-11 w-11 rounded-full bg-[#0A4D5C]/10" />
+            <div className="flex-1 space-y-1.5">
+              <div className="h-3 bg-[#0A4D5C]/8 rounded w-1/3" />
+              <div className="h-2.5 bg-[#0A4D5C]/5 rounded w-1/4" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <div className="h-3 bg-[#0A4D5C]/8 rounded w-full" />
+            <div className="h-3 bg-[#0A4D5C]/8 rounded w-4/5" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -441,6 +485,10 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   // Repost state
   const [repostingPost, setRepostingPost] = useState<PostWithAuthor | null>(null);
   const [repostContent, setRepostContent] = useState("");
+
+  // ═══════ Can post check ═══════
+  const hasMediaInComposer = selectedFiles.length > 0 || selectedVideo || selectedAudio;
+  const canPost = !!profile && (content.trim().length > 0 || hasMediaInComposer);
 
   // Close menu on outside click
   useEffect(() => {
@@ -769,7 +817,10 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   };
 
   const handlePost = async () => {
-    if (!content.trim() || !profile) return;
+    // ═══════ Permite postar mídia sem texto ═══════
+    if (!profile) return;
+    if (!content.trim() && !hasMediaInComposer) return;
+
     const hasMedia = selectedFiles.length > 0 || selectedVideo || selectedAudio;
 
     if (hasMedia && activeMediaCount >= MAX_ACTIVE_MEDIA_POSTS) {
@@ -804,11 +855,18 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         if (!audioUrl) { setUploading(false); return; }
       }
 
+      // Se não tem texto mas tem mídia, usa placeholder
+      const postContent = content.trim() || (
+        selectedFiles.length > 0 ? "📷" :
+        selectedVideo ? "🎥" :
+        selectedAudio ? "🎙️" : ""
+      );
+
       const res = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: content.trim(),
+          content: postContent,
           neighborhood: profile.neighborhood,
           imageUrls,
           videoUrl,
@@ -898,7 +956,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   return (
     <div className="space-y-0">
       {/* ═══════ COMPOSER ═══════ */}
-      <div className="relative z-10 rounded-3xl bg-[#f7f9fa] p-5 shadow-lg border border-[#01386A]/8">
+      <div className="relative z-10 rounded-3xl bg-[#f7f9fa] p-5 shadow-lg border border-[#0A4D5C]/8">
         <div className="flex items-start gap-3.5">
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-12 w-12 shrink-0" />
           <div className="flex-1 space-y-2">
@@ -906,7 +964,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               placeholder="O que está acontecendo no seu bairro?"
               value={content}
               onChange={(e) => setContent(e.target.value.slice(0, 500))}
-              className="w-full min-h-[72px] resize-none border-0 bg-transparent p-0 text-sm text-[#000305] focus:outline-none placeholder:text-[#01386A]/30"
+              className="w-full min-h-[72px] resize-none border-0 bg-transparent p-0 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
               rows={2}
             />
 
@@ -916,7 +974,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                 {previewUrls.map((url, i) => (
                   <div key={i} className="relative group">
                     <img src={url} alt={`Preview ${i + 1}`} className="h-20 w-20 rounded-2xl object-cover shadow-md border-2 border-[#f7f9fa]" />
-                    <button onClick={() => removeSelectedFile(i)} className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#01386A] text-[#f7f9fa] opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
+                    <button onClick={() => removeSelectedFile(i)} className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa] opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
                       <X className="h-3 w-3" />
                     </button>
                   </div>
@@ -931,7 +989,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                 <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-[#f7f75e] px-2 py-0.5 text-[10px] font-semibold text-[#000305]">
                   <Video className="h-3 w-3" /> {formatDuration(videoDuration)}
                 </div>
-                <button onClick={() => { setSelectedVideo(null); if (videoPreview) URL.revokeObjectURL(videoPreview); setVideoPreview(null); setVideoDuration(0); }} className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#01386A] text-[#f7f9fa]">
+                <button onClick={() => { setSelectedVideo(null); if (videoPreview) URL.revokeObjectURL(videoPreview); setVideoPreview(null); setVideoDuration(0); }} className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa]">
                   <X className="h-3 w-3" />
                 </button>
               </div>
@@ -939,18 +997,18 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 
             {/* Audio preview */}
             {hasAudioInComposer && audioPreview && (
-              <div className="relative rounded-2xl bg-[#01386A]/[0.06] p-3 border border-[#01386A]/10">
+              <div className="relative rounded-2xl bg-[#0A4D5C]/[0.06] p-3 border border-[#0A4D5C]/10">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#01386A] text-[#f7f9fa]">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa]">
                     <Music className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <span className="text-xs font-medium text-[#000305]">Áudio</span>
-                    <span className="text-[10px] text-[#01386A]/40 ml-2">{formatDuration(audioDuration)}</span>
+                    <span className="text-[10px] text-[#0A4D5C]/40 ml-2">{formatDuration(audioDuration)}</span>
                   </div>
                 </div>
                 <audio src={audioPreview} controls className="mt-2 w-full h-8" />
-                <button onClick={() => { setSelectedAudio(null); if (audioPreview) URL.revokeObjectURL(audioPreview); setAudioPreview(null); setAudioDuration(0); }} className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#01386A] text-[#f7f9fa]">
+                <button onClick={() => { setSelectedAudio(null); if (audioPreview) URL.revokeObjectURL(audioPreview); setAudioPreview(null); setAudioDuration(0); }} className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa]">
                   <X className="h-2.5 w-2.5" />
                 </button>
               </div>
@@ -958,25 +1016,25 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 
             {/* Audio recording indicator */}
             {isRecordingAudio && (
-              <div className="relative rounded-2xl bg-[#01386A]/[0.04] p-3 border border-[#f7f75e]/40">
+              <div className="relative rounded-2xl bg-[#0A4D5C]/[0.04] p-3 border border-[#f7f75e]/40">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#01386A] text-[#f7f9fa] animate-pulse">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa] animate-pulse">
                     <Mic className="h-5 w-5" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-[#01386A]">Gravando áudio...</span>
-                      <span className="text-sm font-bold tabular-nums text-[#01386A]">{formatDuration(recordingSeconds)}</span>
-                      <span className="text-[10px] text-[#01386A]/40">/ {formatDuration(MAX_AUDIO_DURATION)}</span>
+                      <span className="text-xs font-semibold text-[#0A4D5C]">Gravando áudio...</span>
+                      <span className="text-sm font-bold tabular-nums text-[#0A4D5C]">{formatDuration(recordingSeconds)}</span>
+                      <span className="text-[10px] text-[#0A4D5C]/40">/ {formatDuration(MAX_AUDIO_DURATION)}</span>
                     </div>
-                    <div className="mt-1.5 h-1.5 bg-[#01386A]/10 rounded-full overflow-hidden">
+                    <div className="mt-1.5 h-1.5 bg-[#0A4D5C]/10 rounded-full overflow-hidden">
                       <div className="h-full bg-[#f7f75e] rounded-full transition-all" style={{ width: `${(recordingSeconds / MAX_AUDIO_DURATION) * 100}%` }} />
                     </div>
                   </div>
-                  <button onClick={stopAudioRecording} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#01386A] text-[#f7f9fa] shadow-md hover:bg-[#01386A]/90 transition-colors" title="Parar gravação">
+                  <button onClick={stopAudioRecording} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa] shadow-md hover:bg-[#0A4D5C]/90 transition-colors" title="Parar gravação">
                     <Square className="h-4 w-4" />
                   </button>
-                  <button onClick={cancelAudioRecording} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f7f9fa] text-[#01386A]/40 hover:bg-[#01386A] hover:text-[#f7f9fa] transition-colors" title="Cancelar">
+                  <button onClick={cancelAudioRecording} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f7f9fa] text-[#0A4D5C]/40 hover:bg-[#0A4D5C] hover:text-[#f7f9fa] transition-colors" title="Cancelar">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -989,7 +1047,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setMenuOpen(!menuOpen)}
-                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${menuOpen ? "bg-[#f7f75e] text-[#01386A]" : "bg-[#f7f75e] text-[#01386A] hover:bg-[#f7f75e]/80"}`}
+                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${menuOpen ? "bg-[#f7f75e] text-[#0A4D5C]" : "bg-[#f7f75e] text-[#0A4D5C] hover:bg-[#f7f75e]/80"}`}
                 >
                   <Plus className="h-4 w-4" />
                   <span>Menu</span>
@@ -998,14 +1056,14 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 
                 {/* Dropdown menu - opens DOWNWARD */}
                 {menuOpen && (
-                  <div className="absolute left-0 top-full mt-1 w-56 rounded-2xl bg-[#f7f9fa] p-1.5 shadow-lg border border-[#01386A]/10 z-50 animate-in fade-in-0 zoom-in-95">
+                  <div className="absolute left-0 top-full mt-1 w-56 rounded-2xl bg-[#f7f9fa] p-1.5 shadow-lg border border-[#0A4D5C]/10 z-50 animate-in fade-in-0 zoom-in-95">
                     {/* Camera photo */}
                     <button
                       onClick={() => { if (canAddPhotos) cameraPhotoRef.current?.click(); }}
                       disabled={!canAddPhotos}
-                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddPhotos ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#01386A]/25 cursor-not-allowed"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddPhotos ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
-                      <Camera className={`h-4 w-4 ${canAddPhotos ? "text-[#01386A]" : ""}`} />
+                      <Camera className={`h-4 w-4 ${canAddPhotos ? "text-[#0A4D5C]" : ""}`} />
                       <span>Tirar foto</span>
                     </button>
 
@@ -1013,21 +1071,21 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                     <button
                       onClick={() => { if (canAddPhotos) fileInputRef.current?.click(); }}
                       disabled={!canAddPhotos}
-                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddPhotos ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#01386A]/25 cursor-not-allowed"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddPhotos ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
-                      <ImagePlus className={`h-4 w-4 ${canAddPhotos ? "text-[#01386A]" : ""}`} />
+                      <ImagePlus className={`h-4 w-4 ${canAddPhotos ? "text-[#0A4D5C]" : ""}`} />
                       <span>Escolher fotos</span>
                     </button>
 
-                    <div className="my-1 h-px bg-[#01386A]/8" />
+                    <div className="my-1 h-px bg-[#0A4D5C]/8" />
 
                     {/* Camera video */}
                     <button
                       onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) cameraVideoRef.current?.click(); }}
                       disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
-                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#01386A]/25 cursor-not-allowed"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
-                      <Video className={`h-4 w-4 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#01386A]" : ""}`} />
+                      <Video className={`h-4 w-4 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#0A4D5C]" : ""}`} />
                       <span>Gravar vídeo</span>
                     </button>
 
@@ -1035,21 +1093,21 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                     <button
                       onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) videoInputRef.current?.click(); }}
                       disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
-                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#01386A]/25 cursor-not-allowed"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
-                      <Video className={`h-4 w-4 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#01386A]/40" : ""}`} />
+                      <Video className={`h-4 w-4 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#0A4D5C]/40" : ""}`} />
                       <span>Escolher vídeo</span>
                     </button>
 
-                    <div className="my-1 h-px bg-[#01386A]/8" />
+                    <div className="my-1 h-px bg-[#0A4D5C]/8" />
 
                     {/* Record audio (direct) */}
                     <button
                       onClick={() => { if (canAddAudio && !isRecordingAudio) startAudioRecording(); }}
                       disabled={!canAddAudio || isRecordingAudio}
-                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddAudio && !isRecordingAudio ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#01386A]/25 cursor-not-allowed"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddAudio && !isRecordingAudio ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
-                      <Mic className={`h-4 w-4 ${canAddAudio && !isRecordingAudio ? "text-[#01386A]" : ""}`} />
+                      <Mic className={`h-4 w-4 ${canAddAudio && !isRecordingAudio ? "text-[#0A4D5C]" : ""}`} />
                       <span>Gravar áudio</span>
                     </button>
 
@@ -1057,13 +1115,13 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                     <button
                       onClick={() => { if (canAddAudio) audioInputRef.current?.click(); }}
                       disabled={!canAddAudio}
-                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddAudio ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#01386A]/25 cursor-not-allowed"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddAudio ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
-                      <Music className={`h-4 w-4 ${canAddAudio ? "text-[#01386A]/40" : ""}`} />
+                      <Music className={`h-4 w-4 ${canAddAudio ? "text-[#0A4D5C]/40" : ""}`} />
                       <span>Escolher áudio</span>
                     </button>
 
-                    <div className="my-1 h-px bg-[#01386A]/8" />
+                    <div className="my-1 h-px bg-[#0A4D5C]/8" />
 
                     {/* Visibility toggle */}
                     <button
@@ -1071,9 +1129,9 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                       className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-[#000305] transition-colors hover:bg-[#f7f75e]/20"
                     >
                       {visibility === "public" ? (
-                        <Globe className="h-4 w-4 text-[#01386A]" />
+                        <Globe className="h-4 w-4 text-[#0A4D5C]" />
                       ) : (
-                        <UsersIcon className="h-4 w-4 text-[#01386A]" />
+                        <UsersIcon className="h-4 w-4 text-[#0A4D5C]" />
                       )}
                       <span>{visibility === "public" ? "Público" : "Seguidores"}</span>
                     </button>
@@ -1088,19 +1146,26 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                 <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
               </div>
 
-              {/* Publish button */}
+              {/* ═══════ Publish button - ícone apenas, cor viva ═══════ */}
               <div className="flex items-center gap-2">
-                <span className={`text-[10px] ${content.length > 450 ? "text-red-500" : "text-[#01386A]/30"}`}>
-                  {content.length}/500
-                </span>
-                <Button size="sm" disabled={!content.trim() || uploading} onClick={handlePost} className="rounded-full px-5 bg-[#01386A] text-[#f7f9fa] hover:bg-[#01386A]/90 shadow-sm border-0">
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Publicar"}
-                </Button>
+                {content.trim().length > 0 && (
+                  <span className={`text-[10px] ${content.length > 450 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>
+                    {content.length}/500
+                  </span>
+                )}
+                <button
+                  disabled={!canPost || uploading}
+                  onClick={handlePost}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] shadow-md hover:bg-[#25b0a3] active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
+                  title="Publicar"
+                >
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-5 w-5" />}
+                </button>
               </div>
             </div>
 
             {activeMediaCount >= MAX_ACTIVE_MEDIA_POSTS && (
-              <div className="flex items-center gap-1 text-[10px] text-[#01386A]/50 mt-1">
+              <div className="flex items-center gap-1 text-[10px] text-[#0A4D5C]/50 mt-1">
                 <Clock className="h-3 w-3" /> {activeMediaCount}/{MAX_ACTIVE_MEDIA_POSTS} posts com mídia ativos
               </div>
             )}
@@ -1111,26 +1176,26 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       {/* Repost dialog */}
       {repostingPost && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#000305]/50 backdrop-blur-sm" onClick={() => { setRepostingPost(null); setRepostContent(""); }}>
-          <div className="w-full max-w-md mx-4 rounded-3xl bg-[#f7f9fa] p-5 shadow-lg border border-[#01386A]/10" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md mx-4 rounded-3xl bg-[#f7f9fa] p-5 shadow-lg border border-[#0A4D5C]/10" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-bold text-[#000305] mb-3">Compartilhar no feed</h3>
-            <div className="rounded-2xl bg-[#01386A]/[0.04] p-3 mb-3 border border-[#01386A]/8">
+            <div className="rounded-2xl bg-[#0A4D5C]/[0.04] p-3 mb-3 border border-[#0A4D5C]/8">
               <div className="flex items-center gap-2 mb-1">
                 <UserAvatar user={repostingPost.author} className="h-6 w-6" />
                 <span className="text-xs font-semibold text-[#000305]">{repostingPost.author.display_name}</span>
-                <span className="text-[10px] text-[#01386A]/40">@{repostingPost.author.username}</span>
+                <span className="text-[10px] text-[#0A4D5C]/40">@{repostingPost.author.username}</span>
               </div>
-              <p className="text-xs text-[#01386A]/60 line-clamp-3">{repostingPost.content}</p>
+              <p className="text-xs text-[#0A4D5C]/60 line-clamp-3">{repostingPost.content}</p>
             </div>
             <textarea
               placeholder="Adicione um comentário (opcional)..."
               value={repostContent}
               onChange={(e) => setRepostContent(e.target.value.slice(0, 200))}
-              className="w-full min-h-[60px] resize-none border-0 bg-transparent p-3 text-sm text-[#000305] focus:outline-none placeholder:text-[#01386A]/30"
+              className="w-full min-h-[60px] resize-none border-0 bg-transparent p-3 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
               rows={2}
             />
             <div className="flex items-center gap-2 mt-3">
-              <Button variant="outline" size="sm" onClick={() => { setRepostingPost(null); setRepostContent(""); }} className="rounded-full border-[#01386A]/10 text-[#01386A]">Cancelar</Button>
-              <Button size="sm" onClick={() => handleRepost(repostingPost)} className="rounded-full gap-1.5 bg-[#01386A] text-[#f7f9fa] hover:bg-[#01386A]/90 border-0">
+              <Button variant="outline" size="sm" onClick={() => { setRepostingPost(null); setRepostContent(""); }} className="rounded-full border-[#0A4D5C]/10 text-[#0A4D5C]">Cancelar</Button>
+              <Button size="sm" onClick={() => handleRepost(repostingPost)} className="rounded-full gap-1.5 bg-[#0A4D5C] text-[#f7f9fa] hover:bg-[#0A4D5C]/90 border-0">
                 <Repeat2 className="h-3.5 w-3.5" /> Compartilhar
               </Button>
             </div>
@@ -1140,10 +1205,10 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 
       {posts.length === 0 && (
         <div className="py-16 text-center">
-          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-[#01386A]/[0.04]">
-            <MessageCircle className="h-8 w-8 text-[#01386A]/30" />
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-[#0A4D5C]/[0.04]">
+            <MessageCircle className="h-8 w-8 text-[#0A4D5C]/30" />
           </div>
-          <p className="text-sm text-[#01386A]/40">Nenhum post ainda. Seja o primeiro a publicar!</p>
+          <p className="text-sm text-[#0A4D5C]/40">Nenhum post ainda. Seja o primeiro a publicar!</p>
         </div>
       )}
 
@@ -1212,15 +1277,15 @@ function PostThread({
 
   // Determine card background based on post type
   const cardBg = isTextOnly
-    ? postItColor?.bg || "bg-[#f7f75e]"
+    ? postItColor?.bg || "bg-[#fdf6b2]"
     : hasAudio
       ? "bg-[#f7f9fa]"
       : "bg-[#f7f9fa]";
   const commentsBg = isTextOnly
     ? "bg-[#000305]/[0.04]"
     : hasAudio
-      ? "bg-[#01386A]/[0.04]"
-      : "bg-[#01386A]/[0.04]";
+      ? "bg-[#0A4D5C]/[0.04]"
+      : "bg-[#0A4D5C]/[0.04]";
 
   const [expirationLabel, setExpirationLabel] = useState<string>("");
   useEffect(() => {
@@ -1333,7 +1398,7 @@ function PostThread({
   const { roots: commentRoots, map: commentMap } = buildCommentTree(comments);
 
   return (
-    <div className={`rounded-3xl ${cardBg} shadow-lg overflow-hidden transition-shadow hover:shadow-xl ${isOwnPost ? "border-l-4 border-l-[#f7f75e]" : ""} ${isTextOnly && postItColor ? `border-2 ${postItColor.border}` : "border border-[#01386A]/8"}`}>
+    <div className={`rounded-3xl ${cardBg} shadow-lg overflow-hidden transition-shadow hover:shadow-xl ${isOwnPost ? "border-l-4 border-l-[#f7f75e]" : ""} ${isTextOnly && postItColor ? `border-2 ${postItColor.border}` : "border border-[#0A4D5C]/8"}`}>
       <div className="p-4">
         {/* Header */}
         <div className="flex items-start gap-3">
@@ -1342,12 +1407,12 @@ function PostThread({
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <button onClick={() => openUserProfile?.(post.author.id)} className={`text-sm font-semibold hover:underline underline-offset-2 transition-all ${isTextOnly ? "text-[#000305]" : "text-[#000305]"}`}>
+              <button onClick={() => openUserProfile?.(post.author.id)} className={`text-sm font-semibold hover:underline underline-offset-2 transition-all ${isTextOnly ? postItColor?.text || "text-[#000305]" : "text-[#000305]"}`}>
                 {post.author.display_name}
               </button>
-              <span className={`text-xs ${isTextOnly ? "text-[#000305]/50" : "text-[#01386A]/40"}`}>@{post.author.username}</span>
+              <span className={`text-xs ${isTextOnly ? "text-[#000305]/50" : "text-[#0A4D5C]/40"}`}>@{post.author.username}</span>
               {post.author.neighborhood && (
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-[#01386A] px-2 py-0.5 text-[10px] font-medium text-[#f7f9fa]">
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-[#0A4D5C] px-2 py-0.5 text-[10px] font-medium text-[#f7f9fa]">
                   <MapPin className="h-2.5 w-2.5" />{post.author.neighborhood}
                 </span>
               )}
@@ -1357,27 +1422,27 @@ function PostThread({
                 </span>
               )}
               {isOwnPost && (
-                <span className="inline-flex items-center rounded-full bg-[#f7f75e]/30 px-2 py-0.5 text-[10px] font-medium text-[#01386A]">
+                <span className="inline-flex items-center rounded-full bg-[#f7f75e]/30 px-2 py-0.5 text-[10px] font-medium text-[#0A4D5C]">
                   Seu post
                 </span>
               )}
-              <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/20" : "text-[#01386A]/25"}`}>·</span>
-              <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/40" : "text-[#01386A]/40"}`}>{timeAgo(post.created_at)}</span>
+              <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/20" : "text-[#0A4D5C]/25"}`}>·</span>
+              <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/40" : "text-[#0A4D5C]/40"}`}>{timeAgo(post.created_at)}</span>
             </div>
 
             {/* Content */}
             {isTextOnly ? (
-              <p className="mt-2 font-serif text-lg leading-snug whitespace-pre-wrap text-[#000305]">{post.content}</p>
+              <p className={`mt-2 font-serif text-lg leading-snug whitespace-pre-wrap ${postItColor?.text || "text-[#000305]"}`}>{post.content}</p>
             ) : (
               <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap text-[#000305]">{post.content}</p>
             )}
 
             {/* Shared post (repost) */}
             {post.shared_post && (
-              <div className="mt-2.5 rounded-2xl bg-[#01386A]/[0.04] p-3 border border-[#01386A]/8">
+              <div className="mt-2.5 rounded-2xl bg-[#0A4D5C]/[0.04] p-3 border border-[#0A4D5C]/8">
                 <div className="flex items-center gap-2 mb-1.5">
-                  <Repeat2 className="h-3 w-3 text-[#01386A]/40" />
-                  <span className="text-[10px] text-[#01386A]/40">Compartilhado de</span>
+                  <Repeat2 className="h-3 w-3 text-[#0A4D5C]/40" />
+                  <span className="text-[10px] text-[#0A4D5C]/40">Compartilhado de</span>
                 </div>
                 <div className="flex items-center gap-2 mb-1">
                   <button onClick={() => openUserProfile?.(post.shared_post!.author.id)} className="shrink-0">
@@ -1386,16 +1451,16 @@ function PostThread({
                   <button onClick={() => openUserProfile?.(post.shared_post!.author.id)} className="text-xs font-semibold text-[#000305] hover:underline">
                     {post.shared_post.author.display_name}
                   </button>
-                  <span className="text-[10px] text-[#01386A]/40">@{post.shared_post.author.username}</span>
+                  <span className="text-[10px] text-[#0A4D5C]/40">@{post.shared_post.author.username}</span>
                 </div>
-                <p className="text-xs text-[#01386A]/60 leading-relaxed line-clamp-4">{post.shared_post.content}</p>
+                <p className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-4">{post.shared_post.content}</p>
                 {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
                   <div className="mt-1.5 flex gap-1 overflow-x-auto">
                     {post.shared_post.image_urls.slice(0, 2).map((url, i) => (
                       <img key={i} src={url} alt="" className="h-16 w-16 rounded-xl object-cover shrink-0" />
                     ))}
                     {post.shared_post.image_urls.length > 2 && (
-                      <div className="h-16 w-16 rounded-xl bg-[#01386A]/[0.04] flex items-center justify-center text-xs text-[#01386A]/40 shrink-0">
+                      <div className="h-16 w-16 rounded-xl bg-[#0A4D5C]/[0.04] flex items-center justify-center text-xs text-[#0A4D5C]/40 shrink-0">
                         +{post.shared_post.image_urls.length - 2}
                       </div>
                     )}
@@ -1423,20 +1488,20 @@ function PostThread({
               <div className="relative">
                 <button
                   onClick={() => setShowReactions(!showReactions)}
-                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs transition-colors ${post.reactions?.some((r) => r.user_id === profile?.id) ? "text-[#01386A] bg-[#01386A]/10 font-medium" : "text-[#01386A]/40 hover:bg-[#01386A]/[0.04] hover:text-[#01386A]"}`}
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs transition-colors ${post.reactions?.some((r) => r.user_id === profile?.id) ? "text-[#0A4D5C] bg-[#0A4D5C]/10 font-medium" : "text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C]"}`}
                 >
                   <Heart className="h-4 w-4" />
                   {post.reactions?.length > 0 && <span>{post.reactions.length}</span>}
                 </button>
                 {showReactions && (
-                  <div className="absolute bottom-full left-0 mb-1.5 flex gap-0.5 rounded-2xl bg-[#f7f9fa] p-1.5 shadow-lg border border-[#01386A]/10 z-20">
+                  <div className="absolute bottom-full left-0 mb-1.5 flex gap-0.5 rounded-2xl bg-[#f7f9fa] p-1.5 shadow-lg border border-[#0A4D5C]/10 z-20">
                     {REACTION_EMOJIS.map(({ type, emoji, label }) => {
                       const isActive = post.reactions?.some((r) => r.user_id === profile?.id && r.type === type);
                       return (
                         <button
                           key={type}
                           onClick={() => { onReaction(post.id, type); setShowReactions(false); }}
-                          className={`rounded-xl p-1.5 text-lg transition-all hover:scale-125 ${isActive ? "bg-[#01386A]/10 ring-1 ring-[#01386A]" : ""}`}
+                          className={`rounded-xl p-1.5 text-lg transition-all hover:scale-125 ${isActive ? "bg-[#0A4D5C]/10 ring-1 ring-[#0A4D5C]" : ""}`}
                           title={label}
                         >
                           {emoji}
@@ -1451,119 +1516,113 @@ function PostThread({
               {reactionGroups.length > 0 && (
                 <div className="flex gap-0.5 ml-0.5">
                   {reactionGroups.slice(0, 3).map((g, i) => (
-                    <span key={i} className="inline-flex items-center gap-0.5 rounded-full bg-[#01386A]/[0.06] px-1.5 py-0.5 text-[10px]">
+                    <span key={i} className="inline-flex items-center gap-0.5 rounded-full bg-[#0A4D5C]/[0.06] px-1.5 py-0.5 text-[10px]">
                       {g.emoji} {g.count}
                     </span>
                   ))}
                 </div>
               )}
 
-              <div className="flex-1" />
-
-              {/* Comment */}
-              <button onClick={openAndFocus} className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs text-[#01386A]/40 transition-colors hover:bg-[#01386A]/[0.04] hover:text-[#01386A]">
+              {/* Comments */}
+              <button
+                onClick={openAndFocus}
+                className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs transition-colors ${showComments ? "text-[#0A4D5C] bg-[#0A4D5C]/10 font-medium" : "text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C]"}`}
+              >
                 <MessageCircle className="h-4 w-4" />
-                {commentCount > 0 && commentCount}
+                {commentCount > 0 && <span>{commentCount}</span>}
               </button>
 
-              {/* Share/Repost */}
+              {/* Share */}
               <div className="relative" ref={shareRef}>
                 <button
                   onClick={() => setShareMenuOpen(shareMenuOpen === post.id ? null : post.id)}
-                  className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs text-[#01386A]/40 transition-colors hover:bg-[#01386A]/[0.04] hover:text-[#01386A]"
+                  className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C] transition-colors"
                 >
                   <Share2 className="h-4 w-4" />
                 </button>
                 {shareMenuOpen === post.id && (
-                  <ShareMenu
-                    post={post}
-                    onClose={() => setShareMenuOpen(null)}
-                    onRepost={onRepost}
-                  />
+                  <ShareMenu post={post} onClose={() => setShareMenuOpen(null)} onRepost={onRepost} />
                 )}
               </div>
 
-              {/* Delete (own posts only) */}
+              {/* Delete (own posts) */}
               {isOwnPost && (
-                <button onClick={() => onDelete(post.id)} className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-[#01386A]/30 transition-colors hover:bg-red-50 hover:text-red-500">
+                <button
+                  onClick={() => onDelete(post.id)}
+                  className="ml-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-[#0A4D5C]/25 hover:text-red-500 hover:bg-red-50 transition-colors"
+                >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
+
+            {/* ═══════ COMMENTS SECTION ═══════ */}
+            {showComments && (
+              <div className={`mt-3 rounded-2xl ${commentsBg} p-3 space-y-2`}>
+                {commentsLoading ? (
+                  <div className="space-y-2 py-2">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="flex items-center gap-2 animate-pulse">
+                        <div className="h-6 w-6 rounded-full bg-[#0A4D5C]/10" />
+                        <div className="flex-1 h-3 bg-[#0A4D5C]/8 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    {commentRoots.map((comment) => (
+                      <CommentItem
+                        key={comment.id}
+                        comment={comment}
+                        replies={commentMap.get(comment.id) || []}
+                        profile={profile}
+                        onReply={handleReply}
+                        onDelete={deleteComment}
+                        onReaction={handleCommentReaction}
+                        openUserProfile={openUserProfile}
+                      />
+                    ))}
+                    {comments.length === 0 && (
+                      <p className="text-xs text-[#0A4D5C]/30 text-center py-2">Nenhum comentário ainda</p>
+                    )}
+                  </>
+                )}
+
+                {/* Comment input */}
+                <div className="flex items-center gap-2 mt-2">
+                  <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-6 w-6 shrink-0" />
+                  <div className="flex-1 relative">
+                    {replyTo && (
+                      <div className="absolute -top-4 left-0 flex items-center gap-1 text-[10px] text-[#0A4D5C]/40">
+                        <Reply className="h-2.5 w-2.5" />
+                        <span>Respondendo a {replyTo.author.display_name}</span>
+                        <button onClick={() => setReplyTo(null)} className="text-[#0A4D5C]/60 hover:text-[#0A4D5C] ml-1">✕</button>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        ref={commentInputRef}
+                        placeholder="Escreva um comentário..."
+                        value={commentInput}
+                        onChange={(e) => setCommentInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && submitComment()}
+                        className="flex-1 min-w-0 rounded-full border border-[#0A4D5C]/10 bg-[#f7f9fa] px-3 py-1.5 text-xs text-[#000305] focus:outline-none focus:border-[#2EC4B6] placeholder:text-[#0A4D5C]/30"
+                      />
+                      <button
+                        onClick={submitComment}
+                        disabled={!commentInput.trim() || submitting}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] hover:bg-[#25b0a3] transition-colors disabled:opacity-30"
+                      >
+                        {submitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowUp className="h-3.5 w-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      {/* Comments toggle */}
-      {(commentCount > 0 || comments.length > 0) && (
-        <button onClick={toggleComments} className="flex w-full items-center justify-center gap-1.5 py-2.5 text-xs text-[#01386A]/40 transition-colors hover:bg-[#01386A]/[0.02] hover:text-[#01386A]">
-          {showComments ? <>Ocultar comentários <ChevronUp className="h-3 w-3" /></> : <>{commentCount || comments.length} comentário{(commentCount || comments.length) !== 1 ? "s" : ""} <ChevronDown className="h-3 w-3" /></>}
-        </button>
-      )}
-
-      {/* Comments section */}
-      {showComments && (
-        <div className={`${commentsBg}`}>
-          <div className="max-h-72 overflow-y-auto px-4 py-3 custom-scrollbar">
-            {commentsLoading ? (
-              <div className="space-y-3">{[1, 2].map((i) => (<div key={i} className="flex gap-2.5 animate-pulse"><div className="h-6 w-6 rounded-full bg-[#01386A]/8" /><div className="flex-1 space-y-1.5"><div className="h-3 w-24 rounded bg-[#01386A]/8" /><div className="h-3 w-full rounded bg-[#01386A]/8" /></div></div>))}</div>
-            ) : comments.length === 0 ? (
-              <p className="text-xs text-center text-[#01386A]/30 py-2">Nenhum comentário ainda</p>
-            ) : (
-              commentRoots.map((root) => (
-                <CommentItem
-                  key={root.id}
-                  comment={root}
-                  profile={profile}
-                  replies={commentMap.get(root.id) || []}
-                  commentMap={commentMap}
-                  onReply={handleReply}
-                  onDelete={deleteComment}
-                  onReaction={handleCommentReaction}
-                  openUserProfile={openUserProfile}
-                />
-              ))
-            )}
-          </div>
-
-          {/* Comment input */}
-          <div className="px-4 pb-3">
-            {replyTo && (
-              <div className="flex items-center gap-1.5 mb-1.5 text-[10px] text-[#01386A]/50">
-                <Reply className="h-3 w-3" />
-                <span>Respondendo a <strong>{replyTo.author.display_name}</strong></span>
-                <button onClick={() => setReplyTo(null)} className="ml-1 text-[#01386A]/30 hover:text-[#01386A]"><X className="h-3 w-3" /></button>
-              </div>
-            )}
-            <div className="flex items-center gap-2">
-              <Input
-                ref={commentInputRef}
-                placeholder="Escreva um comentário..."
-                value={commentInput}
-                onChange={(e) => setCommentInput(e.target.value.slice(0, 300))}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitComment(); } }}
-                className="flex-1 h-9 rounded-full border-[#01386A]/10 bg-[#f7f9fa] text-sm focus:border-[#01386A]/30 focus:ring-[#01386A]/10 placeholder:text-[#01386A]/30"
-                disabled={submitting}
-              />
-              <button
-                onClick={submitComment}
-                disabled={!commentInput.trim() || submitting}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#01386A] text-[#f7f9fa] transition-colors hover:bg-[#01386A]/90 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick comment (when comments hidden) */}
-      {!showComments && profile && (
-        <div className="flex items-center gap-2 px-4 py-2.5">
-          <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
-          <Input placeholder="Escreva um comentário..." value={commentInput} onChange={(e) => setCommentInput(e.target.value.slice(0, 300))} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && commentInput.trim()) openAndFocus(); }} onFocus={openAndFocus} className="h-8 text-xs border-0 bg-[#f7f9fa]/60 focus-visible:ring-1 focus-visible:ring-[#01386A]/20 placeholder:text-[#01386A]/30" />
-        </div>
-      )}
     </div>
   );
 }
@@ -1572,143 +1631,66 @@ function PostThread({
 // CommentItem
 // ═══════════════════════════════════════════════════════════
 function CommentItem({
-  comment, profile, replies, commentMap, onReply, onDelete, onReaction, openUserProfile,
+  comment, replies, profile, onReply, onDelete, onReaction, openUserProfile,
 }: {
   comment: Comment;
-  profile: Profile | null;
   replies: Comment[];
-  commentMap: Map<string, Comment[]>;
+  profile: Profile | null;
   onReply: (comment: Comment) => void;
   onDelete: (commentId: string) => void;
   onReaction: (commentId: string, type: string) => void;
   openUserProfile?: (userId: string) => void;
 }) {
-  const [showReactions, setShowReactions] = useState(false);
-  const isOwnComment = comment.author_id === profile?.id;
+  const isOwn = comment.author_id === profile?.id;
+  const [showCommentReactions, setShowCommentReactions] = useState(false);
 
   return (
-    <div className="flex gap-2.5 py-1.5">
-      <button onClick={() => openUserProfile?.(comment.author.id)} className="shrink-0">
-        <UserAvatar user={comment.author} className="h-6 w-6" />
-      </button>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button onClick={() => openUserProfile?.(comment.author.id)} className="text-[11px] font-semibold text-[#000305] hover:underline">
-            {comment.author.display_name}
-          </button>
-          <span className="text-[10px] text-[#01386A]/40">@{comment.author.username}</span>
-          <span className="text-[10px] text-[#01386A]/25">·</span>
-          <span className="text-[10px] text-[#01386A]/40">{timeAgo(comment.created_at)}</span>
-        </div>
-        <p className="text-xs leading-relaxed text-[#000305]/80 mt-0.5">{comment.content}</p>
-        <div className="flex items-center gap-2 mt-1">
-          {/* Reactions */}
-          <div className="relative">
-            <button
-              onClick={() => setShowReactions(!showReactions)}
-              className="text-[10px] text-[#01386A]/30 hover:text-[#01386A] transition-colors"
-            >
-              {comment.reactions?.length > 0 ? (
-                <span className="inline-flex items-center gap-0.5">
-                  {buildReactionGroups(comment.reactions).slice(0, 2).map((g, i) => (
-                    <span key={i}>{g.emoji}</span>
-                  ))}
-                  <span className="ml-0.5">{comment.reactions.length}</span>
-                </span>
-              ) : (
-                <Heart className="h-3 w-3" />
-              )}
+    <div>
+      <div className="flex items-start gap-2">
+        <button onClick={() => openUserProfile?.(comment.author.id)} className="shrink-0">
+          <UserAvatar user={comment.author} className="h-6 w-6" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button onClick={() => openUserProfile?.(comment.author.id)} className="text-[11px] font-semibold text-[#000305] hover:underline">
+              {comment.author.display_name}
             </button>
-            {showReactions && (
-              <div className="absolute bottom-full left-0 mb-1 flex gap-0.5 rounded-2xl bg-[#f7f9fa] p-1 shadow-lg border border-[#01386A]/10 z-20">
-                {REACTION_EMOJIS.map(({ type, emoji, label }) => {
-                  const isActive = comment.reactions?.some((r) => r.user_id === profile?.id && r.type === type);
-                  return (
-                    <button
-                      key={type}
-                      onClick={() => { onReaction(comment.id, type); setShowReactions(false); }}
-                      className={`rounded-lg p-1 text-sm transition-all hover:scale-125 ${isActive ? "bg-[#01386A]/10 ring-1 ring-[#01386A]" : ""}`}
-                      title={label}
-                    >
+            <span className="text-[10px] text-[#0A4D5C]/30">{timeAgo(comment.created_at)}</span>
+          </div>
+          <p className="text-xs text-[#000305]/80 leading-relaxed">{comment.content}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <div className="relative">
+              <button
+                onClick={() => setShowCommentReactions(!showCommentReactions)}
+                className="text-[10px] text-[#0A4D5C]/30 hover:text-[#0A4D5C] transition-colors"
+              >
+                {comment.reactions?.length > 0 ? `❤️ ${comment.reactions.length}` : "❤️"}
+              </button>
+              {showCommentReactions && (
+                <div className="absolute bottom-full left-0 mb-1 flex gap-0.5 rounded-xl bg-[#f7f9fa] p-1 shadow-lg border border-[#0A4D5C]/10 z-20">
+                  {REACTION_EMOJIS.map(({ type, emoji }) => (
+                    <button key={type} onClick={() => { onReaction(comment.id, type); setShowCommentReactions(false); }} className="rounded-lg p-1 text-sm hover:scale-110 transition-transform">
                       {emoji}
                     </button>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button onClick={() => onReply(comment)} className="text-[10px] text-[#0A4D5C]/30 hover:text-[#0A4D5C] transition-colors">Responder</button>
+            {isOwn && (
+              <button onClick={() => onDelete(comment.id)} className="text-[10px] text-[#0A4D5C]/20 hover:text-red-500 transition-colors">Excluir</button>
             )}
           </div>
-          <button onClick={() => onReply(comment)} className="text-[10px] text-[#01386A]/30 hover:text-[#01386A] transition-colors">Responder</button>
-          {isOwnComment && (
-            <button onClick={() => onDelete(comment.id)} className="text-[10px] text-[#01386A]/20 hover:text-red-500 transition-colors">Excluir</button>
-          )}
-        </div>
-
-        {/* Nested replies */}
-        {replies.length > 0 && (
-          <div className="mt-1.5 border-l-2 border-[#f7f75e]/50 pl-3 space-y-1.5">
-            {replies.map((reply) => (
-              <CommentItem
-                key={reply.id}
-                comment={reply}
-                profile={profile}
-                replies={commentMap.get(reply.id) || []}
-                commentMap={commentMap}
-                onReply={onReply}
-                onDelete={onDelete}
-                onReaction={onReaction}
-                openUserProfile={openUserProfile}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// FeedSkeleton
-// ═══════════════════════════════════════════════════════════
-function FeedSkeleton() {
-  return (
-    <div className="space-y-0">
-      {/* Composer skeleton */}
-      <div className="rounded-3xl bg-[#f7f9fa] p-5 shadow-lg border border-[#01386A]/8">
-        <div className="flex items-start gap-3.5 animate-pulse">
-          <div className="h-12 w-12 rounded-full bg-[#01386A]/8" />
-          <div className="flex-1 space-y-2">
-            <div className="h-4 w-full rounded bg-[#01386A]/6" />
-            <div className="h-4 w-3/4 rounded bg-[#01386A]/6" />
-          </div>
         </div>
       </div>
-
-      {/* Post skeletons */}
-      <div className="columns-1 sm:columns-2 gap-3.5 mt-4">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="break-inside-avoid mb-3.5">
-            <div className="rounded-3xl bg-[#f7f9fa] shadow-lg border border-[#01386A]/8 p-4 animate-pulse">
-              <div className="flex items-start gap-3">
-                <div className="h-11 w-11 rounded-full bg-[#01386A]/8" />
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-20 rounded bg-[#01386A]/8" />
-                    <div className="h-3 w-14 rounded bg-[#01386A]/6" />
-                  </div>
-                  <div className="h-3 w-full rounded bg-[#01386A]/6" />
-                  <div className="h-3 w-4/5 rounded bg-[#01386A]/6" />
-                  <div className="h-28 w-full rounded-2xl bg-[#01386A]/6" />
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className="h-4 w-10 rounded bg-[#01386A]/6" />
-                    <div className="h-4 w-10 rounded bg-[#01386A]/6" />
-                    <div className="h-4 w-10 rounded bg-[#01386A]/6" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* Nested replies */}
+      {replies.length > 0 && (
+        <div className="ml-8 mt-1.5 space-y-1.5 border-l-2 border-[#0A4D5C]/8 pl-3">
+          {replies.map((reply) => (
+            <CommentItem key={reply.id} comment={reply} replies={[]} profile={profile} onReply={onReply} onDelete={onDelete} onReaction={onReaction} openUserProfile={openUserProfile} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
