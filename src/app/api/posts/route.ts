@@ -256,6 +256,8 @@ export async function POST(req: NextRequest) {
       image_urls: hasPhotos ? imageUrls : [],
       video_url: hasVideo ? videoUrl : null,
       audio_url: hasAudio ? audioUrl : null,
+      audio_duration: hasAudio && audioDuration ? audioDuration : null,
+      video_duration: hasVideo && videoDuration ? videoDuration : null,
       visibility: validVisibility,
       expires_at: expiresAt,
       shared_post_id: validSharedPostId,
