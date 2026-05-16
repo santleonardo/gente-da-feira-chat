@@ -226,6 +226,7 @@ function AudioPlayer({ src, knownDuration }: { src: string; knownDuration?: numb
     if (knownDuration && isFinite(knownDuration) && knownDuration > 0) return knownDuration;
     return 0;
   });
+  const durationFetched = useRef(false);
 
   const toggle = () => {
     if (!audioRef.current) return;
@@ -233,6 +234,45 @@ function AudioPlayer({ src, knownDuration }: { src: string; knownDuration?: numb
     else audioRef.current.play();
     setPlaying(!playing);
   };
+
+  // Try to fetch duration from audio element on mount
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || durationFetched.current) return;
+
+    const tryGetDuration = () => {
+      const d = audio.duration;
+      if (isFinite(d) && d > 0) {
+        setDuration(d);
+        durationFetched.current = true;
+        return true;
+      }
+      return false;
+    };
+
+    // Try immediately
+    if (tryGetDuration()) return;
+
+    // Try after loadedmetadata
+    const onMeta = () => { tryGetDuration(); };
+    audio.addEventListener('loadedmetadata', onMeta);
+
+    // Try after durationchange
+    const onDurChange = () => { tryGetDuration(); };
+    audio.addEventListener('durationchange', onDurChange);
+
+    // Force load
+    audio.load();
+
+    // Fallback: try after a delay (for WebM/Opus that needs full download)
+    const timer = setTimeout(() => { tryGetDuration(); }, 3000);
+
+    return () => {
+      audio.removeEventListener('loadedmetadata', onMeta);
+      audio.removeEventListener('durationchange', onDurChange);
+      clearTimeout(timer);
+    };
+  }, []);
 
   const displayDuration = duration > 0 ? duration : (knownDuration && isFinite(knownDuration) && knownDuration > 0 ? knownDuration : 0);
   const durationLabel = displayDuration > 0 ? `${Math.round(displayDuration)}s` : "";
@@ -260,7 +300,7 @@ function AudioPlayer({ src, knownDuration }: { src: string; knownDuration?: numb
           </div>
         </div>
       </div>
-      <audio ref={audioRef} src={src} preload="metadata" onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)} onLoadedMetadata={() => { const d = audioRef.current?.duration || 0; setDuration(isFinite(d) && d > 0 ? d : (knownDuration && isFinite(knownDuration) ? knownDuration : 0)); }} onEnded={() => setPlaying(false)} />
+      <audio ref={audioRef} src={src} preload="auto" onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)} onLoadedMetadata={() => { const d = audioRef.current?.duration || 0; if (isFinite(d) && d > 0) { setDuration(d); durationFetched.current = true; } }} onDurationChange={() => { const d = audioRef.current?.duration || 0; if (isFinite(d) && d > 0) { setDuration(d); durationFetched.current = true; } }} onEnded={() => setPlaying(false)} />
     </div>
   );
 }
@@ -997,9 +1037,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         <div className="flex items-start gap-3.5">
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-12 w-12 shrink-0" />
           <div className="flex-1 space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xl" style={{ color: "#2EC4B6" }}>💬</span>
-            </div>
             <textarea
               placeholder=""
               value={content}
@@ -1174,7 +1211,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] shadow-md hover:bg-[#25b0a3] active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
                   title="Publicar"
                 >
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="text-base">💬</span>}
                 </button>
               </div>
             </div>
