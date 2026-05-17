@@ -75,16 +75,16 @@ const REACTION_EMOJIS = [
 // Post-it colors for text-only posts (suaves/pastel)
 // ═══════════════════════════════════════════════════════════
 const POST_IT_COLORS = [
-  { bg: "bg-[#fdf6b2]", text: "text-[#3d3a1a]", border: "border-[#f0e68c]" },       // Amarelo suave
-  { bg: "bg-[#fde2e4]", text: "text-[#5a2d30]", border: "border-[#f0c4c7]" },        // Rosa suave
-  { bg: "bg-[#dfeef7]", text: "text-[#1e3d52]", border: "border-[#bdd8e8]" },        // Azul suave
-  { bg: "bg-[#daf0db]", text: "text-[#2a4a2c]", border: "border-[#b5ddb7]" },        // Verde suave
-  { bg: "bg-[#fde8d0]", text: "text-[#4a3520]", border: "border-[#f5d5b0]" },        // Laranja suave
-  { bg: "bg-[#e8ddf5]", text: "text-[#3d2a5c]", border: "border-[#d1c0e8]" },        // Roxo suave
-  { bg: "bg-[#f7d7d7]", text: "text-[#5a2525]", border: "border-[#ecbcbc]" },        // Coral suave
-  { bg: "bg-[#d0f0e0]", text: "text-[#1e4a35]", border: "border-[#a8e0c0]" },        // Menta suave
-  { bg: "bg-[#ddd5f0]", text: "text-[#2e1f5a]", border: "border-[#c4b8e0]" },        // Lavanda suave
-  { bg: "bg-[#f5e5d0]", text: "text-[#4a3520]", border: "border-[#e8d0a8]" },        // Pêssego suave
+  { bg: "bg-[#fefce8]", text: "text-[#78716c]", border: "border-[#fef9c3]" },       // Amarelo suave
+  { bg: "bg-[#fef1f2]", text: "text-[#9f7a7d]", border: "border-[#ffe4e6]" },        // Rosa suave
+  { bg: "bg-[#f0f9ff]", text: "text-[#6b8fa8]", border: "border-[#e0f2fe]" },        // Azul suave
+  { bg: "bg-[#f0fdf4]", text: "text-[#6b9f78]", border: "border-[#dcfce7]" },        // Verde suave
+  { bg: "bg-[#fff7ed]", text: "text-[#a08772]", border: "border-[#ffedd5]" },        // Laranja suave
+  { bg: "bg-[#faf5ff]", text: "text-[#8b7fa8]", border: "border-[#f3e8ff]" },        // Roxo suave
+  { bg: "bg-[#fff5f5]", text: "text-[#a08080]", border: "border-[#fecdd3]" },        // Coral suave
+  { bg: "bg-[#ecfdf5]", text: "text-[#6b9f8a]", border: "border-[#d1fae5]" },        // Menta suave
+  { bg: "bg-[#f5f3ff]", text: "text-[#7d78a8]", border: "border-[#ede9fe]" },        // Lavanda suave
+  { bg: "bg-[#fffbeb]", text: "text-[#a09580]", border: "border-[#fef3c7]" },        // Pêssego suave
 ] as const;
 
 function getPostItColor(postId: string) {
@@ -1055,15 +1055,15 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                   <ChevronDown className={`h-3 w-3 transition-transform ${menuOpen ? "rotate-180" : ""}`} />
                 </button>
 
-                {/* Dropdown menu - icons only */}
+                {/* Dropdown menu - opens DOWN, icons only */}
                 {menuOpen && (
-                  <div className="absolute left-0 top-full mt-1 flex items-center gap-0.5 rounded-full bg-[#f7f9fa] p-1 shadow-lg border border-[#0A4D5C]/10 z-50 animate-in fade-in-0 zoom-in-95">
+                  <div className="absolute left-0 top-full mt-1 flex flex-col items-center gap-0.5 rounded-2xl bg-[#f7f9fa] p-1.5 shadow-lg border border-[#0A4D5C]/10 z-50 animate-in fade-in-0 zoom-in-95">
                     {/* Camera photo */}
                     <button
                       onClick={() => { if (canAddPhotos) cameraPhotoRef.current?.click(); }}
                       disabled={!canAddPhotos}
                       title="Tirar foto"
-                      className={`flex items-center justify-center rounded-full p-2.5 transition-colors ${canAddPhotos ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
+                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddPhotos ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
                       <Camera className="h-4 w-4" />
                     </button>
@@ -1073,19 +1073,19 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                       onClick={() => { if (canAddPhotos) fileInputRef.current?.click(); }}
                       disabled={!canAddPhotos}
                       title="Escolher fotos"
-                      className={`flex items-center justify-center rounded-full p-2.5 transition-colors ${canAddPhotos ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
+                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddPhotos ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
                       <ImagePlus className="h-4 w-4" />
                     </button>
 
-                    <div className="w-px h-5 bg-[#0A4D5C]/10" />
+                    <div className="w-8 h-px bg-[#0A4D5C]/10" />
 
                     {/* Camera video */}
                     <button
                       onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) cameraVideoRef.current?.click(); }}
                       disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
                       title="Gravar vídeo"
-                      className={`flex items-center justify-center rounded-full p-2.5 transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
+                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
                       <Video className="h-4 w-4" />
                     </button>
@@ -1095,19 +1095,19 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                       onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) videoInputRef.current?.click(); }}
                       disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
                       title="Escolher vídeo"
-                      className={`flex items-center justify-center rounded-full p-2.5 transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#0A4D5C]/70 hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
+                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#0A4D5C]/70 hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
                       <Video className="h-4 w-4" />
                     </button>
 
-                    <div className="w-px h-5 bg-[#0A4D5C]/10" />
+                    <div className="w-8 h-px bg-[#0A4D5C]/10" />
 
                     {/* Record audio (direct) */}
                     <button
                       onClick={() => { if (canAddAudio && !isRecordingAudio) startAudioRecording(); }}
                       disabled={!canAddAudio || isRecordingAudio}
                       title="Gravar áudio"
-                      className={`flex items-center justify-center rounded-full p-2.5 transition-colors ${canAddAudio && !isRecordingAudio ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
+                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddAudio && !isRecordingAudio ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
                       <Mic className="h-4 w-4" />
                     </button>
@@ -1117,18 +1117,18 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                       onClick={() => { if (canAddAudio) audioInputRef.current?.click(); }}
                       disabled={!canAddAudio}
                       title="Escolher áudio"
-                      className={`flex items-center justify-center rounded-full p-2.5 transition-colors ${canAddAudio ? "text-[#0A4D5C]/70 hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
+                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddAudio ? "text-[#0A4D5C]/70 hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
                       <Music className="h-4 w-4" />
                     </button>
 
-                    <div className="w-px h-5 bg-[#0A4D5C]/10" />
+                    <div className="w-8 h-px bg-[#0A4D5C]/10" />
 
                     {/* Visibility toggle */}
                     <button
                       onClick={() => setVisibility((v) => v === "public" ? "followers" : "public")}
                       title={visibility === "public" ? "Público" : "Seguidores"}
-                      className="flex items-center justify-center rounded-full p-2.5 text-[#0A4D5C] transition-colors hover:bg-[#f7f75e]/30"
+                      className="flex items-center justify-center rounded-full p-2 text-[#0A4D5C] transition-colors hover:bg-[#f7f75e]/30"
                     >
                       {visibility === "public" ? (
                         <Globe className="h-4 w-4" />
@@ -1160,7 +1160,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] shadow-md hover:bg-[#25b0a3] active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
                   title="Publicar"
                 >
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="text-base">💬</span>}
                 </button>
               </div>
             </div>
@@ -1428,15 +1428,15 @@ function PostThread({
   const { roots: commentRoots, map: commentMap } = buildCommentTree(comments);
 
   return (
-    <div className={`rounded-3xl ${cardBg} shadow-lg overflow-hidden transition-shadow hover:shadow-xl ${isOwnPost ? "border-l-4 border-l-[#f7f75e]" : ""} ${isTextOnly && postItColor ? `border-2 ${postItColor.border}` : "border border-[#0A4D5C]/8"}`}>
-      <div className="p-4">
+    <div className={`rounded-2xl ${cardBg} shadow-md overflow-hidden transition-shadow hover:shadow-lg ${isOwnPost ? "border-l-3 border-l-[#f7f75e]" : ""} ${isTextOnly && postItColor ? `border ${postItColor.border}` : "border border-[#0A4D5C]/8"}`}>
+      <div className="p-3 sm:p-4">
         {/* Header */}
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-2.5">
           <button onClick={() => openUserProfile?.(post.author.id)} className="shrink-0 group">
-            <UserAvatar user={post.author} className="h-11 w-11 hover:opacity-80 transition-opacity ring-2 ring-[#f7f9fa] shadow-sm" />
+            <UserAvatar user={post.author} className="h-9 w-9 sm:h-11 sm:w-11 hover:opacity-80 transition-opacity ring-2 ring-[#f7f9fa] shadow-sm" />
           </button>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <button onClick={() => openUserProfile?.(post.author.id)} className={`text-sm font-semibold hover:underline underline-offset-2 transition-all ${isTextOnly ? postItColor?.text || "text-[#000305]" : "text-[#000305]"}`}>
                 {post.author.display_name}
               </button>
@@ -1457,9 +1457,9 @@ function PostThread({
 
             {/* Content */}
             {isTextOnly ? (
-              <p className={`mt-2 font-serif text-lg leading-snug whitespace-pre-wrap ${postItColor?.text || "text-[#000305]"}`}>{post.content}</p>
+              <p className={`mt-1.5 font-serif text-base sm:text-lg leading-snug whitespace-pre-wrap ${postItColor?.text || "text-[#000305]"}`}>{post.content}</p>
             ) : (
-              <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap text-[#000305]">{post.content}</p>
+              <p className="mt-1.5 text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]">{post.content}</p>
             )}
 
             {/* Shared post (repost) */}
@@ -1508,7 +1508,7 @@ function PostThread({
             )}
 
             {/* ═══════ ACTION BAR ═══════ */}
-            <div className="mt-3 flex items-center gap-0.5">
+            <div className="mt-2 flex items-center gap-0.5">
               {/* Reactions */}
               <div className="relative">
                 <button
@@ -1583,7 +1583,7 @@ function PostThread({
 
             {/* ═══════ COMMENTS SECTION ═══════ */}
             {showComments && (
-              <div className={`mt-3 rounded-2xl ${commentsBg} p-3 space-y-2`}>
+              <div className={`mt-2 rounded-xl ${commentsBg} p-2.5 space-y-1.5`}>
                 {commentsLoading ? (
                   <div className="space-y-2 py-2">
                     {[1, 2].map((i) => (
@@ -1614,31 +1614,31 @@ function PostThread({
                 )}
 
                 {/* Comment input */}
-                <div className="flex items-center gap-2 mt-2">
-                  <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-6 w-6 shrink-0" />
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-5 w-5 shrink-0" />
                   <div className="flex-1 relative">
                     {replyTo && (
-                      <div className="absolute -top-4 left-0 flex items-center gap-1 text-[10px] text-[#0A4D5C]/40">
-                        <Reply className="h-2.5 w-2.5" />
+                      <div className="absolute -top-3.5 left-0 flex items-center gap-1 text-[9px] text-[#0A4D5C]/40">
+                        <Reply className="h-2 w-2" />
                         <span>Respondendo a {replyTo.author.display_name}</span>
                         <button onClick={() => setReplyTo(null)} className="text-[#0A4D5C]/60 hover:text-[#0A4D5C] ml-1">✕</button>
                       </div>
                     )}
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1">
                       <input
                         ref={commentInputRef}
-                        placeholder="Escreva um comentário..."
+                        placeholder="Comentar..."
                         value={commentInput}
                         onChange={(e) => setCommentInput(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && submitComment()}
-                        className="flex-1 min-w-0 rounded-full border border-[#0A4D5C]/10 bg-[#f7f9fa] px-3 py-1.5 text-xs text-[#000305] focus:outline-none focus:border-[#2EC4B6] placeholder:text-[#0A4D5C]/30"
+                        className="flex-1 min-w-0 rounded-full border border-[#0A4D5C]/10 bg-[#f7f9fa] px-2.5 py-1 text-[11px] sm:text-xs text-[#000305] focus:outline-none focus:border-[#2EC4B6] placeholder:text-[#0A4D5C]/30"
                       />
                       <button
                         onClick={submitComment}
                         disabled={!commentInput.trim() || submitting}
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] hover:bg-[#25b0a3] transition-colors disabled:opacity-30"
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] hover:bg-[#25b0a3] transition-colors disabled:opacity-30"
                       >
-                        {submitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                        {submitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <span className="text-xs">💬</span>}
                       </button>
                     </div>
                   </div>
@@ -1671,19 +1671,19 @@ function CommentItem({
 
   return (
     <div>
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-1.5">
         <button onClick={() => openUserProfile?.(comment.author.id)} className="shrink-0">
-          <UserAvatar user={comment.author} className="h-6 w-6" />
+          <UserAvatar user={comment.author} className="h-5 w-5" />
         </button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <button onClick={() => openUserProfile?.(comment.author.id)} className="text-[11px] font-semibold text-[#000305] hover:underline">
+          <div className="flex items-center gap-1 flex-wrap">
+            <button onClick={() => openUserProfile?.(comment.author.id)} className="text-[10px] sm:text-[11px] font-semibold text-[#000305] hover:underline">
               {comment.author.display_name}
             </button>
-            <span className="text-[10px] text-[#0A4D5C]/30">{timeAgo(comment.created_at)}</span>
+            <span className="text-[9px] sm:text-[10px] text-[#0A4D5C]/30">{timeAgo(comment.created_at)}</span>
           </div>
-          <p className="text-xs text-[#000305]/80 leading-relaxed">{comment.content}</p>
-          <div className="flex items-center gap-2 mt-0.5">
+          <p className="text-[11px] sm:text-xs text-[#000305]/80 leading-relaxed">{comment.content}</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
             <div className="relative">
               <button
                 onClick={() => setShowCommentReactions(!showCommentReactions)}
@@ -1710,7 +1710,7 @@ function CommentItem({
       </div>
       {/* Nested replies */}
       {replies.length > 0 && (
-        <div className="ml-8 mt-1.5 space-y-1.5 border-l-2 border-[#0A4D5C]/8 pl-3">
+        <div className="ml-6 mt-1 space-y-1 border-l-2 border-[#0A4D5C]/8 pl-2">
           {replies.map((reply) => (
             <CommentItem key={reply.id} comment={reply} replies={[]} profile={profile} onReply={onReply} onDelete={onDelete} onReaction={onReaction} openUserProfile={openUserProfile} />
           ))}
