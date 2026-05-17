@@ -75,16 +75,16 @@ const REACTION_EMOJIS = [
 // Post-it colors for text-only posts (suaves/pastel)
 // ═══════════════════════════════════════════════════════════
 const POST_IT_COLORS = [
-  { bg: "bg-[#fefce8]", text: "text-[#78716c]", border: "border-[#fef9c3]" },       // Amarelo suave
-  { bg: "bg-[#fef1f2]", text: "text-[#9f7a7d]", border: "border-[#ffe4e6]" },        // Rosa suave
-  { bg: "bg-[#f0f9ff]", text: "text-[#6b8fa8]", border: "border-[#e0f2fe]" },        // Azul suave
-  { bg: "bg-[#f0fdf4]", text: "text-[#6b9f78]", border: "border-[#dcfce7]" },        // Verde suave
-  { bg: "bg-[#fff7ed]", text: "text-[#a08772]", border: "border-[#ffedd5]" },        // Laranja suave
-  { bg: "bg-[#faf5ff]", text: "text-[#8b7fa8]", border: "border-[#f3e8ff]" },        // Roxo suave
-  { bg: "bg-[#fff5f5]", text: "text-[#a08080]", border: "border-[#fecdd3]" },        // Coral suave
-  { bg: "bg-[#ecfdf5]", text: "text-[#6b9f8a]", border: "border-[#d1fae5]" },        // Menta suave
-  { bg: "bg-[#f5f3ff]", text: "text-[#7d78a8]", border: "border-[#ede9fe]" },        // Lavanda suave
-  { bg: "bg-[#fffbeb]", text: "text-[#a09580]", border: "border-[#fef3c7]" },        // Pêssego suave
+  { bg: "bg-[#fef9c3]", text: "text-[#5c4f1e]", border: "border-[#fde68a]" },       // Amarelo
+  { bg: "bg-[#fecdd3]", text: "text-[#7c2d35]", border: "border-[#fda4af]" },        // Rosa
+  { bg: "bg-[#bae6fd]", text: "text-[#1e5070]", border: "border-[#7dd3fc]" },        // Azul
+  { bg: "bg-[#bbf7d0]", text: "text-[#2d5a3a]", border: "border-[#86efac]" },        // Verde
+  { bg: "bg-[#fed7aa]", text: "text-[#6b3a15]", border: "border-[#fdba74]" },        // Laranja
+  { bg: "bg-[#ddd6fe]", text: "text-[#4a3580]", border: "border-[#c4b5fd]" },        // Roxo
+  { bg: "bg-[#fecaca]", text: "text-[#6b2020]", border: "border-[#fca5a5]" },        // Coral
+  { bg: "bg-[#a7f3d0]", text: "text-[#1a5a3a]", border: "border-[#6ee7b7]" },        // Menta
+  { bg: "bg-[#c4b5fd]", text: "text-[#3b2d70]", border: "border-[#a78bfa]" },        // Lavanda
+  { bg: "bg-[#fde68a]", text: "text-[#6b4e10]", border: "border-[#fbbf24]" },        // Pêssego
 ] as const;
 
 function getPostItColor(postId: string) {
@@ -398,7 +398,7 @@ function ShareMenu({
 function FeedSkeleton() {
   return (
     <div className="space-y-4 animate-pulse">
-      <div className="rounded-3xl bg-[#f7f9fa] p-5 shadow-lg border border-[#0A4D5C]/8">
+      <div className="rounded-3xl bg-[#eef1f3] p-5 shadow-lg border border-[#0A4D5C]/8">
         <div className="flex items-start gap-3.5">
           <div className="h-12 w-12 rounded-full bg-[#0A4D5C]/10 shrink-0" />
           <div className="flex-1 space-y-2">
@@ -408,7 +408,7 @@ function FeedSkeleton() {
         </div>
       </div>
       {[1, 2, 3].map((i) => (
-        <div key={i} className="rounded-3xl bg-[#f7f9fa] p-4 shadow-lg border border-[#0A4D5C]/8">
+        <div key={i} className="rounded-3xl bg-[#eef1f3] p-4 shadow-lg border border-[#0A4D5C]/8">
           <div className="flex items-center gap-3 mb-3">
             <div className="h-11 w-11 rounded-full bg-[#0A4D5C]/10" />
             <div className="flex-1 space-y-1.5">
@@ -982,7 +982,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   return (
     <div className="space-y-0">
       {/* ═══════ COMPOSER ═══════ */}
-      <div className="relative z-10 rounded-3xl bg-[#f7f9fa] p-5 shadow-lg border border-[#0A4D5C]/8">
+      <div className="relative z-10 rounded-3xl bg-[#eef1f3] p-5 shadow-lg border border-[#0A4D5C]/8">
         <div className="flex items-start gap-3.5">
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-12 w-12 shrink-0" />
           <div className="flex-1 space-y-2">
@@ -1309,8 +1309,8 @@ function PostThread({
   const cardBg = isTextOnly
     ? postItColor?.bg || "bg-[#fdf6b2]"
     : hasAudio
-      ? "bg-[#f7f9fa]"
-      : "bg-[#f7f9fa]";
+      ? "bg-[#eef1f3]"
+      : "bg-[#eef1f3]";
   const commentsBg = isTextOnly
     ? "bg-[#000305]/[0.04]"
     : hasAudio
