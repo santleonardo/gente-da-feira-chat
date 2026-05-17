@@ -8,13 +8,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-    const { data: chat } = await supabase.from("direct_chats").select("id").eq("id", id).or(`initiator_id.eq.${user.id},receiver_id.eq.${user.id}`).maybeSingle();
-    if (!chat) return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+    const { searchParams } = new URL(req.url);
+    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 200);
 
     const { data: messages, error } = await supabase.from("messages")
       .select(`*, sender:profiles(id, display_name, username, avatar_url)`)
-      .eq("dm_id", id).eq("target_type", "dm").eq("is_deleted", false)
-      .order("created_at", { ascending: true }).limit(50);
+      .eq("room_id", id).eq("target_type", "room").eq("is_deleted", false)
+      .order("created_at", { ascending: true }).limit(limit);
 
     if (error) throw error;
     return NextResponse.json({ messages: messages || [] });
@@ -29,9 +29,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-
-    const { data: chat } = await supabase.from("direct_chats").select("id").eq("id", id).or(`initiator_id.eq.${user.id},receiver_id.eq.${user.id}`).maybeSingle();
-    if (!chat) return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
 
     const body = await req.json();
     const { content, media_url, media_type } = body;
@@ -51,8 +48,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const insertData: any = {
       sender_id: user.id,
-      dm_id: id,
-      target_type: "dm",
+      room_id: id,
+      target_type: "room",
     };
 
     if (content && content.trim()) {
