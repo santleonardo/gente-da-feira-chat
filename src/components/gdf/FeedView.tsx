@@ -75,16 +75,16 @@ const REACTION_EMOJIS = [
 // Post-it colors for text-only posts (suaves/pastel)
 // ═══════════════════════════════════════════════════════════
 const POST_IT_COLORS = [
-  { bg: "bg-[#fefce8]", text: "text-[#713f12]", border: "border-[#fef08a]" },       // Amarelo
-  { bg: "bg-[#fef1f2]", text: "text-[#9f1239]", border: "border-[#fecdd3]" },        // Rosa
-  { bg: "bg-[#f0f9ff]", text: "text-[#0c4a6e]", border: "border-[#bae6fd]" },        // Azul
-  { bg: "bg-[#f0fdf4]", text: "text-[#14532d]", border: "border-[#86efac]" },        // Verde
-  { bg: "bg-[#fff7ed]", text: "text-[#7c2d12]", border: "border-[#fdba74]" },        // Laranja
-  { bg: "bg-[#faf5ff]", text: "text-[#581c87]", border: "border-[#d8b4fe]" },        // Roxo
-  { bg: "bg-[#fff5f5]", text: "text-[#7f1d1d]", border: "border-[#fecaca]" },        // Coral
-  { bg: "bg-[#ecfdf5]", text: "text-[#064e3b]", border: "border-[#6ee7b7]" },        // Menta
-  { bg: "bg-[#f5f3ff]", text: "text-[#3b0764]", border: "border-[#c4b5fd]" },        // Lavanda
-  { bg: "bg-[#fffbeb]", text: "text-[#78350f]", border: "border-[#fde68a]" },        // Pêssego
+  { bg: "bg-[#fefce8]", text: "text-[#713f12]", border: "border-[#fef08a]", font: "'Nunito', sans-serif" },           // Amarelo
+  { bg: "bg-[#fef1f2]", text: "text-[#9f1239]", border: "border-[#fecdd3]", font: "'Quicksand', sans-serif" },        // Rosa
+  { bg: "bg-[#f0f9ff]", text: "text-[#0c4a6e]", border: "border-[#bae6fd]", font: "'Poppins', sans-serif" },          // Azul
+  { bg: "bg-[#f0fdf4]", text: "text-[#14532d]", border: "border-[#86efac]", font: "'Inter', sans-serif" },             // Verde
+  { bg: "bg-[#fff7ed]", text: "text-[#7c2d12]", border: "border-[#fdba74]", font: "'Comfortaa', sans-serif" },        // Laranja
+  { bg: "bg-[#faf5ff]", text: "text-[#581c87]", border: "border-[#d8b4fe]", font: "'Montserrat', sans-serif" },       // Roxo
+  { bg: "bg-[#fff5f5]", text: "text-[#7f1d1d]", border: "border-[#fecaca]", font: "'Lato', sans-serif" },              // Coral
+  { bg: "bg-[#ecfdf5]", text: "text-[#064e3b]", border: "border-[#6ee7b7]", font: "'Raleway', sans-serif" },           // Menta
+  { bg: "bg-[#f5f3ff]", text: "text-[#3b0764]", border: "border-[#c4b5fd]", font: "'DM Sans', sans-serif" },           // Lavanda
+  { bg: "bg-[#fffbeb]", text: "text-[#78350f]", border: "border-[#fde68a]", font: "'Work Sans', sans-serif" },         // Pêssego
 ] as const;
 
 function getPostItColor(postId: string) {
@@ -397,7 +397,7 @@ function ShareMenu({
 // ═══════════════════════════════════════════════════════════
 function FeedSkeleton() {
   return (
-    <div className="space-y-4 animate-pulse bg-[#dfe3e6] min-h-screen p-2 sm:p-3">
+    <div className="space-y-4 animate-pulse">
       <div className="rounded-3xl bg-[#eef1f3] p-5 shadow-lg border border-[#0A4D5C]/8">
         <div className="flex items-start gap-3.5">
           <div className="h-12 w-12 rounded-full bg-[#0A4D5C]/10 shrink-0" />
@@ -435,6 +435,16 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     if (openUserProfile) openUserProfile(uid);
     else window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
   };
+
+  // Load Google Fonts for post-it notes (once)
+  useEffect(() => {
+    if (document.getElementById("gdf-postit-fonts")) return;
+    const link = document.createElement("link");
+    link.id = "gdf-postit-fonts";
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Quicksand:wght@400;500;600;700&family=Poppins:wght@400;500;600&family=Inter:wght@400;500;600&family=Comfortaa:wght@400;500;600;700&family=Montserrat:wght@400;500;600&family=Lato:wght@400;700&family=Raleway:wght@400;500;600&family=DM+Sans:wght@400;500;600&family=Work+Sans:wght@400;500;600&display=swap";
+    document.head.appendChild(link);
+  }, []);
 
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
   const [content, setContent] = useState("");
@@ -980,7 +990,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   if (loading) return <FeedSkeleton />;
 
   return (
-    <div className="bg-[#dfe3e6] min-h-screen p-2 sm:p-3 space-y-3">
+    <div className="space-y-0">
       {/* ═══════ COMPOSER ═══════ */}
       <div className="relative z-10 rounded-3xl bg-[#eef1f3] p-5 shadow-lg border border-[#0A4D5C]/8">
         <div className="flex items-start gap-3.5">
@@ -1457,7 +1467,7 @@ function PostThread({
 
             {/* Content */}
             {isTextOnly ? (
-              <p className={`mt-1.5 font-serif text-base sm:text-lg leading-snug whitespace-pre-wrap ${postItColor?.text || "text-[#000305]"}`}>{post.content}</p>
+              <p style={postItColor ? { fontFamily: postItColor.font } : undefined} className={`mt-1.5 text-base sm:text-lg leading-snug whitespace-pre-wrap ${postItColor?.text || "text-[#000305]"}`}>{post.content}</p>
             ) : (
               <p className="mt-1.5 text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]">{post.content}</p>
             )}
