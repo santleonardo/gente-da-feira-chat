@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronUp,
   Reply,
+  ImagePlus,
   Video,
   Mic,
   X,
@@ -28,6 +29,7 @@ import {
   Repeat2,
   Copy,
   ExternalLink,
+  Camera,
   Plus,
   Square,
   Music,
@@ -444,8 +446,10 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [videoPostsInWindow, setVideoPostsInWindow] = useState(0);
 
   // Input refs
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const cameraPhotoRef = useRef<HTMLInputElement>(null);
   const cameraVideoRef = useRef<HTMLInputElement>(null);
 
   // Composer state
@@ -539,6 +543,31 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       );
       setVideoPostsInWindow(recentVideos.length);
     } catch { /* silent */ }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const remaining = MAX_PHOTOS_PER_POST - selectedFiles.length;
+    const toAdd = files.slice(0, remaining);
+    for (const file of toAdd) {
+      const error = validateImageFile(file);
+      if (error) { toast.error(error); continue; }
+      setSelectedFiles((prev) => [...prev, file]);
+      setPreviewUrls((prev) => [...prev, createPreviewUrl(file)]);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setMenuOpen(false);
+  };
+
+  const handleCameraPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const error = validateImageFile(file);
+    if (error) { toast.error(error); return; }
+    setSelectedFiles((prev) => [...prev, file]);
+    setPreviewUrls((prev) => [...prev, createPreviewUrl(file)]);
+    if (cameraPhotoRef.current) cameraPhotoRef.current.value = "";
+    setMenuOpen(false);
   };
 
   const handleCameraVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1026,69 +1055,93 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                   <ChevronDown className={`h-3 w-3 transition-transform ${menuOpen ? "rotate-180" : ""}`} />
                 </button>
 
-                {/* Dropdown menu - opens DOWNWARD */}
+                {/* Dropdown menu - icons only */}
                 {menuOpen && (
-                  <div className="absolute left-0 top-full mt-1 w-56 rounded-2xl bg-[#f7f9fa] p-1.5 shadow-lg border border-[#0A4D5C]/10 z-50 animate-in fade-in-0 zoom-in-95">
+                  <div className="absolute left-0 top-full mt-1 flex items-center gap-0.5 rounded-full bg-[#f7f9fa] p-1 shadow-lg border border-[#0A4D5C]/10 z-50 animate-in fade-in-0 zoom-in-95">
+                    {/* Camera photo */}
+                    <button
+                      onClick={() => { if (canAddPhotos) cameraPhotoRef.current?.click(); }}
+                      disabled={!canAddPhotos}
+                      title="Tirar foto"
+                      className={`flex items-center justify-center rounded-full p-2.5 transition-colors ${canAddPhotos ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
+                    >
+                      <Camera className="h-4 w-4" />
+                    </button>
+
+                    {/* Gallery photos */}
+                    <button
+                      onClick={() => { if (canAddPhotos) fileInputRef.current?.click(); }}
+                      disabled={!canAddPhotos}
+                      title="Escolher fotos"
+                      className={`flex items-center justify-center rounded-full p-2.5 transition-colors ${canAddPhotos ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
+                    >
+                      <ImagePlus className="h-4 w-4" />
+                    </button>
+
+                    <div className="w-px h-5 bg-[#0A4D5C]/10" />
+
                     {/* Camera video */}
                     <button
                       onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) cameraVideoRef.current?.click(); }}
                       disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
-                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
+                      title="Gravar vídeo"
+                      className={`flex items-center justify-center rounded-full p-2.5 transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
-                      <Video className={`h-4 w-4 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#0A4D5C]" : ""}`} />
-                      <span>Gravar vídeo</span>
+                      <Video className="h-4 w-4" />
                     </button>
 
                     {/* Video from file */}
                     <button
                       onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) videoInputRef.current?.click(); }}
                       disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
-                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
+                      title="Escolher vídeo"
+                      className={`flex items-center justify-center rounded-full p-2.5 transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#0A4D5C]/70 hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
-                      <Video className={`h-4 w-4 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#0A4D5C]/40" : ""}`} />
-                      <span>Escolher vídeo</span>
+                      <Video className="h-4 w-4" />
                     </button>
 
-                    <div className="my-1 h-px bg-[#0A4D5C]/8" />
+                    <div className="w-px h-5 bg-[#0A4D5C]/10" />
 
                     {/* Record audio (direct) */}
                     <button
                       onClick={() => { if (canAddAudio && !isRecordingAudio) startAudioRecording(); }}
                       disabled={!canAddAudio || isRecordingAudio}
-                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddAudio && !isRecordingAudio ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
+                      title="Gravar áudio"
+                      className={`flex items-center justify-center rounded-full p-2.5 transition-colors ${canAddAudio && !isRecordingAudio ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
-                      <Mic className={`h-4 w-4 ${canAddAudio && !isRecordingAudio ? "text-[#0A4D5C]" : ""}`} />
-                      <span>Gravar áudio</span>
+                      <Mic className="h-4 w-4" />
                     </button>
 
                     {/* Audio from file */}
                     <button
                       onClick={() => { if (canAddAudio) audioInputRef.current?.click(); }}
                       disabled={!canAddAudio}
-                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors ${canAddAudio ? "text-[#000305] hover:bg-[#f7f75e]/20" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
+                      title="Escolher áudio"
+                      className={`flex items-center justify-center rounded-full p-2.5 transition-colors ${canAddAudio ? "text-[#0A4D5C]/70 hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
                     >
-                      <Music className={`h-4 w-4 ${canAddAudio ? "text-[#0A4D5C]/40" : ""}`} />
-                      <span>Escolher áudio</span>
+                      <Music className="h-4 w-4" />
                     </button>
 
-                    <div className="my-1 h-px bg-[#0A4D5C]/8" />
+                    <div className="w-px h-5 bg-[#0A4D5C]/10" />
 
                     {/* Visibility toggle */}
                     <button
                       onClick={() => setVisibility((v) => v === "public" ? "followers" : "public")}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-[#000305] transition-colors hover:bg-[#f7f75e]/20"
+                      title={visibility === "public" ? "Público" : "Seguidores"}
+                      className="flex items-center justify-center rounded-full p-2.5 text-[#0A4D5C] transition-colors hover:bg-[#f7f75e]/30"
                     >
                       {visibility === "public" ? (
-                        <Globe className="h-4 w-4 text-[#0A4D5C]" />
+                        <Globe className="h-4 w-4" />
                       ) : (
-                        <UsersIcon className="h-4 w-4 text-[#0A4D5C]" />
+                        <UsersIcon className="h-4 w-4" />
                       )}
-                      <span>{visibility === "public" ? "Público" : "Seguidores"}</span>
                     </button>
                   </div>
                 )}
 
                 {/* Hidden inputs */}
+                <input ref={cameraPhotoRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhotoSelect} className="hidden" />
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
                 <input ref={cameraVideoRef} type="file" accept="video/*" capture="environment" onChange={handleCameraVideoSelect} className="hidden" />
                 <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
                 <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
