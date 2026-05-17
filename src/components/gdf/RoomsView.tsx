@@ -8,9 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
-  Send, ArrowLeft, Users, Plus, LogOut, UserPlus, UserCheck,
-  ChevronDown, ChevronUp, X, MoreVertical, Hash, Crown,
-  ImagePlus, Video, Mic, Play, Pause, Volume2, Loader2, Music,
+  ArrowLeft, Users, Plus, LogOut, UserPlus, UserCheck,
+  ChevronUp, X, MoreVertical, Hash, Crown,
+  Camera, Video, Mic, StopCircle, ImagePlus, Music,
+  Play, Pause, Volume2, Loader2, Send,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -29,12 +30,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  compressImage,
-  validateImageFile,
-  createPreviewUrl,
-  revokePreviewUrl,
-} from "@/lib/image-compression";
 
 const ROOM_ICONS = [
   "💬", "🏠", "🎮", "⚽", "🎵", "📸", "🎬", "📚",
@@ -42,245 +37,13 @@ const ROOM_ICONS = [
   "🎨", "💻", "🐶", "🌈", "☕", "🛒", "📣", "🤝",
 ];
 
-// ═══════════════════════════════════════════════════════════
-// ChatAudioPlayer — audio player with duration bar for chat
-// ═══════════════════════════════════════════════════════════
-function ChatAudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const durationFetched = useRef(false);
+const MAX_AUDIO_DURATION = 60;
+const MAX_VIDEO_DURATION = 30;
 
-  const formatTime = (s: number) => {
-    if (!s || !isFinite(s) || isNaN(s)) return "0:00";
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, "0")}`;
-  };
-
-  const toggle = () => {
-    if (!audioRef.current) return;
-    if (playing) audioRef.current.pause();
-    else audioRef.current.play();
-    setPlaying(!playing);
-  };
-
-  const trySetDuration = (d: number | undefined | null) => {
-    if (d && isFinite(d) && !isNaN(d) && d > 0 && !durationFetched.current) {
-      setDuration(d);
-      durationFetched.current = true;
-    }
-  };
-
-  // Robust duration detection — same approach as FeedView AudioPlayer
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || durationFetched.current) return;
-
-    // Try immediately
-    const d = audio.duration;
-    if (isFinite(d) && !isNaN(d) && d > 0) {
-      setDuration(d);
-      durationFetched.current = true;
-      return;
-    }
-
-    const onMeta = () => { trySetDuration(audio.duration); };
-    const onDurChange = () => { trySetDuration(audio.duration); };
-
-    audio.addEventListener("loadedmetadata", onMeta);
-    audio.addEventListener("durationchange", onDurChange);
-
-    // Force load
-    audio.load();
-
-    // Fallback timer for WebM/Opus (needs full download)
-    const timer = setTimeout(() => { trySetDuration(audio.duration); }, 3000);
-
-    return () => {
-      audio.removeEventListener("loadedmetadata", onMeta);
-      audio.removeEventListener("durationchange", onDurChange);
-      clearTimeout(timer);
-    };
-  }, []);
-
-  // displayDuration is always safe — never Infinity or NaN
-  const displayDuration = duration > 0 && isFinite(duration) && !isNaN(duration) ? duration : 0;
-  const durationLabel = displayDuration > 0 ? `${Math.round(displayDuration)}s` : "";
-
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
-    if (audioRef.current && displayDuration > 0) {
-      audioRef.current.currentTime = pct * displayDuration;
-    }
-  };
-
-  const progressPct = displayDuration > 0 ? (currentTime / displayDuration) * 100 : 0;
-
-  return (
-    <div className="rounded-xl mt-1 p-3" style={{ backgroundColor: isMine ? "rgba(10,77,92,0.08)" : "rgba(10,77,92,0.04)" }}>
-      <div className="flex items-center gap-3">
-        <button
-          onClick={toggle}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform hover:scale-105"
-          style={{ backgroundColor: "#0A4D5C" }}
-        >
-          {playing ? <Pause className="h-4 w-4" style={{ color: "#f7f9fa" }} /> : <Play className="h-4 w-4 ml-0.5" style={{ color: "#f7f9fa" }} />}
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1.5">
-            <Music className="h-3 w-3" style={{ color: "#0A4D5C", opacity: 0.5 }} />
-            {durationLabel && <span className="text-[10px] font-semibold" style={{ color: "#2EC4B6" }}>{durationLabel}</span>}
-            <span className="text-[10px] font-semibold tabular-nums" style={{ color: "#000305", opacity: 0.7 }}>{formatTime(currentTime)}</span>
-            <span className="text-[9px]" style={{ color: "#0A4D5C", opacity: 0.25 }}>/</span>
-            <span className="text-[10px] tabular-nums" style={{ color: "#0A4D5C", opacity: 0.4 }}>{formatTime(displayDuration)}</span>
-          </div>
-          <div className="h-2 rounded-full overflow-hidden cursor-pointer" style={{ backgroundColor: "rgba(10,77,92,0.12)" }} onClick={handleSeek}>
-            <div className="h-full rounded-full transition-all duration-150" style={{ width: `${progressPct}%`, backgroundColor: "#0A4D5C" }} />
-          </div>
-        </div>
-      </div>
-      <audio
-        ref={audioRef}
-        src={src}
-        preload="auto"
-        onTimeUpdate={() => {
-          const t = audioRef.current?.currentTime || 0;
-          setCurrentTime(isFinite(t) && !isNaN(t) ? t : 0);
-        }}
-        onLoadedMetadata={() => trySetDuration(audioRef.current?.duration)}
-        onDurationChange={() => trySetDuration(audioRef.current?.duration)}
-        onEnded={() => setPlaying(false)}
-      />
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// ChatVideoPlayer — compact video player for chat bubbles
-// ═══════════════════════════════════════════════════════════
-function ChatVideoPlayer({ src }: { src: string }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-
-  const toggle = () => {
-    if (!videoRef.current) return;
-    if (playing) videoRef.current.pause();
-    else videoRef.current.play();
-    setPlaying(!playing);
-  };
-
-  const formatTime = (s: number) => {
-    if (!s || !isFinite(s)) return "0:00";
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, "0")}`;
-  };
-
-  return (
-    <div className="mt-1 relative rounded-xl overflow-hidden bg-black group">
-      <video
-        ref={videoRef}
-        src={src}
-        className="w-full max-h-64 object-contain"
-        playsInline
-        preload="metadata"
-        onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
-        onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
-        onEnded={() => setPlaying(false)}
-        onClick={toggle}
-      />
-      {!playing && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer" onClick={toggle}>
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur-md shadow-lg">
-            <Play className="h-6 w-6 text-white fill-white ml-0.5" />
-          </div>
-        </div>
-      )}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <div className="flex items-center gap-1.5">
-          <button onClick={toggle} className="text-white">
-            {playing ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-          </button>
-          <div className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const pct = (e.clientX - rect.left) / rect.width;
-            if (videoRef.current && duration) videoRef.current.currentTime = pct * duration;
-          }}>
-            <div className="h-full bg-white rounded-full" style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }} />
-          </div>
-          <span className="text-[9px] text-white/80 tabular-nums">{formatTime(currentTime)}/{formatTime(duration)}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// ChatImageViewer — fullscreen image viewer
-// ═══════════════════════════════════════════════════════════
-function ChatImageViewer({ src, onClose }: { src: string; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm" onClick={onClose}>
-      <button onClick={onClose} className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">
-        <X className="h-5 w-5" />
-      </button>
-      <img src={src} alt="Imagem" className="max-h-[90vh] max-w-[95vw] object-contain" onClick={(e) => e.stopPropagation()} />
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// MessageContent — renders a message bubble with media
-// ═══════════════════════════════════════════════════════════
-function MessageContent({ msg, isMine, onImageClick }: { msg: any; isMine: boolean; onImageClick?: (url: string) => void }) {
-  const hasMedia = !!msg.media_url;
-  const hasText = !!msg.content;
-  const mediaType = msg.media_type;
-
-  return (
-    <>
-      {/* Photo */}
-      {hasMedia && mediaType === "image" && (
-        <button
-          onClick={() => onImageClick?.(msg.media_url)}
-          className="mt-1 w-full overflow-hidden rounded-xl"
-        >
-          <img
-            src={msg.media_url}
-            alt="Foto"
-            className="w-full max-h-72 object-cover hover:opacity-95 transition-opacity rounded-xl"
-            loading="lazy"
-          />
-        </button>
-      )}
-
-      {/* Video */}
-      {hasMedia && mediaType === "video" && (
-        <ChatVideoPlayer src={msg.media_url} />
-      )}
-
-      {/* Audio */}
-      {hasMedia && mediaType === "audio" && (
-        <ChatAudioPlayer src={msg.media_url} isMine={isMine} />
-      )}
-
-      {/* Text content */}
-      {hasText && <span>{msg.content}</span>}
-
-      {/* Media-only indicator if no text */}
-      {hasMedia && !hasText && mediaType === "image" && (
-        <span className="text-xs opacity-70 mt-1 block">Foto</span>
-      )}
-      {hasMedia && !hasText && mediaType === "video" && (
-        <span className="text-xs opacity-70 mt-1 block">Vídeo</span>
-      )}
-    </>
-  );
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 export function RoomsView({ openUserProfile }: { openUserProfile?: (userId: string) => void }) {
@@ -491,7 +254,114 @@ function CreateRoomDialog({
 }
 
 // ═══════════════════════════════════════════════════════════
-// RoomChat — com envio real de mídia (foto, vídeo, áudio)
+// ChatAudioPlayer — Player de áudio estilo WhatsApp no chat
+// ═══════════════════════════════════════════════════════════
+function ChatAudioPlayer({ src, isMine }: { src: string; isMine?: boolean }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  const safeDuration = isFinite(duration) && duration > 0 ? duration : 0;
+  const safeCurrentTime = isFinite(currentTime) && currentTime >= 0 ? currentTime : 0;
+  const progress = safeDuration > 0 ? (safeCurrentTime / safeDuration) * 100 : 0;
+
+  const toggle = () => {
+    if (!audioRef.current) return;
+    if (playing) audioRef.current.pause();
+    else audioRef.current.play();
+    setPlaying(!playing);
+  };
+
+  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !safeDuration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    audioRef.current.currentTime = pct * safeDuration;
+  };
+
+  return (
+    <div className={`rounded-2xl mt-1 min-w-[220px] overflow-hidden ${isMine ? "bg-primary-foreground/10" : "bg-[#0A4D5C]/5 dark:bg-[#0A4D5C]/10"}`}>
+      <div className="flex items-center gap-2.5 px-3 py-2.5">
+        {/* Botão play/pause */}
+        <button
+          onClick={toggle}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all shadow-sm active:scale-95 ${
+            isMine
+              ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+              : "bg-[#2EC4B6] text-white hover:bg-[#25b0a3]"
+          }`}
+        >
+          {playing ? <Pause className="h-4.5 w-4.5" /> : <Play className="h-4.5 w-4.5 ml-0.5" />}
+        </button>
+
+        <div className="flex-1 min-w-0 space-y-1">
+          {/* Linha superior: label + equalizer + tempo */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className={`text-[11px] font-semibold ${isMine ? "text-primary-foreground/85" : "text-foreground/80"}`}>Áudio</span>
+              {playing && (
+                <div className="flex items-end gap-[2px] h-3">
+                  <span className={`inline-block w-[2.5px] rounded-full ${isMine ? "bg-primary-foreground/60" : "bg-[#2EC4B6]"}`} style={{ height: "6px", animation: "eqBar 0.4s ease-in-out infinite alternate" }} />
+                  <span className={`inline-block w-[2.5px] rounded-full ${isMine ? "bg-primary-foreground/60" : "bg-[#2EC4B6]"}`} style={{ height: "10px", animation: "eqBar 0.4s ease-in-out infinite alternate 0.15s" }} />
+                  <span className={`inline-block w-[2.5px] rounded-full ${isMine ? "bg-primary-foreground/60" : "bg-[#2EC4B6]"}`} style={{ height: "4px", animation: "eqBar 0.4s ease-in-out infinite alternate 0.3s" }} />
+                </div>
+              )}
+            </div>
+            <span className="text-[10px] text-muted-foreground tabular-nums font-medium">
+              {playing ? formatDuration(safeCurrentTime) : formatDuration(safeDuration)}
+            </span>
+          </div>
+
+          {/* Barra de progresso */}
+          <div
+            className={`relative h-2 rounded-full cursor-pointer group ${isMine ? "bg-primary-foreground/15" : "bg-[#2EC4B6]/15"}`}
+            onClick={seek}
+          >
+            <div
+              className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-150 ${isMine ? "bg-primary-foreground/60" : "bg-[#2EC4B6]/60"}`}
+              style={{ width: `${progress}%` }}
+            />
+            <div
+              className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full shadow transition-opacity group-hover:opacity-100 ${isMine ? "bg-primary-foreground" : "bg-[#2EC4B6]"} ${progress > 0 ? "opacity-100" : "opacity-0"}`}
+              style={{ left: `calc(${progress}% - 6px)` }}
+            />
+          </div>
+
+          {/* Linha inferior: tempo atual / total */}
+          <div className="flex justify-between">
+            <span className="text-[9px] text-muted-foreground/50 tabular-nums">{formatDuration(safeCurrentTime)}</span>
+            <span className="text-[9px] text-muted-foreground/50 tabular-nums">{formatDuration(safeDuration)}</span>
+          </div>
+        </div>
+      </div>
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="metadata"
+        onTimeUpdate={() => {
+          const t = audioRef.current?.currentTime || 0;
+          setCurrentTime(isFinite(t) ? t : 0);
+        }}
+        onLoadedMetadata={() => {
+          const d = audioRef.current?.duration || 0;
+          setDuration(isFinite(d) && d > 0 ? d : 0);
+        }}
+        onEnded={() => setPlaying(false)}
+      />
+      {/* CSS para animação do equalizer */}
+      <style jsx>{`
+        @keyframes eqBar {
+          0% { height: 3px; }
+          100% { height: 10px; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// RoomChat — Redesenhado com overlay de gravação + 💬 + menu para cima
 // ═══════════════════════════════════════════════════════════
 function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any; onBack: () => void; onRefreshRooms: () => void; openUserProfile?: (userId: string) => void }) {
   const { profile } = useStore();
@@ -499,24 +369,62 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [isMember, setIsMember] = useState(false);
-  const [sending, setSending] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
   const [showMembers, setShowMembers] = useState(false);
   const [membersLoading, setMembersLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Media state
-  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
-  const [videoPreview, setVideoPreview] = useState<string | null>(null);
-  const [selectedAudio, setSelectedAudio] = useState<File | null>(null);
-  const [audioPreview, setAudioPreview] = useState<string | null>(null);
-  const [imageViewerSrc, setImageViewerSrc] = useState<string | null>(null);
+  // ── Mídia no chat ──
+  const [sendingMedia, setSendingMedia] = useState(false);
+  const cameraPhotoRef = useRef<HTMLInputElement>(null);
+  const galleryPhotoRef = useRef<HTMLInputElement>(null);
+  const cameraVideoRef = useRef<HTMLInputElement>(null);
+  const videoFileRef = useRef<HTMLInputElement>(null);
+  const audioFileRef = useRef<HTMLInputElement>(null);
 
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
-  const audioInputRef = useRef<HTMLInputElement>(null);
+  // ── Menu de anexos (para cima) ──
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const attachMenuRef = useRef<HTMLDivElement>(null);
+
+  // ── Gravação de áudio com overlay ──
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [isPausedRecording, setIsPausedRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  // ── Gravação de vídeo ──
+  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
+  const [videoRecSeconds, setVideoRecSeconds] = useState(0);
+  const videoMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const videoChunksRef = useRef<Blob[]>([]);
+  const videoRecTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const videoStreamRef = useRef<MediaStream | null>(null);
+  const videoPreviewRef = useRef<HTMLVideoElement>(null);
+
+  // Fechar menu ao clicar fora
+  useEffect(() => {
+    if (!attachMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
+        setAttachMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [attachMenuOpen]);
+
+  // Cleanup gravação ao desmontar
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (mediaStreamRef.current) mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      if (videoRecTimerRef.current) clearInterval(videoRecTimerRef.current);
+      if (videoStreamRef.current) videoStreamRef.current.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
 
   const fetchMembers = useCallback(async () => {
     setMembersLoading(true);
@@ -706,158 +614,340 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
     if (showMembers) fetchMembers();
   }, [showMembers, fetchMembers]);
 
-  const clearMedia = () => {
-    if (photoPreview) revokePreviewUrl(photoPreview);
-    setSelectedPhoto(null);
-    setPhotoPreview(null);
-    if (videoPreview) URL.revokeObjectURL(videoPreview);
-    setSelectedVideo(null);
-    setVideoPreview(null);
-    if (audioPreview) URL.revokeObjectURL(audioPreview);
-    setSelectedAudio(null);
-    setAudioPreview(null);
-  };
-
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const error = validateImageFile(file);
-    if (error) { toast.error(error); return; }
-    clearMedia();
-    setSelectedPhoto(file);
-    setPhotoPreview(createPreviewUrl(file));
-    if (photoInputRef.current) photoInputRef.current.value = "";
-  };
-
-  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!["video/mp4", "video/webm", "video/quicktime"].includes(file.type)) {
-      toast.error("Tipo não suportado. Use MP4, WebM ou MOV.");
-      return;
-    }
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error("Vídeo muito grande (máx 50MB)");
-      return;
-    }
-    clearMedia();
-    setSelectedVideo(file);
-    setVideoPreview(URL.createObjectURL(file));
-    if (videoInputRef.current) videoInputRef.current.value = "";
-  };
-
-  const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!["audio/mpeg", "audio/mp4", "audio/webm", "audio/ogg", "audio/wav", "audio/x-m4a"].includes(file.type)) {
-      toast.error("Tipo não suportado. Use MP3, M4A, WebM, OGG ou WAV.");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Áudio muito grande (máx 10MB)");
-      return;
-    }
-    clearMedia();
-    setSelectedAudio(file);
-    setAudioPreview(URL.createObjectURL(file));
-    if (audioInputRef.current) audioInputRef.current.value = "";
-  };
-
-  const uploadPhoto = async (file: File): Promise<string | null> => {
-    try {
-      const compressed = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.55, maxSizeKB: 150 });
-      const formData = new FormData();
-      formData.append("file", compressed, "photo.webp");
-      formData.append("folder", "chat");
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-      const data = await res.json();
-      if (data.url) return data.url;
-      toast.error(data.error || "Erro ao enviar foto");
-      return null;
-    } catch { toast.error("Erro ao processar foto"); return null; }
-  };
-
-  const uploadVideo = async (file: File): Promise<string | null> => {
+  // ═══════ Upload de mídia ═══════
+  const uploadChatMedia = async (file: File, type: "image" | "video" | "audio"): Promise<string | null> => {
     try {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("folder", "chat");
-      const res = await fetch("/api/upload/video", { method: "POST", body: formData });
+      const endpoint = type === "image" ? "/api/upload" : type === "video" ? "/api/upload/video" : "/api/upload/audio";
+      const res = await fetch(endpoint, { method: "POST", body: formData });
       const data = await res.json();
       if (data.url) return data.url;
-      toast.error(data.error || "Erro ao enviar vídeo");
+      toast.error(data.error || "Erro ao enviar mídia");
       return null;
-    } catch { toast.error("Erro ao enviar vídeo"); return null; }
+    } catch {
+      toast.error("Erro ao enviar mídia");
+      return null;
+    }
   };
 
-  const uploadAudio = async (file: File): Promise<string | null> => {
+  // ═══════ Enviar mensagem ═══════
+  const sendMessage = async (mediaData?: { media_url?: string; media_type?: string }) => {
+    if ((!input.trim() && !mediaData) || !profile || !isMember) return;
+    const text = input.trim();
+    setInput("");
+    setSendingMedia(false);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", "chat");
-      const res = await fetch("/api/upload/audio", { method: "POST", body: formData });
-      const data = await res.json();
-      if (data.url) return data.url;
-      toast.error(data.error || "Erro ao enviar áudio");
-      return null;
-    } catch { toast.error("Erro ao enviar áudio"); return null; }
-  };
-
-  const sendMessage = async () => {
-    if (!profile || !isMember) return;
-    const hasText = input.trim().length > 0;
-    const hasMedia = selectedPhoto || selectedVideo || selectedAudio;
-    if (!hasText && !hasMedia) return;
-
-    setSending(true);
-    try {
-      let mediaUrl: string | null = null;
-      let mediaType: string | null = null;
-
-      if (selectedPhoto) {
-        mediaUrl = await uploadPhoto(selectedPhoto);
-        mediaType = "image";
-      } else if (selectedVideo) {
-        mediaUrl = await uploadVideo(selectedVideo);
-        mediaType = "video";
-      } else if (selectedAudio) {
-        mediaUrl = await uploadAudio(selectedAudio);
-        mediaType = "audio";
+      const body: any = { content: text || undefined };
+      if (mediaData) {
+        if (mediaData.media_url) {
+          body.media_url = mediaData.media_url;
+          body.media_type = mediaData.media_type;
+        }
       }
-
-      if (hasMedia && !mediaUrl) {
-        setSending(false);
-        return;
-      }
-
-      const body: any = {};
-      if (hasText) body.content = input.trim();
-      if (mediaUrl) {
-        body.media_url = mediaUrl;
-        body.media_type = mediaType;
-      }
-
+      if (!body.content && !mediaData) return;
       const res = await fetch(`/api/rooms/${room.id}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (data.error) {
-        toast.error(data.error);
-        setSending(false);
-        return;
-      }
+      if (data.error) { toast.error(data.error); return; }
       if (data.message) {
         setMessages((prev) => {
           if (prev.some((m) => m.id === data.message.id)) return prev;
           return [...prev, data.message];
         });
       }
-      setInput("");
-      clearMedia();
     } catch { toast.error("Erro ao enviar mensagem"); }
-    setSending(false);
+  };
+
+  // ═══════ Captura de foto da câmera ═══════
+  const handleCameraPhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachMenuOpen(false);
+    setSendingMedia(true);
+    const url = await uploadChatMedia(file, "image");
+    if (url) {
+      await sendMessage({ media_url: url, media_type: "image" });
+    }
+    setSendingMedia(false);
+    if (cameraPhotoRef.current) cameraPhotoRef.current.value = "";
+  };
+
+  // ═══════ Foto da galeria ═══════
+  const handleGalleryPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachMenuOpen(false);
+    setSendingMedia(true);
+    const url = await uploadChatMedia(file, "image");
+    if (url) {
+      await sendMessage({ media_url: url, media_type: "image" });
+    }
+    setSendingMedia(false);
+    if (galleryPhotoRef.current) galleryPhotoRef.current.value = "";
+  };
+
+  // ═══════ Captura de vídeo da câmera ═══════
+  const handleCameraVideoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachMenuOpen(false);
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Vídeo muito grande (máx 50MB)");
+      return;
+    }
+    const videoEl = document.createElement("video");
+    videoEl.preload = "metadata";
+    videoEl.onloadedmetadata = async () => {
+      if (videoEl.duration > MAX_VIDEO_DURATION) {
+        toast.error(`Vídeo muito longo (máx ${MAX_VIDEO_DURATION}s)`);
+        URL.revokeObjectURL(videoEl.src);
+        return;
+      }
+      URL.revokeObjectURL(videoEl.src);
+      setSendingMedia(true);
+      const url = await uploadChatMedia(file, "video");
+      if (url) {
+        await sendMessage({ media_url: url, media_type: "video" });
+      }
+      setSendingMedia(false);
+    };
+    videoEl.src = URL.createObjectURL(file);
+    if (cameraVideoRef.current) cameraVideoRef.current.value = "";
+  };
+
+  // ═══════ Vídeo de arquivo ═══════
+  const handleVideoFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachMenuOpen(false);
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Vídeo muito grande (máx 50MB)");
+      return;
+    }
+    setSendingMedia(true);
+    const url = await uploadChatMedia(file, "video");
+    if (url) {
+      await sendMessage({ media_url: url, media_type: "video" });
+    }
+    setSendingMedia(false);
+    if (videoFileRef.current) videoFileRef.current.value = "";
+  };
+
+  // ═══════ Áudio de arquivo ═══════
+  const handleAudioFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachMenuOpen(false);
+    setSendingMedia(true);
+    const url = await uploadChatMedia(file, "audio");
+    if (url) {
+      await sendMessage({ media_url: url, media_type: "audio" });
+    }
+    setSendingMedia(false);
+    if (audioFileRef.current) audioFileRef.current.value = "";
+  };
+
+  // ═══════ Gravação de áudio com overlay (igual ao feed) ═══════
+  const startAudioRecording = async () => {
+    setAttachMenuOpen(false);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+
+      let mimeType = "audio/webm";
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "audio/webm;codecs=opus";
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "audio/mp4";
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        const ext = mimeType.includes("mp4") ? "m4a" : "webm";
+        const file = new File([blob], `audio_${Date.now()}.${ext}`, { type: mimeType });
+
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+          mediaStreamRef.current = null;
+        }
+        mediaRecorderRef.current = null;
+
+        setSendingMedia(true);
+        const url = await uploadChatMedia(file, "audio");
+        if (url) {
+          await sendMessage({ media_url: url, media_type: "audio" });
+        }
+        setSendingMedia(false);
+        setIsRecordingAudio(false);
+        setIsPausedRecording(false);
+      };
+
+      mediaRecorder.start(1000);
+      setIsRecordingAudio(true);
+      setRecordingSeconds(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => {
+          if (prev + 1 >= MAX_AUDIO_DURATION) {
+            stopAudioRecording();
+            return MAX_AUDIO_DURATION;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch {
+      toast.error("Não foi possível acessar o microfone. Verifique as permissões.");
+    }
+  };
+
+  const stopAudioRecording = () => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const cancelAudioRecording = () => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
+    mediaRecorderRef.current = null;
+    audioChunksRef.current = [];
+    setIsRecordingAudio(false);
+    setIsPausedRecording(false);
+    setRecordingSeconds(0);
+  };
+
+  const togglePauseRecording = () => {
+    if (!mediaRecorderRef.current) return;
+    if (isPausedRecording) {
+      mediaRecorderRef.current.resume();
+      setIsPausedRecording(false);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => {
+          if (prev + 1 >= MAX_AUDIO_DURATION) {
+            stopAudioRecording();
+            return MAX_AUDIO_DURATION;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } else {
+      mediaRecorderRef.current.pause();
+      setIsPausedRecording(true);
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+    }
+  };
+
+  // ═══════ Gravação de vídeo direto ═══════
+  const startVideoRecording = async () => {
+    setAttachMenuOpen(false);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      videoStreamRef.current = stream;
+
+      let mimeType = "video/webm";
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "video/webm;codecs=vp8,opus";
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "video/mp4";
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      videoMediaRecorderRef.current = mediaRecorder;
+      videoChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) videoChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(videoChunksRef.current, { type: mimeType });
+        const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+        const file = new File([blob], `video_${Date.now()}.${ext}`, { type: mimeType });
+
+        if (videoStreamRef.current) {
+          videoStreamRef.current.getTracks().forEach((t) => t.stop());
+          videoStreamRef.current = null;
+        }
+        videoMediaRecorderRef.current = null;
+
+        setSendingMedia(true);
+        const url = await uploadChatMedia(file, "video");
+        if (url) {
+          await sendMessage({ media_url: url, media_type: "video" });
+        }
+        setSendingMedia(false);
+        setIsRecordingVideo(false);
+      };
+
+      mediaRecorder.start(1000);
+      setIsRecordingVideo(true);
+      setVideoRecSeconds(0);
+
+      videoRecTimerRef.current = setInterval(() => {
+        setVideoRecSeconds((prev) => {
+          if (prev + 1 >= MAX_VIDEO_DURATION) {
+            stopVideoRecording();
+            return MAX_VIDEO_DURATION;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch {
+      toast.error("Não foi possível acessar a câmera. Verifique as permissões.");
+    }
+  };
+
+  const stopVideoRecording = () => {
+    if (videoRecTimerRef.current) {
+      clearInterval(videoRecTimerRef.current);
+      videoRecTimerRef.current = null;
+    }
+    if (videoMediaRecorderRef.current && videoMediaRecorderRef.current.state !== "inactive") {
+      videoMediaRecorderRef.current.stop();
+    }
+  };
+
+  const cancelVideoRecording = () => {
+    if (videoRecTimerRef.current) {
+      clearInterval(videoRecTimerRef.current);
+      videoRecTimerRef.current = null;
+    }
+    if (videoMediaRecorderRef.current && videoMediaRecorderRef.current.state !== "inactive") {
+      videoMediaRecorderRef.current.onstop = null;
+      videoMediaRecorderRef.current.stop();
+    }
+    if (videoStreamRef.current) {
+      videoStreamRef.current.getTracks().forEach((t) => t.stop());
+      videoStreamRef.current = null;
+    }
+    videoMediaRecorderRef.current = null;
+    videoChunksRef.current = [];
+    setIsRecordingVideo(false);
+    setVideoRecSeconds(0);
   };
 
   const memberCount = members.length || room.memberCount || room.member_count || 0;
@@ -867,9 +957,6 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
     const isGrouped = prev && prev.sender_id === msg.sender_id;
     return { ...msg, isGrouped };
   });
-
-  const hasAnyMedia = selectedPhoto || selectedVideo || selectedAudio;
-  const canSend = input.trim() || hasAnyMedia;
 
   return (
     <div className="flex h-full flex-col -mx-4 -mt-4 md:-mx-0 md:-mt-0">
@@ -1005,6 +1092,10 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
             const sender = msg.sender || {};
             const showAvatar = !isMine && !msg.isGrouped;
             const showName = !isMine && !msg.isGrouped;
+            const hasImage = !!msg.media_url && msg.media_type === "image";
+            const hasVideo = !!msg.media_url && msg.media_type === "video";
+            const hasAudio = !!msg.media_url && msg.media_type === "audio";
+            const hasMedia = !!msg.media_url;
 
             return (
               <div key={msg.id} className={`flex gap-2.5 ${msg.isGrouped ? (isMine ? "pl-0 pr-0" : "pl-[38px]") : ""} ${isMine ? "justify-end" : ""}`}>
@@ -1031,12 +1122,38 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
                     {isMine && (
                       <span className="text-[9px] text-muted-foreground/50 mb-1 shrink-0">{timeAgo(msg.created_at)}</span>
                     )}
-                    <div className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed inline-block break-words overflow-hidden ${
-                      isMine
-                        ? "bg-primary text-primary-foreground rounded-br-md"
-                        : "bg-muted rounded-bl-md"
+                    <div className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed inline-block break-words ${
+                      hasMedia && !msg.content?.trim()
+                        ? "bg-transparent p-0"
+                        : isMine
+                          ? "bg-primary text-primary-foreground rounded-br-md"
+                          : "bg-muted rounded-bl-md"
                     }`}>
-                      <MessageContent msg={msg} isMine={isMine} onImageClick={(url) => setImageViewerSrc(url)} />
+                      {hasImage && (
+                        <div className="mb-1">
+                          <img
+                            src={msg.media_url}
+                            alt="Foto"
+                            className="max-w-full max-h-64 rounded-xl object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                            onClick={() => window.open(msg.media_url, "_blank")}
+                          />
+                        </div>
+                      )}
+                      {hasVideo && (
+                        <div className="mb-1">
+                          <video
+                            src={msg.media_url}
+                            className="max-w-full max-h-64 rounded-xl object-cover"
+                            controls
+                            playsInline
+                            preload="metadata"
+                          />
+                        </div>
+                      )}
+                      {hasAudio && (
+                        <ChatAudioPlayer src={msg.media_url} isMine={isMine} />
+                      )}
+                      {msg.content?.trim() && msg.content !== "📷" && <span>{msg.content}</span>}
                     </div>
                     {!isMine && (
                       <span className="text-[9px] text-muted-foreground/50 mb-1 shrink-0">{timeAgo(msg.created_at)}</span>
@@ -1049,93 +1166,131 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
         </div>
       )}
 
-      {/* Media previews */}
-      {isMember && hasAnyMedia && (
-        <div className="px-4 py-2 border-t bg-card/80">
-          <div className="flex items-center gap-2">
-            {selectedPhoto && photoPreview && (
-              <div className="relative">
-                <img src={photoPreview} alt="Preview" className="h-16 w-16 rounded-lg object-cover border" />
-                <button onClick={() => { setSelectedPhoto(null); if (photoPreview) revokePreviewUrl(photoPreview); setPhotoPreview(null); }} className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm">
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            )}
-            {selectedVideo && videoPreview && (
-              <div className="relative">
-                <video src={videoPreview} className="h-16 w-24 rounded-lg object-cover border" playsInline muted />
-                <button onClick={() => { setSelectedVideo(null); if (videoPreview) URL.revokeObjectURL(videoPreview); setVideoPreview(null); }} className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm">
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            )}
-            {selectedAudio && audioPreview && (
-              <div className="relative flex items-center gap-2 rounded-lg border bg-primary/5 px-3 py-2">
-                <Mic className="h-4 w-4 text-primary" />
-                <span className="text-xs font-medium">Áudio</span>
-                <button onClick={() => { setSelectedAudio(null); if (audioPreview) URL.revokeObjectURL(audioPreview); setAudioPreview(null); }} className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground">
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
+      {/* ═══════ Barra de input do chat ═══════ */}
       <div className="border-t px-4 py-3 bg-card/80 backdrop-blur-md">
         {isMember ? (
-          <div className="flex items-center gap-2">
-            {/* Media buttons */}
-            <div className="flex items-center gap-0.5">
-              <button
-                onClick={() => photoInputRef.current?.click()}
-                disabled={!!selectedVideo || !!selectedAudio}
-                className={`flex items-center justify-center h-9 w-9 rounded-full transition-colors ${!selectedVideo && !selectedAudio ? "text-primary hover:bg-primary/10" : "text-muted-foreground/40 cursor-not-allowed"}`}
-                title="Enviar foto"
-              >
-                <ImagePlus className="h-4.5 w-4.5" />
-              </button>
-              <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handlePhotoSelect} className="hidden" />
+          <>
+            {sendingMedia ? (
+              <div className="flex items-center justify-center gap-2 py-2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">Enviando mídia...</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                {/* Botão + para abrir menu de anexos (para cima) */}
+                <div className="relative" ref={attachMenuRef}>
+                  <button
+                    onClick={() => setAttachMenuOpen(!attachMenuOpen)}
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${attachMenuOpen ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-primary"}`}
+                    title="Anexar mídia"
+                  >
+                    <ChevronUp className={`h-5 w-5 transition-transform ${attachMenuOpen ? "rotate-180" : ""}`} />
+                  </button>
 
-              <button
-                onClick={() => videoInputRef.current?.click()}
-                disabled={!!selectedPhoto || !!selectedAudio || !!selectedVideo}
-                className={`flex items-center justify-center h-9 w-9 rounded-full transition-colors ${!selectedPhoto && !selectedAudio && !selectedVideo ? "text-primary hover:bg-primary/10" : "text-muted-foreground/40 cursor-not-allowed"}`}
-                title="Enviar vídeo"
-              >
-                <Video className="h-4.5 w-4.5" />
-              </button>
-              <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
+                  {/* ═══════ Menu de anexos — aponta para CIMA ═══════ */}
+                  {attachMenuOpen && (
+                    <div className="absolute bottom-full left-0 mb-2 w-56 rounded-2xl bg-popover p-1.5 shadow-lg border border-border z-50 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2">
+                      {/* Câmera foto */}
+                      <button
+                        onClick={() => cameraPhotoRef.current?.click()}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-popover-foreground transition-colors hover:bg-accent"
+                      >
+                        <Camera className="h-4 w-4 text-primary" />
+                        <span>Tirar foto</span>
+                      </button>
 
-              <button
-                onClick={() => audioInputRef.current?.click()}
-                disabled={!!selectedPhoto || !!selectedVideo || !!selectedAudio}
-                className={`flex items-center justify-center h-9 w-9 rounded-full transition-colors ${!selectedPhoto && !selectedVideo && !selectedAudio ? "text-primary hover:bg-primary/10" : "text-muted-foreground/40 cursor-not-allowed"}`}
-                title="Enviar áudio"
-              >
-                <Mic className="h-4.5 w-4.5" />
-              </button>
-              <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
-            </div>
+                      {/* Galeria fotos */}
+                      <button
+                        onClick={() => galleryPhotoRef.current?.click()}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-popover-foreground transition-colors hover:bg-accent"
+                      >
+                        <ImagePlus className="h-4 w-4 text-primary" />
+                        <span>Foto da galeria</span>
+                      </button>
 
-            <div className="flex-1 relative">
-              <Input
-                placeholder="Escreva uma mensagem..."
-                value={input}
-                onChange={(e) => setInput(e.target.value.slice(0, 2000))}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && canSend && sendMessage()}
-                className="h-11 rounded-full pl-4 pr-4 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
-              />
-            </div>
-            <Button
-              size="icon"
-              onClick={sendMessage}
-              disabled={!canSend || sending}
-              className="h-11 w-11 rounded-full shrink-0 shadow-sm transition-all hover:shadow-md disabled:shadow-none"
-            >
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
-          </div>
+                      <div className="my-1 h-px bg-border" />
+
+                      {/* Gravar vídeo direto */}
+                      <button
+                        onClick={() => { setAttachMenuOpen(false); startVideoRecording(); }}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-popover-foreground transition-colors hover:bg-accent"
+                      >
+                        <Video className="h-4 w-4 text-primary" />
+                        <span>Gravar vídeo (máx {MAX_VIDEO_DURATION}s)</span>
+                      </button>
+
+                      {/* Vídeo da câmera */}
+                      <button
+                        onClick={() => cameraVideoRef.current?.click()}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-popover-foreground transition-colors hover:bg-accent"
+                      >
+                        <Video className="h-4 w-4 text-primary/50" />
+                        <span>Filmar com câmera</span>
+                      </button>
+
+                      {/* Vídeo de arquivo */}
+                      <button
+                        onClick={() => videoFileRef.current?.click()}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-popover-foreground transition-colors hover:bg-accent"
+                      >
+                        <Video className="h-4 w-4 text-primary/30" />
+                        <span>Escolher vídeo</span>
+                      </button>
+
+                      <div className="my-1 h-px bg-border" />
+
+                      {/* Gravar áudio direto */}
+                      <button
+                        onClick={() => { if (!isRecordingAudio) startAudioRecording(); }}
+                        disabled={isRecordingAudio}
+                        className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-accent ${isRecordingAudio ? "text-muted-foreground cursor-not-allowed" : "text-popover-foreground"}`}
+                      >
+                        <Mic className={`h-4 w-4 ${isRecordingAudio ? "" : "text-primary"}`} />
+                        <span>Gravar áudio (máx {MAX_AUDIO_DURATION}s)</span>
+                      </button>
+
+                      {/* Áudio de arquivo */}
+                      <button
+                        onClick={() => audioFileRef.current?.click()}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-popover-foreground transition-colors hover:bg-accent"
+                      >
+                        <Music className="h-4 w-4 text-primary/50" />
+                        <span>Escolher áudio</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Hidden inputs */}
+                  <input ref={cameraPhotoRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhotoCapture} className="hidden" />
+                  <input ref={galleryPhotoRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleGalleryPhotoSelect} className="hidden" />
+                  <input ref={cameraVideoRef} type="file" accept="video/*" capture="environment" onChange={handleCameraVideoCapture} className="hidden" />
+                  <input ref={videoFileRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoFileSelect} className="hidden" />
+                  <input ref={audioFileRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioFileSelect} className="hidden" />
+                </div>
+
+                {/* Input de texto */}
+                <div className="flex-1 relative">
+                  <Input
+                    placeholder="Escreva uma mensagem..."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value.slice(0, 2000))}
+                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+                    className="h-11 rounded-full pl-4 pr-4 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
+                  />
+                </div>
+
+                {/* Botão enviar 💬 */}
+                <button
+                  onClick={() => sendMessage()}
+                  disabled={!input.trim()}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] shadow-md hover:bg-[#25b0a3] active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
+                  title="Enviar"
+                >
+                  <span className="text-lg leading-none">💬</span>
+                </button>
+              </div>
+            )}
+          </>
         ) : (
           <Button onClick={handleJoin} className="w-full h-11 rounded-full gap-2 shadow-sm">
             <UserCheck className="h-4 w-4" /> Entrar na sala
@@ -1143,9 +1298,66 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
         )}
       </div>
 
-      {/* Image viewer overlay */}
-      {imageViewerSrc && (
-        <ChatImageViewer src={imageViewerSrc} onClose={() => setImageViewerSrc(null)} />
+      {/* ═══════ Overlay de gravação de áudio (igual ao feed) ═══════ */}
+      {isRecordingAudio && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#000305]/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-6 p-8">
+            <div className={`flex h-24 w-24 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa] shadow-2xl ${isPausedRecording ? "" : "animate-pulse"}`}>
+              <Mic className="h-12 w-12" />
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-[#f7f9fa] tabular-nums">{formatDuration(recordingSeconds)}</p>
+              <p className="text-xs text-[#f7f9fa]/50 mt-1">{isPausedRecording ? "Pausado" : "Gravando áudio..."}</p>
+            </div>
+            <div className="w-48 h-2 bg-[#f7f9fa]/20 rounded-full overflow-hidden">
+              <div className="h-full bg-[#f7f75e] rounded-full transition-all" style={{ width: `${(recordingSeconds / MAX_AUDIO_DURATION) * 100}%` }} />
+            </div>
+            <div className="flex items-center gap-4">
+              <button onClick={togglePauseRecording} className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f7f9fa]/10 text-[#f7f9fa] hover:bg-[#f7f9fa]/20 transition-colors" title={isPausedRecording ? "Continuar" : "Pausar"}>
+                {isPausedRecording ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+              </button>
+              <button onClick={stopAudioRecording} className="flex h-14 w-14 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] shadow-lg hover:bg-[#25b0a3] transition-colors" title="Enviar">
+                <Send className="h-6 w-6" />
+              </button>
+              <button onClick={cancelAudioRecording} className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f7f9fa]/10 text-[#f7f9fa] hover:bg-red-500/80 transition-colors" title="Cancelar">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════ Overlay de gravação de vídeo ═══════ */}
+      {isRecordingVideo && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#000305]/90 backdrop-blur-sm">
+          <div className="relative w-full max-w-md mx-4">
+            <video
+              ref={videoPreviewRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-full rounded-2xl max-h-[60vh] object-cover"
+            />
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
+              <div className="h-3 w-3 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-[#f7f9fa] font-bold tabular-nums">{formatDuration(videoRecSeconds)}</span>
+              <span className="text-[#f7f9fa]/50 text-xs">/ {MAX_VIDEO_DURATION}s</span>
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 p-4">
+              <div className="w-full h-1.5 bg-[#f7f9fa]/20 rounded-full overflow-hidden mb-4">
+                <div className="h-full bg-[#f7f75e] rounded-full transition-all" style={{ width: `${(videoRecSeconds / MAX_VIDEO_DURATION) * 100}%` }} />
+              </div>
+              <div className="flex items-center justify-center gap-4">
+                <button onClick={cancelVideoRecording} className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f7f9fa]/10 text-[#f7f9fa] hover:bg-red-500/80 transition-colors" title="Cancelar">
+                  <X className="h-5 w-5" />
+                </button>
+                <button onClick={stopVideoRecording} className="flex h-14 w-14 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] shadow-lg hover:bg-[#25b0a3] transition-colors" title="Enviar vídeo">
+                  <Send className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
