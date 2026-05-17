@@ -34,28 +34,42 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!chat) return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
 
     const body = await req.json();
-    const { content, image_url, video_url, audio_url } = body;
+    const { content, media_url, media_type } = body;
 
-    if ((!content || !content.trim()) && !image_url && !video_url && !audio_url) {
+    // At least content or media_url must be provided
+    if ((!content || !content.trim()) && !media_url) {
       return NextResponse.json({ error: "Mensagem vazia" }, { status: 400 });
     }
     if (content && content.length > 2000) {
       return NextResponse.json({ error: "Mensagem muito longa (máx 2000 chars)" }, { status: 400 });
     }
 
+    // Validate media_type
+    if (media_url && !["image", "video", "audio"].includes(media_type)) {
+      return NextResponse.json({ error: "Tipo de mídia inválido" }, { status: 400 });
+    }
+
     const insertData: any = {
-      content: content?.trim() || "",
       sender_id: user.id,
       dm_id: id,
       target_type: "dm",
     };
-    if (image_url) insertData.image_url = image_url;
-    if (video_url) insertData.video_url = video_url;
-    if (audio_url) insertData.audio_url = audio_url;
+
+    if (content && content.trim()) {
+      insertData.content = content.trim();
+    } else {
+      insertData.content = null;
+    }
+
+    if (media_url) {
+      insertData.media_url = media_url;
+      insertData.media_type = media_type;
+    }
 
     const { data: message, error } = await supabase.from("messages")
       .insert(insertData)
-      .select(`*, sender:profiles(id, display_name, username, avatar_url)`).single();
+      .select(`*, sender:profiles(id, display_name, username, avatar_url)`)
+      .single();
 
     if (error) throw error;
     return NextResponse.json({ message });
