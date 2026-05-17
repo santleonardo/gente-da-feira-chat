@@ -388,6 +388,13 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
     };
   }, []);
 
+  // Conecta stream da câmera ao preview de vídeo quando a gravação começa
+  useEffect(() => {
+    if (isRecordingVideo && videoStreamRef.current && videoPreviewRef.current) {
+      videoPreviewRef.current.srcObject = videoStreamRef.current;
+    }
+  }, [isRecordingVideo]);
+
   const fetchMessages = useCallback(async () => {
     try {
       const res = await fetch(`/api/dm/${conversation.id}/messages`);
@@ -674,8 +681,13 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
   const startVideoRecording = async () => {
     setAttachMenuOpen(false);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true });
       videoStreamRef.current = stream;
+
+      // Conecta o stream ao preview de vídeo para a pessoa se ver
+      if (videoPreviewRef.current) {
+        videoPreviewRef.current.srcObject = stream;
+      }
 
       let mimeType = "video/webm";
       if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "video/webm;codecs=vp8,opus";
