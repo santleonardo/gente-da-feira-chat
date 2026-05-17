@@ -33,7 +33,7 @@ function formatDuration(seconds: number): string {
 }
 
 // ═══════════════════════════════════════════════════════════
-// ChatAudioPlayer — Player de áudio estilo WhatsApp no chat DM
+// ChatAudioPlayer — Player de áudio nítido com duração real
 // ═══════════════════════════════════════════════════════════
 function ChatAudioPlayer({ src, isMine }: { src: string; isMine?: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -41,14 +41,30 @@ function ChatAudioPlayer({ src, isMine }: { src: string; isMine?: boolean }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
+  // Função robusta para extrair duração do áudio
+  const trySetDuration = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const d = audio.duration;
+    if (isFinite(d) && d > 0) {
+      setDuration(d);
+    }
+  }, []);
+
   const safeDuration = isFinite(duration) && duration > 0 ? duration : 0;
   const safeCurrentTime = isFinite(currentTime) && currentTime >= 0 ? currentTime : 0;
   const progress = safeDuration > 0 ? (safeCurrentTime / safeDuration) * 100 : 0;
 
   const toggle = () => {
     if (!audioRef.current) return;
-    if (playing) audioRef.current.pause();
-    else audioRef.current.play();
+    if (playing) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play().catch(() => {});
+      // Ao começar a tocar, tenta pegar a duração novamente
+      setTimeout(trySetDuration, 200);
+      setTimeout(trySetDuration, 1000);
+    }
     setPlaying(!playing);
   };
 
@@ -59,80 +75,100 @@ function ChatAudioPlayer({ src, isMine }: { src: string; isMine?: boolean }) {
     audioRef.current.currentTime = pct * safeDuration;
   };
 
+  // Seek por toque no mobile
+  const seekTouch = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !safeDuration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const touch = e.touches[0];
+    const pct = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
+    audioRef.current.currentTime = pct * safeDuration;
+  };
+
   return (
-    <div className={`rounded-2xl mt-1 min-w-[220px] overflow-hidden ${isMine ? "bg-primary-foreground/10" : "bg-[#0A4D5C]/5 dark:bg-[#0A4D5C]/10"}`}>
-      <div className="flex items-center gap-2.5 px-3 py-2.5">
+    <div className={`rounded-2xl mt-1 min-w-[240px] overflow-hidden ${isMine ? "bg-primary-foreground/10" : "bg-[#0A4D5C]/8 dark:bg-[#0A4D5C]/12"}`}>
+      <div className="flex items-center gap-3 px-3.5 py-3">
         {/* Botão play/pause */}
         <button
           onClick={toggle}
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all shadow-sm active:scale-95 ${
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all shadow-md active:scale-95 ${
             isMine
               ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90"
               : "bg-[#2EC4B6] text-white hover:bg-[#25b0a3]"
           }`}
         >
-          {playing ? <Pause className="h-4.5 w-4.5" /> : <Play className="h-4.5 w-4.5 ml-0.5" />}
+          {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
         </button>
 
-        <div className="flex-1 min-w-0 space-y-1">
-          {/* Linha superior: label + equalizer + tempo */}
+        <div className="flex-1 min-w-0 space-y-1.5">
+          {/* Linha superior: label + equalizer + duração total */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
-              <span className={`text-[11px] font-semibold ${isMine ? "text-primary-foreground/85" : "text-foreground/80"}`}>Áudio</span>
+              <span className={`text-xs font-bold tracking-tight ${isMine ? "text-primary-foreground/90" : "text-foreground/85"}`}>Áudio</span>
               {playing && (
-                <div className="flex items-end gap-[2px] h-3">
-                  <span className={`inline-block w-[2.5px] rounded-full ${isMine ? "bg-primary-foreground/60" : "bg-[#2EC4B6]"}`} style={{ height: "6px", animation: "eqBar 0.4s ease-in-out infinite alternate" }} />
-                  <span className={`inline-block w-[2.5px] rounded-full ${isMine ? "bg-primary-foreground/60" : "bg-[#2EC4B6]"}`} style={{ height: "10px", animation: "eqBar 0.4s ease-in-out infinite alternate 0.15s" }} />
-                  <span className={`inline-block w-[2.5px] rounded-full ${isMine ? "bg-primary-foreground/60" : "bg-[#2EC4B6]"}`} style={{ height: "4px", animation: "eqBar 0.4s ease-in-out infinite alternate 0.3s" }} />
+                <div className="flex items-end gap-[2px] h-3.5">
+                  <span className={`inline-block w-[3px] rounded-full ${isMine ? "bg-primary-foreground/70" : "bg-[#2EC4B6]"}`} style={{ height: "5px", animation: "eqBar 0.35s ease-in-out infinite alternate" }} />
+                  <span className={`inline-block w-[3px] rounded-full ${isMine ? "bg-primary-foreground/70" : "bg-[#2EC4B6]"}`} style={{ height: "12px", animation: "eqBar 0.35s ease-in-out infinite alternate 0.12s" }} />
+                  <span className={`inline-block w-[3px] rounded-full ${isMine ? "bg-primary-foreground/70" : "bg-[#2EC4B6]"}`} style={{ height: "7px", animation: "eqBar 0.35s ease-in-out infinite alternate 0.24s" }} />
+                  <span className={`inline-block w-[3px] rounded-full ${isMine ? "bg-primary-foreground/70" : "bg-[#2EC4B6]"}`} style={{ height: "9px", animation: "eqBar 0.35s ease-in-out infinite alternate 0.36s" }} />
                 </div>
               )}
             </div>
-            <span className="text-[10px] text-muted-foreground tabular-nums font-medium">
-              {playing ? formatDuration(safeCurrentTime) : formatDuration(safeDuration)}
+            <span className={`text-xs tabular-nums font-semibold ${isMine ? "text-primary-foreground/80" : "text-foreground/70"}`}>
+              {formatDuration(safeDuration)}
             </span>
           </div>
 
-          {/* Barra de progresso */}
+          {/* Barra de progresso — nítida e espessa */}
           <div
-            className={`relative h-2 rounded-full cursor-pointer group ${isMine ? "bg-primary-foreground/15" : "bg-[#2EC4B6]/15"}`}
+            className={`relative h-4 rounded-full cursor-pointer ${isMine ? "bg-primary-foreground/20" : "bg-[#2EC4B6]/20"}`}
             onClick={seek}
+            onTouchMove={seekTouch}
           >
+            {/* Trilha preenchida */}
             <div
-              className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-150 ${isMine ? "bg-primary-foreground/60" : "bg-[#2EC4B6]/60"}`}
+              className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-100 ${isMine ? "bg-primary-foreground/50" : "bg-[#2EC4B6]/50"}`}
               style={{ width: `${progress}%` }}
             />
+            {/* Thumb — sempre visível */}
             <div
-              className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full shadow transition-opacity group-hover:opacity-100 ${isMine ? "bg-primary-foreground" : "bg-[#2EC4B6]"} ${progress > 0 ? "opacity-100" : "opacity-0"}`}
-              style={{ left: `calc(${progress}% - 6px)` }}
+              className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full shadow-md border-2 border-white transition-[left] duration-100 ${isMine ? "bg-primary-foreground" : "bg-[#2EC4B6]"}`}
+              style={{ left: `calc(${Math.max(progress, 1)}% - 8px)` }}
             />
           </div>
 
-          {/* Linha inferior: tempo atual / total */}
-          <div className="flex justify-between">
-            <span className="text-[9px] text-muted-foreground/50 tabular-nums">{formatDuration(safeCurrentTime)}</span>
-            <span className="text-[9px] text-muted-foreground/50 tabular-nums">{formatDuration(safeDuration)}</span>
+          {/* Linha inferior: tempo atual */}
+          <div className="flex justify-between items-center">
+            <span className={`text-[11px] tabular-nums font-medium ${isMine ? "text-primary-foreground/70" : "text-foreground/60"}`}>
+              {formatDuration(safeCurrentTime)}
+            </span>
+            {playing && (
+              <span className={`text-[10px] tabular-nums ${isMine ? "text-primary-foreground/50" : "text-foreground/40"}`}>
+                {safeDuration > 0 ? `${Math.round(progress)}%` : ""}
+              </span>
+            )}
           </div>
         </div>
       </div>
       <audio
         ref={audioRef}
         src={src}
-        preload="metadata"
+        preload="auto"
         onTimeUpdate={() => {
           const t = audioRef.current?.currentTime || 0;
           setCurrentTime(isFinite(t) ? t : 0);
+          // Tenta pegar duração a cada timeUpdate se ainda não temos
+          if (!safeDuration) trySetDuration();
         }}
-        onLoadedMetadata={() => {
-          const d = audioRef.current?.duration || 0;
-          setDuration(isFinite(d) && d > 0 ? d : 0);
-        }}
-        onEnded={() => setPlaying(false)}
+        onLoadedMetadata={() => trySetDuration()}
+        onDurationChange={() => trySetDuration()}
+        onCanPlay={() => trySetDuration()}
+        onEnded={() => { setPlaying(false); setCurrentTime(0); }}
       />
       {/* CSS para animação do equalizer */}
       <style jsx>{`
         @keyframes eqBar {
           0% { height: 3px; }
-          100% { height: 10px; }
+          100% { height: 13px; }
         }
       `}</style>
     </div>

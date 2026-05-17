@@ -180,7 +180,7 @@ function VideoPlayer({ src }: { src: string }) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// AudioPlayer
+// AudioPlayer — Player de áudio nítido com duração real
 // ═══════════════════════════════════════════════════════════
 function AudioPlayer({ src }: { src: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -188,35 +188,122 @@ function AudioPlayer({ src }: { src: string }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
+  // Função robusta para extrair duração do áudio
+  const trySetDuration = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const d = audio.duration;
+    if (isFinite(d) && d > 0) {
+      setDuration(d);
+    }
+  }, []);
+
+  const safeDuration = isFinite(duration) && duration > 0 ? duration : 0;
+  const safeCurrentTime = isFinite(currentTime) && currentTime >= 0 ? currentTime : 0;
+  const progress = safeDuration > 0 ? (safeCurrentTime / safeDuration) * 100 : 0;
+
   const toggle = () => {
     if (!audioRef.current) return;
-    if (playing) audioRef.current.pause();
-    else audioRef.current.play();
+    if (playing) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play().catch(() => {});
+      setTimeout(trySetDuration, 200);
+      setTimeout(trySetDuration, 1000);
+    }
     setPlaying(!playing);
   };
 
+  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !safeDuration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    audioRef.current.currentTime = pct * safeDuration;
+  };
+
+  const seekTouch = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !safeDuration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const touch = e.touches[0];
+    const pct = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
+    audioRef.current.currentTime = pct * safeDuration;
+  };
+
   return (
-    <div className="mt-2.5 rounded-2xl border bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 p-4 shadow-sm">
+    <div className="mt-2.5 rounded-2xl border bg-gradient-to-r from-[#0A4D5C]/5 via-[#0A4D5C]/10 to-[#0A4D5C]/5 p-4 shadow-sm">
       <div className="flex items-center gap-3.5">
-        <button onClick={toggle} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-all hover:scale-105">
+        <button onClick={toggle} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#2EC4B6] text-white shadow-md hover:bg-[#25b0a3] transition-all active:scale-95">
           {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
         </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <Volume2 className="h-4 w-4 text-primary" />
-            <span className="text-xs font-semibold">Áudio</span>
-            <span className="text-[10px] text-muted-foreground tabular-nums">{formatDuration(currentTime)} / {formatDuration(duration)}</span>
+        <div className="flex-1 min-w-0 space-y-1.5">
+          {/* Linha superior: label + equalizer + duração total */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <Volume2 className="h-4 w-4 text-[#0A4D5C]" />
+              <span className="text-xs font-bold tracking-tight text-foreground/85">Áudio</span>
+              {playing && (
+                <div className="flex items-end gap-[2px] h-3.5">
+                  <span className="inline-block w-[3px] rounded-full bg-[#2EC4B6]" style={{ height: "5px", animation: "eqBar 0.35s ease-in-out infinite alternate" }} />
+                  <span className="inline-block w-[3px] rounded-full bg-[#2EC4B6]" style={{ height: "12px", animation: "eqBar 0.35s ease-in-out infinite alternate 0.12s" }} />
+                  <span className="inline-block w-[3px] rounded-full bg-[#2EC4B6]" style={{ height: "7px", animation: "eqBar 0.35s ease-in-out infinite alternate 0.24s" }} />
+                  <span className="inline-block w-[3px] rounded-full bg-[#2EC4B6]" style={{ height: "9px", animation: "eqBar 0.35s ease-in-out infinite alternate 0.36s" }} />
+                </div>
+              )}
+            </div>
+            <span className="text-xs tabular-nums font-semibold text-foreground/70">
+              {formatDuration(safeDuration)}
+            </span>
           </div>
-          <div className="h-2 bg-primary/20 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const pct = (e.clientX - rect.left) / rect.width;
-            if (audioRef.current && duration) audioRef.current.currentTime = pct * duration;
-          }}>
-            <div className="h-full bg-primary rounded-full transition-all" style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }} />
+
+          {/* Barra de progresso — nítida e espessa */}
+          <div
+            className="relative h-4 rounded-full cursor-pointer bg-[#2EC4B6]/20"
+            onClick={seek}
+            onTouchMove={seekTouch}
+          >
+            <div
+              className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-100 bg-[#2EC4B6]/50"
+              style={{ width: `${progress}%` }}
+            />
+            <div
+              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full shadow-md border-2 border-white transition-[left] duration-100 bg-[#2EC4B6]"
+              style={{ left: `calc(${Math.max(progress, 1)}% - 8px)` }}
+            />
+          </div>
+
+          {/* Linha inferior: tempo atual */}
+          <div className="flex justify-between items-center">
+            <span className="text-[11px] tabular-nums font-medium text-foreground/60">
+              {formatDuration(safeCurrentTime)}
+            </span>
+            {playing && safeDuration > 0 && (
+              <span className="text-[10px] tabular-nums text-foreground/40">
+                {Math.round(progress)}%
+              </span>
+            )}
           </div>
         </div>
       </div>
-      <audio ref={audioRef} src={src} preload="metadata" onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)} onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)} onEnded={() => setPlaying(false)} />
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="auto"
+        onTimeUpdate={() => {
+          const t = audioRef.current?.currentTime || 0;
+          setCurrentTime(isFinite(t) ? t : 0);
+          if (!safeDuration) trySetDuration();
+        }}
+        onLoadedMetadata={() => trySetDuration()}
+        onDurationChange={() => trySetDuration()}
+        onCanPlay={() => trySetDuration()}
+        onEnded={() => { setPlaying(false); setCurrentTime(0); }}
+      />
+      <style jsx>{`
+        @keyframes eqBar {
+          0% { height: 3px; }
+          100% { height: 13px; }
+        }
+      `}</style>
     </div>
   );
 }
