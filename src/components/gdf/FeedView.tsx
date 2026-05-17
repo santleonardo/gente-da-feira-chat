@@ -230,7 +230,7 @@ function AudioPlayer({ src }: { src: string }) {
   };
 
   return (
-    <div className="mt-2.5 rounded-2xl border bg-gradient-to-r from-[#0A4D5C]/5 via-[#0A4D5C]/10 to-[#0A4D5C]/5 p-4 shadow-sm">
+    <div className="mt-2.5 rounded-2xl border bg-[#e8f4f2] dark:bg-[#1a3a3a] p-4 shadow-sm">
       <div className="flex items-center gap-3.5">
         <button onClick={toggle} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#2EC4B6] text-white shadow-md hover:bg-[#25b0a3] transition-all active:scale-95">
           {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
@@ -239,8 +239,8 @@ function AudioPlayer({ src }: { src: string }) {
           {/* Linha superior: label + equalizer + duração total */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
-              <Volume2 className="h-4 w-4 text-[#0A4D5C]" />
-              <span className="text-xs font-bold tracking-tight text-foreground/85">Áudio</span>
+              <Volume2 className="h-4 w-4 text-[#0A4D5C] dark:text-[#2EC4B6]" />
+              <span className="text-xs font-bold tracking-tight text-[#0A4D5C] dark:text-white/90">Áudio</span>
               {playing && (
                 <div className="flex items-end gap-[2px] h-3.5">
                   <span className="inline-block w-[3px] rounded-full bg-[#2EC4B6]" style={{ height: "5px", animation: "eqBar 0.35s ease-in-out infinite alternate" }} />
@@ -250,19 +250,19 @@ function AudioPlayer({ src }: { src: string }) {
                 </div>
               )}
             </div>
-            <span className="text-xs tabular-nums font-semibold text-foreground/70">
+            <span className="text-xs tabular-nums font-semibold text-[#0A4D5C]/70 dark:text-white/70">
               {formatDuration(safeDuration)}
             </span>
           </div>
 
-          {/* Barra de progresso — nítida e espessa */}
+          {/* Barra de progresso — cor SÓLIDA para ser nítida no mobile */}
           <div
-            className="relative h-4 rounded-full cursor-pointer bg-[#2EC4B6]/20"
+            className="relative h-4 rounded-full cursor-pointer bg-[#b8d8d4] dark:bg-white/20"
             onClick={seek}
             onTouchMove={seekTouch}
           >
             <div
-              className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-100 bg-[#2EC4B6]/50"
+              className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-100 bg-[#2EC4B6]"
               style={{ width: `${progress}%` }}
             />
             <div
@@ -273,11 +273,11 @@ function AudioPlayer({ src }: { src: string }) {
 
           {/* Linha inferior: tempo atual */}
           <div className="flex justify-between items-center">
-            <span className="text-[11px] tabular-nums font-medium text-foreground/60">
+            <span className="text-[11px] tabular-nums font-medium text-[#0A4D5C]/60 dark:text-white/60">
               {formatDuration(safeCurrentTime)}
             </span>
             {playing && safeDuration > 0 && (
-              <span className="text-[10px] tabular-nums text-foreground/40">
+              <span className="text-[10px] tabular-nums text-[#0A4D5C]/40 dark:text-white/40">
                 {Math.round(progress)}%
               </span>
             )}

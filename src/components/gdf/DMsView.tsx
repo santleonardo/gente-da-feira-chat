@@ -85,14 +85,14 @@ function ChatAudioPlayer({ src, isMine }: { src: string; isMine?: boolean }) {
   };
 
   return (
-    <div className={`rounded-2xl mt-1 min-w-[240px] overflow-hidden ${isMine ? "bg-primary-foreground/10" : "bg-[#0A4D5C]/8 dark:bg-[#0A4D5C]/12"}`}>
+    <div className={`rounded-2xl mt-1 min-w-[240px] overflow-hidden ${isMine ? "bg-[#0A4D5C]/10 dark:bg-white/10" : "bg-[#e8f4f2] dark:bg-[#1a3a3a]"}`}>
       <div className="flex items-center gap-3 px-3.5 py-3">
         {/* Botão play/pause */}
         <button
           onClick={toggle}
           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all shadow-md active:scale-95 ${
             isMine
-              ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+              ? "bg-white text-[#0A4D5C] hover:bg-white/90"
               : "bg-[#2EC4B6] text-white hover:bg-[#25b0a3]"
           }`}
         >
@@ -103,46 +103,46 @@ function ChatAudioPlayer({ src, isMine }: { src: string; isMine?: boolean }) {
           {/* Linha superior: label + equalizer + duração total */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
-              <span className={`text-xs font-bold tracking-tight ${isMine ? "text-primary-foreground/90" : "text-foreground/85"}`}>Áudio</span>
+              <span className={`text-xs font-bold tracking-tight ${isMine ? "text-white/90 dark:text-white/90" : "text-[#0A4D5C] dark:text-white/90"}`}>Áudio</span>
               {playing && (
                 <div className="flex items-end gap-[2px] h-3.5">
-                  <span className={`inline-block w-[3px] rounded-full ${isMine ? "bg-primary-foreground/70" : "bg-[#2EC4B6]"}`} style={{ height: "5px", animation: "eqBar 0.35s ease-in-out infinite alternate" }} />
-                  <span className={`inline-block w-[3px] rounded-full ${isMine ? "bg-primary-foreground/70" : "bg-[#2EC4B6]"}`} style={{ height: "12px", animation: "eqBar 0.35s ease-in-out infinite alternate 0.12s" }} />
-                  <span className={`inline-block w-[3px] rounded-full ${isMine ? "bg-primary-foreground/70" : "bg-[#2EC4B6]"}`} style={{ height: "7px", animation: "eqBar 0.35s ease-in-out infinite alternate 0.24s" }} />
-                  <span className={`inline-block w-[3px] rounded-full ${isMine ? "bg-primary-foreground/70" : "bg-[#2EC4B6]"}`} style={{ height: "9px", animation: "eqBar 0.35s ease-in-out infinite alternate 0.36s" }} />
+                  <span className={`inline-block w-[3px] rounded-full ${isMine ? "bg-white/80" : "bg-[#2EC4B6]"}`} style={{ height: "5px", animation: "eqBar 0.35s ease-in-out infinite alternate" }} />
+                  <span className={`inline-block w-[3px] rounded-full ${isMine ? "bg-white/80" : "bg-[#2EC4B6]"}`} style={{ height: "12px", animation: "eqBar 0.35s ease-in-out infinite alternate 0.12s" }} />
+                  <span className={`inline-block w-[3px] rounded-full ${isMine ? "bg-white/80" : "bg-[#2EC4B6]"}`} style={{ height: "7px", animation: "eqBar 0.35s ease-in-out infinite alternate 0.24s" }} />
+                  <span className={`inline-block w-[3px] rounded-full ${isMine ? "bg-white/80" : "bg-[#2EC4B6]"}`} style={{ height: "9px", animation: "eqBar 0.35s ease-in-out infinite alternate 0.36s" }} />
                 </div>
               )}
             </div>
-            <span className={`text-xs tabular-nums font-semibold ${isMine ? "text-primary-foreground/80" : "text-foreground/70"}`}>
+            <span className={`text-xs tabular-nums font-semibold ${isMine ? "text-white/80" : "text-[#0A4D5C]/70 dark:text-white/70"}`}>
               {formatDuration(safeDuration)}
             </span>
           </div>
 
-          {/* Barra de progresso — nítida e espessa */}
+          {/* Barra de progresso — cores SÓLIDAS para ser nítida no mobile */}
           <div
-            className={`relative h-4 rounded-full cursor-pointer ${isMine ? "bg-primary-foreground/20" : "bg-[#2EC4B6]/20"}`}
+            className={`relative h-4 rounded-full cursor-pointer ${isMine ? "bg-white/25" : "bg-[#b8d8d4] dark:bg-white/20"}`}
             onClick={seek}
             onTouchMove={seekTouch}
           >
-            {/* Trilha preenchida */}
+            {/* Trilha preenchida — cor sólida */}
             <div
-              className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-100 ${isMine ? "bg-primary-foreground/50" : "bg-[#2EC4B6]/50"}`}
+              className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-100 ${isMine ? "bg-white/70" : "bg-[#2EC4B6]"}`}
               style={{ width: `${progress}%` }}
             />
             {/* Thumb — sempre visível */}
             <div
-              className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full shadow-md border-2 border-white transition-[left] duration-100 ${isMine ? "bg-primary-foreground" : "bg-[#2EC4B6]"}`}
+              className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full shadow-md border-2 border-white transition-[left] duration-100 ${isMine ? "bg-white" : "bg-[#2EC4B6]"}`}
               style={{ left: `calc(${Math.max(progress, 1)}% - 8px)` }}
             />
           </div>
 
           {/* Linha inferior: tempo atual */}
           <div className="flex justify-between items-center">
-            <span className={`text-[11px] tabular-nums font-medium ${isMine ? "text-primary-foreground/70" : "text-foreground/60"}`}>
+            <span className={`text-[11px] tabular-nums font-medium ${isMine ? "text-white/70" : "text-[#0A4D5C]/60 dark:text-white/60"}`}>
               {formatDuration(safeCurrentTime)}
             </span>
             {playing && (
-              <span className={`text-[10px] tabular-nums ${isMine ? "text-primary-foreground/50" : "text-foreground/40"}`}>
+              <span className={`text-[10px] tabular-nums ${isMine ? "text-white/50" : "text-[#0A4D5C]/40 dark:text-white/40"}`}>
                 {safeDuration > 0 ? `${Math.round(progress)}%` : ""}
               </span>
             )}
