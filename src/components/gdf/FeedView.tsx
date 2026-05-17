@@ -75,16 +75,16 @@ const REACTION_EMOJIS = [
 // Post-it colors for text-only posts (suaves/pastel)
 // ═══════════════════════════════════════════════════════════
 const POST_IT_COLORS = [
-  { bg: "bg-[#fef9c3]", text: "text-[#5c4f1e]", border: "border-[#fde68a]" },       // Amarelo
-  { bg: "bg-[#fecdd3]", text: "text-[#7c2d35]", border: "border-[#fda4af]" },        // Rosa
-  { bg: "bg-[#bae6fd]", text: "text-[#1e5070]", border: "border-[#7dd3fc]" },        // Azul
-  { bg: "bg-[#bbf7d0]", text: "text-[#2d5a3a]", border: "border-[#86efac]" },        // Verde
-  { bg: "bg-[#fed7aa]", text: "text-[#6b3a15]", border: "border-[#fdba74]" },        // Laranja
-  { bg: "bg-[#ddd6fe]", text: "text-[#4a3580]", border: "border-[#c4b5fd]" },        // Roxo
-  { bg: "bg-[#fecaca]", text: "text-[#6b2020]", border: "border-[#fca5a5]" },        // Coral
-  { bg: "bg-[#a7f3d0]", text: "text-[#1a5a3a]", border: "border-[#6ee7b7]" },        // Menta
-  { bg: "bg-[#c4b5fd]", text: "text-[#3b2d70]", border: "border-[#a78bfa]" },        // Lavanda
-  { bg: "bg-[#fde68a]", text: "text-[#6b4e10]", border: "border-[#fbbf24]" },        // Pêssego
+  { bg: "bg-[#fefce8]", text: "text-[#713f12]", border: "border-[#fef08a]" },       // Amarelo
+  { bg: "bg-[#fef1f2]", text: "text-[#9f1239]", border: "border-[#fecdd3]" },        // Rosa
+  { bg: "bg-[#f0f9ff]", text: "text-[#0c4a6e]", border: "border-[#bae6fd]" },        // Azul
+  { bg: "bg-[#f0fdf4]", text: "text-[#14532d]", border: "border-[#86efac]" },        // Verde
+  { bg: "bg-[#fff7ed]", text: "text-[#7c2d12]", border: "border-[#fdba74]" },        // Laranja
+  { bg: "bg-[#faf5ff]", text: "text-[#581c87]", border: "border-[#d8b4fe]" },        // Roxo
+  { bg: "bg-[#fff5f5]", text: "text-[#7f1d1d]", border: "border-[#fecaca]" },        // Coral
+  { bg: "bg-[#ecfdf5]", text: "text-[#064e3b]", border: "border-[#6ee7b7]" },        // Menta
+  { bg: "bg-[#f5f3ff]", text: "text-[#3b0764]", border: "border-[#c4b5fd]" },        // Lavanda
+  { bg: "bg-[#fffbeb]", text: "text-[#78350f]", border: "border-[#fde68a]" },        // Pêssego
 ] as const;
 
 function getPostItColor(postId: string) {
@@ -397,7 +397,7 @@ function ShareMenu({
 // ═══════════════════════════════════════════════════════════
 function FeedSkeleton() {
   return (
-    <div className="space-y-4 animate-pulse">
+    <div className="space-y-4 animate-pulse bg-[#dfe3e6] min-h-screen p-2 sm:p-3">
       <div className="rounded-3xl bg-[#eef1f3] p-5 shadow-lg border border-[#0A4D5C]/8">
         <div className="flex items-start gap-3.5">
           <div className="h-12 w-12 rounded-full bg-[#0A4D5C]/10 shrink-0" />
@@ -980,7 +980,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   if (loading) return <FeedSkeleton />;
 
   return (
-    <div className="space-y-0">
+    <div className="bg-[#dfe3e6] min-h-screen p-2 sm:p-3 space-y-3">
       {/* ═══════ COMPOSER ═══════ */}
       <div className="relative z-10 rounded-3xl bg-[#eef1f3] p-5 shadow-lg border border-[#0A4D5C]/8">
         <div className="flex items-start gap-3.5">
