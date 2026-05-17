@@ -118,7 +118,7 @@ function getExpirationLabel(expiresAt: string): string {
 }
 
 function formatDuration(seconds: number): string {
-  if (!isFinite(seconds) || isNaN(seconds) || seconds < 0) return "0:00";
+  if (!isFinite(seconds) || isNaN(seconds) || seconds === undefined || seconds === null || seconds < 0) return "0:00";
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
@@ -274,7 +274,7 @@ function AudioPlayer({ src, knownDuration }: { src: string; knownDuration?: numb
     };
   }, []);
 
-  const displayDuration = duration > 0 ? duration : (knownDuration && isFinite(knownDuration) && knownDuration > 0 ? knownDuration : 0);
+  const displayDuration = (duration > 0 && isFinite(duration) && !isNaN(duration)) ? duration : (knownDuration && isFinite(knownDuration) && !isNaN(knownDuration) && knownDuration > 0 ? knownDuration : 0);
   const durationLabel = displayDuration > 0 ? `${Math.round(displayDuration)}s` : "";
 
   return (
@@ -296,11 +296,11 @@ function AudioPlayer({ src, knownDuration }: { src: string; knownDuration?: numb
             const pct = (e.clientX - rect.left) / rect.width;
             if (audioRef.current && displayDuration > 0 && isFinite(displayDuration)) audioRef.current.currentTime = pct * displayDuration;
           }}>
-            <div className="h-full bg-[#0A4D5C] rounded-full transition-all" style={{ width: displayDuration > 0 && isFinite(displayDuration) ? `${(currentTime / displayDuration) * 100}%` : "0%" }} />
+            <div className="h-full bg-[#0A4D5C] rounded-full transition-all" style={{ width: displayDuration > 0 && isFinite(displayDuration) && !isNaN(displayDuration) ? `${(currentTime / displayDuration) * 100}%` : "0%" }} />
           </div>
         </div>
       </div>
-      <audio ref={audioRef} src={src} preload="auto" onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)} onLoadedMetadata={() => { const d = audioRef.current?.duration || 0; if (isFinite(d) && d > 0) { setDuration(d); durationFetched.current = true; } }} onDurationChange={() => { const d = audioRef.current?.duration || 0; if (isFinite(d) && d > 0) { setDuration(d); durationFetched.current = true; } }} onEnded={() => setPlaying(false)} />
+      <audio ref={audioRef} src={src} preload="auto" onTimeUpdate={() => { const t = audioRef.current?.currentTime || 0; setCurrentTime(isFinite(t) && !isNaN(t) ? t : 0); }} onLoadedMetadata={() => { const d = audioRef.current?.duration || 0; if (isFinite(d) && !isNaN(d) && d > 0) { setDuration(d); durationFetched.current = true; } }} onDurationChange={() => { const d = audioRef.current?.duration || 0; if (isFinite(d) && !isNaN(d) && d > 0) { setDuration(d); durationFetched.current = true; } }} onEnded={() => setPlaying(false)} />
     </div>
   );
 }
