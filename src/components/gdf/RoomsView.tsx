@@ -1231,75 +1231,56 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
                     <ChevronUp className={`h-5 w-5 transition-transform ${attachMenuOpen ? "rotate-180" : ""}`} />
                   </button>
 
-                  {/* ═══════ Menu de anexos — aponta para CIMA ═══════ */}
+                  {/* ═══════ Menu de anexos — somente ícones ═══════ */}
                   {attachMenuOpen && (
-                    <div className="absolute bottom-full left-0 mb-2 w-56 rounded-2xl bg-popover p-1.5 shadow-lg border border-border z-50 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2">
-                      {/* Câmera foto */}
+                    <div className="absolute bottom-full left-0 mb-2 flex items-center gap-1 rounded-full bg-popover p-1.5 shadow-lg border border-border z-50 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2">
                       <button
                         onClick={() => cameraPhotoRef.current?.click()}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-popover-foreground transition-colors hover:bg-accent"
+                        className="flex h-10 w-10 items-center justify-center rounded-full text-popover-foreground transition-colors hover:bg-accent"
+                        title="Tirar foto"
                       >
-                        <Camera className="h-4 w-4 text-primary" />
-                        <span>Tirar foto</span>
+                        <Camera className="h-5 w-5 text-primary" />
                       </button>
 
-                      {/* Galeria fotos */}
                       <button
                         onClick={() => galleryPhotoRef.current?.click()}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-popover-foreground transition-colors hover:bg-accent"
+                        className="flex h-10 w-10 items-center justify-center rounded-full text-popover-foreground transition-colors hover:bg-accent"
+                        title="Foto da galeria"
                       >
-                        <ImagePlus className="h-4 w-4 text-primary" />
-                        <span>Foto da galeria</span>
+                        <ImagePlus className="h-5 w-5 text-primary" />
                       </button>
 
-                      <div className="my-1 h-px bg-border" />
-
-                      {/* Gravar vídeo direto */}
-                      <button
-                        onClick={() => { setAttachMenuOpen(false); startVideoRecording(); }}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-popover-foreground transition-colors hover:bg-accent"
-                      >
-                        <Video className="h-4 w-4 text-primary" />
-                        <span>Gravar vídeo (máx {MAX_VIDEO_DURATION}s)</span>
-                      </button>
-
-                      {/* Vídeo da câmera */}
                       <button
                         onClick={() => cameraVideoRef.current?.click()}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-popover-foreground transition-colors hover:bg-accent"
+                        className="flex h-10 w-10 items-center justify-center rounded-full text-popover-foreground transition-colors hover:bg-accent"
+                        title="Filmar com câmera"
                       >
-                        <Video className="h-4 w-4 text-primary/50" />
-                        <span>Filmar com câmera</span>
+                        <Video className="h-5 w-5 text-primary" />
                       </button>
 
-                      {/* Vídeo de arquivo */}
                       <button
                         onClick={() => videoFileRef.current?.click()}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-popover-foreground transition-colors hover:bg-accent"
+                        className="flex h-10 w-10 items-center justify-center rounded-full text-popover-foreground transition-colors hover:bg-accent"
+                        title="Escolher vídeo"
                       >
-                        <Video className="h-4 w-4 text-primary/30" />
-                        <span>Escolher vídeo</span>
+                        <Video className="h-5 w-5 text-primary/40" />
                       </button>
 
-                      <div className="my-1 h-px bg-border" />
-
-                      {/* Gravar áudio direto */}
                       <button
                         onClick={() => { if (!isRecordingAudio) startAudioRecording(); }}
                         disabled={isRecordingAudio}
-                        className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-accent ${isRecordingAudio ? "text-muted-foreground cursor-not-allowed" : "text-popover-foreground"}`}
+                        className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-accent ${isRecordingAudio ? "text-muted-foreground cursor-not-allowed" : "text-popover-foreground"}`}
+                        title="Gravar áudio"
                       >
-                        <Mic className={`h-4 w-4 ${isRecordingAudio ? "" : "text-primary"}`} />
-                        <span>Gravar áudio (máx {MAX_AUDIO_DURATION}s)</span>
+                        <Mic className={`h-5 w-5 ${isRecordingAudio ? "" : "text-primary"}`} />
                       </button>
 
-                      {/* Áudio de arquivo */}
                       <button
                         onClick={() => audioFileRef.current?.click()}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-popover-foreground transition-colors hover:bg-accent"
+                        className="flex h-10 w-10 items-center justify-center rounded-full text-popover-foreground transition-colors hover:bg-accent"
+                        title="Escolher áudio"
                       >
-                        <Music className="h-4 w-4 text-primary/50" />
-                        <span>Escolher áudio</span>
+                        <Music className="h-5 w-5 text-primary/40" />
                       </button>
                     </div>
                   )}
