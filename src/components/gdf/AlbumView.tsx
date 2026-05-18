@@ -29,7 +29,7 @@ const MAX_VIDEOS = 5;
 const MAX_VIDEO_DURATION = 30; // segundos
 const MAX_AUDIO_SIZE = 10 * 1024 * 1024; // 10MB
 
-export function AlbumView() {
+export function AlbumView({ embedded }: { embedded?: boolean }) {
   const { profile, setProfileSubView } = useStore();
 
   const [photos, setPhotos] = useState<any[]>([]);
@@ -296,12 +296,14 @@ export function AlbumView() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => setProfileSubView("profile")}
-          className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
+        {!embedded && (
+          <button
+            onClick={() => setProfileSubView("profile")}
+            className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        )}
         <h2 className="text-lg font-bold">Álbum</h2>
         <Badge variant="secondary" className="text-[10px]">
           {photos.length} foto{photos.length !== 1 ? "s" : ""} · {videos.length} vídeo{videos.length !== 1 ? "s" : ""}
