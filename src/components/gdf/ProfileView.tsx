@@ -8,11 +8,70 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, LogOut, Edit3, Camera, Settings, Lock, Bell } from "lucide-react";
+import {
+  MapPin,
+  LogOut,
+  Edit3,
+  Camera,
+  Settings,
+  Lock,
+  Loader2,
+  Bold,
+  Italic,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  ChevronDown,
+  Type,
+} from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo, BAIRROS } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+
+// ═══════════════════════════════════════════════════════════
+// Post-it colors (mesmas do FeedView)
+// ═══════════════════════════════════════════════════════════
+const POST_IT_COLORS = [
+  { bg: "#fef9c3", text: "#5c4f1e", border: "#fde68a", label: "Amarelo" },
+  { bg: "#fecdd3", text: "#7c2d35", border: "#fda4af", label: "Rosa" },
+  { bg: "#bae6fd", text: "#1e5070", border: "#7dd3fc", label: "Azul" },
+  { bg: "#bbf7d0", text: "#2d5a3a", border: "#86efac", label: "Verde" },
+  { bg: "#fed7aa", text: "#6b3a15", border: "#fdba74", label: "Laranja" },
+  { bg: "#ddd6fe", text: "#4a3580", border: "#c4b5fd", label: "Roxo" },
+  { bg: "#fecaca", text: "#6b2020", border: "#fca5a5", label: "Coral" },
+  { bg: "#a7f3d0", text: "#1a5a3a", border: "#6ee7b7", label: "Menta" },
+  { bg: "#c4b5fd", text: "#3b2d70", border: "#a78bfa", label: "Lavanda" },
+  { bg: "#fde68a", text: "#6b4e10", border: "#fbbf24", label: "Pêssego" },
+] as const;
+
+// ═══════════════════════════════════════════════════════════
+// Fontes disponíveis
+// ═══════════════════════════════════════════════════════════
+const FONTS = [
+  { name: "Nunito", value: "Nunito" },
+  { name: "Quicksand", value: "Quicksand" },
+  { name: "Poppins", value: "Poppins" },
+  { name: "Inter", value: "Inter" },
+  { name: "Comfortaa", value: "Comfortaa" },
+  { name: "Montserrat", value: "Montserrat" },
+  { name: "Lato", value: "Lato" },
+  { name: "Raleway", value: "Raleway" },
+  { name: "DM Sans", value: "DM Sans" },
+  { name: "Work Sans", value: "Work Sans" },
+] as const;
+
+// ═══════════════════════════════════════════════════════════
+// Interface do estilo do post
+// ═══════════════════════════════════════════════════════════
+interface PostStyle {
+  font?: string | null;
+  bold?: boolean;
+  italic?: boolean;
+  alignment?: "left" | "center" | "right" | "justify";
+  postItColor?: number | null;
+}
 
 export function ProfileView() {
   const { profile, logout, updateProfile, setProfileSubView, unreadNotifications } = useStore();
@@ -27,6 +86,42 @@ export function ProfileView() {
   const [uploading, setUploading] = useState(false);
   const [myPosts, setMyPosts] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ═══════ Composer state ═══════
+  const [content, setContent] = useState("");
+  const [postStyle, setPostStyle] = useState<PostStyle>({
+    font: null,
+    bold: false,
+    italic: false,
+    alignment: "left",
+    postItColor: 0,
+  });
+  const [publishing, setPublishing] = useState(false);
+  const [fontMenuOpen, setFontMenuOpen] = useState(false);
+  const fontMenuRef = useRef<HTMLDivElement>(null);
+
+  // Carregar Google Fonts
+  useEffect(() => {
+    const fontsParam = FONTS.map(
+      (f) => `family=${f.value.replace(/ /g, "+")}:wght@400;700`
+    ).join("&");
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = `https://fonts.googleapis.com/css2?${fontsParam}&display=swap`;
+    document.head.appendChild(link);
+  }, []);
+
+  // Fechar menu de fontes ao clicar fora
+  useEffect(() => {
+    if (!fontMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (fontMenuRef.current && !fontMenuRef.current.contains(e.target as Node)) {
+        setFontMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [fontMenuOpen]);
 
   useEffect(() => {
     if (!profile) return;
@@ -50,13 +145,18 @@ export function ProfileView() {
       })
       .catch(() => {});
 
+    fetchMyPosts();
+  }, [profile]);
+
+  const fetchMyPosts = () => {
+    if (!profile) return;
     fetch(`/api/users/${profile.id}/posts`)
       .then((r) => r.json())
       .then((data) => {
         if (data.posts) setMyPosts(data.posts);
       })
       .catch(() => {});
-  }, [profile]);
+  };
 
   const handleSave = async () => {
     if (!profile) return;
@@ -116,9 +216,53 @@ export function ProfileView() {
     }
   };
 
+  // ═══════ Publicar post com estilo ═══════
+  const handlePublish = async () => {
+    if (!profile || !content.trim()) return;
+    setPublishing(true);
+    try {
+      const styleToSend: PostStyle = { ...postStyle };
+      // Remover valores default para economizar espaço
+      if (!styleToSend.font) delete styleToSend.font;
+      if (!styleToSend.bold) delete styleToSend.bold;
+      if (!styleToSend.italic) delete styleToSend.italic;
+      if (styleToSend.alignment === "left") delete styleToSend.alignment;
+      if (styleToSend.postItColor === null || styleToSend.postItColor === undefined) delete styleToSend.postItColor;
+
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: content.trim(),
+          neighborhood: profile.neighborhood,
+          imageUrls: [],
+          videoUrl: null,
+          audioUrl: null,
+          visibility: "public",
+          postStyle: styleToSend,
+        }),
+      });
+      const data = await res.json();
+      if (data.post) {
+        setContent("");
+        setPostStyle({ font: null, bold: false, italic: false, alignment: "left", postItColor: 0 });
+        toast.success("Post publicado!");
+        fetchMyPosts();
+      } else if (data.error) {
+        toast.error(data.error);
+      }
+    } catch {
+      toast.error("Erro ao publicar");
+    }
+    setPublishing(false);
+  };
+
   if (loading) return <div className="space-y-4">{[1,2].map(i=><div key={i} className="h-24 rounded-xl bg-[#01386A]/[0.04] animate-pulse"/>)}</div>;
 
   const isPrivate = profile?.is_private || false;
+
+  // Cor do post-it selecionada
+  const selectedColor = POST_IT_COLORS[postStyle.postItColor ?? 0];
 
   return (
     <div className="space-y-6">
@@ -186,6 +330,145 @@ export function ProfileView() {
         </CardContent>
       </Card>
 
+      {/* ═══════ CAIXINHA DE POSTAR COM EDITOR ═══════ */}
+      <div className="rounded-3xl bg-[#eef1f3] p-5 shadow-lg border border-[#0A4D5C]/8">
+        <div className="flex items-start gap-3.5">
+          <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-12 w-12 shrink-0" />
+          <div className="flex-1 space-y-2.5">
+            {/* Textarea com estilo visual */}
+            <div
+              className="rounded-2xl border border-[#0A4D5C]/10 overflow-hidden transition-all"
+              style={{ backgroundColor: selectedColor.bg }}
+            >
+              <textarea
+                placeholder="Escreva algo bonito..."
+                value={content}
+                onChange={(e) => setContent(e.target.value.slice(0, 500))}
+                className="w-full min-h-[80px] resize-none border-0 bg-transparent p-3 text-sm focus:outline-none placeholder:opacity-40"
+                style={{
+                  color: selectedColor.text,
+                  fontFamily: postStyle.font ? `'${postStyle.font}', sans-serif` : undefined,
+                  fontWeight: postStyle.bold ? 700 : 400,
+                  fontStyle: postStyle.italic ? "italic" : "normal",
+                  textAlign: postStyle.alignment || "left",
+                }}
+                rows={3}
+              />
+            </div>
+
+            {/* ═══════ TOOLBAR DO EDITOR ═══════ */}
+            <div className="space-y-2">
+              {/* Linha 1: Bold, Italic, Alinhamento, Fonte */}
+              <div className="flex items-center gap-1 flex-wrap">
+                {/* Bold */}
+                <button
+                  onClick={() => setPostStyle((s) => ({ ...s, bold: !s.bold }))}
+                  className={`flex items-center justify-center rounded-lg h-8 w-8 text-xs transition-colors ${postStyle.bold ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                  title="Negrito"
+                >
+                  <Bold className="h-3.5 w-3.5" />
+                </button>
+
+                {/* Italic */}
+                <button
+                  onClick={() => setPostStyle((s) => ({ ...s, italic: !s.italic }))}
+                  className={`flex items-center justify-center rounded-lg h-8 w-8 text-xs transition-colors ${postStyle.italic ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                  title="Itálico"
+                >
+                  <Italic className="h-3.5 w-3.5" />
+                </button>
+
+                <div className="w-px h-5 bg-[#0A4D5C]/10 mx-0.5" />
+
+                {/* Alinhamento */}
+                {([
+                  { align: "left" as const, Icon: AlignLeft, label: "Esquerda" },
+                  { align: "center" as const, Icon: AlignCenter, label: "Centro" },
+                  { align: "right" as const, Icon: AlignRight, label: "Direita" },
+                  { align: "justify" as const, Icon: AlignJustify, label: "Justificar" },
+                ]).map(({ align, Icon, label }) => (
+                  <button
+                    key={align}
+                    onClick={() => setPostStyle((s) => ({ ...s, alignment: align }))}
+                    className={`flex items-center justify-center rounded-lg h-8 w-8 transition-colors ${postStyle.alignment === align ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                    title={label}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                  </button>
+                ))}
+
+                <div className="w-px h-5 bg-[#0A4D5C]/10 mx-0.5" />
+
+                {/* Seletor de fonte */}
+                <div className="relative" ref={fontMenuRef}>
+                  <button
+                    onClick={() => setFontMenuOpen(!fontMenuOpen)}
+                    className={`flex items-center gap-1 rounded-lg h-8 px-2.5 text-xs font-medium transition-colors ${fontMenuOpen ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                  >
+                    <Type className="h-3.5 w-3.5" />
+                    <span className="max-w-[60px] truncate">{postStyle.font || "Fonte"}</span>
+                    <ChevronDown className={`h-3 w-3 transition-transform ${fontMenuOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {fontMenuOpen && (
+                    <div className="absolute left-0 top-full mt-1 z-50 w-44 rounded-xl bg-[#f7f9fa] p-1.5 shadow-lg border border-[#0A4D5C]/10 animate-in fade-in-0 zoom-in-95 max-h-[240px] overflow-y-auto">
+                      <button
+                        onClick={() => { setPostStyle((s) => ({ ...s, font: null })); setFontMenuOpen(false); }}
+                        className={`w-full text-left rounded-lg px-3 py-2 text-xs transition-colors ${!postStyle.font ? "bg-[#0A4D5C] text-[#f7f9fa]" : "text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                      >
+                        Padrão
+                      </button>
+                      {FONTS.map((f) => (
+                        <button
+                          key={f.value}
+                          onClick={() => { setPostStyle((s) => ({ ...s, font: f.value })); setFontMenuOpen(false); }}
+                          className={`w-full text-left rounded-lg px-3 py-2 text-xs transition-colors ${postStyle.font === f.value ? "bg-[#0A4D5C] text-[#f7f9fa]" : "text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                          style={{ fontFamily: `'${f.value}', sans-serif` }}
+                        >
+                          {f.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Linha 2: Cores do post-it */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-[#0A4D5C]/40 mr-0.5">Cor:</span>
+                {POST_IT_COLORS.map((color, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPostStyle((s) => ({ ...s, postItColor: i }))}
+                    className={`h-6 w-6 rounded-full border-2 transition-all hover:scale-110 ${postStyle.postItColor === i ? "border-[#0A4D5C] scale-110 shadow-md" : "border-transparent"}`}
+                    style={{ backgroundColor: color.bg }}
+                    title={color.label}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* ═══════ Contagem e botão publicar ═══════ */}
+            <div className="flex items-center justify-between pt-1">
+              {content.trim().length > 0 && (
+                <span className={`text-[10px] ${content.length > 450 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>
+                  {content.length}/500
+                </span>
+              )}
+              {content.trim().length === 0 && <span />}
+
+              <button
+                disabled={!content.trim() || publishing}
+                onClick={handlePublish}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] shadow-md hover:bg-[#25b0a3] active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
+                title="Publicar"
+              >
+                {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="text-base">💬</span>}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Configurações */}
       <Card className="cursor-pointer hover:bg-[#f7f75e]/10 transition-colors border-[#01386A]/8" onClick={() => setProfileSubView("settings")}>
         <CardContent className="pt-6">
@@ -214,15 +497,41 @@ export function ProfileView() {
         <div>
           <h3 className="mb-3 text-sm font-semibold text-[#000305]">Meus posts</h3>
           <div className="space-y-2">
-            {myPosts.map((post: any) => (
-              <div key={post.id} className="rounded-lg border border-[#01386A]/8 bg-[#f7f9fa] p-3">
-                <p className="text-sm text-[#000305]">{post.content}</p>
-                <div className="mt-1 flex items-center gap-2 text-[10px] text-[#01386A]/40">
-                  <span>{timeAgo(post.created_at)}</span>
-                  {post.neighborhood && <span>· {post.neighborhood}</span>}
+            {myPosts.map((post: any) => {
+              const postStyleData: PostStyle | null = post.post_style;
+              const hasStyle = postStyleData && Object.keys(postStyleData).length > 0;
+              const isTextOnly = !post.image_urls?.length && !post.video_url && !post.audio_url;
+              const colorIdx = postStyleData?.postItColor ?? 0;
+              const postItColor = isTextOnly ? POST_IT_COLORS[colorIdx >= 0 && colorIdx < POST_IT_COLORS.length ? colorIdx : 0] : POST_IT_COLORS[0];
+
+              return (
+                <div
+                  key={post.id}
+                  className="rounded-lg p-3 transition-shadow hover:shadow-sm"
+                  style={{
+                    backgroundColor: isTextOnly ? postItColor.bg : "#f7f9fa",
+                    border: isTextOnly ? `1px solid ${postItColor.border}` : "1px solid rgba(10,77,92,0.08)",
+                    color: isTextOnly ? postItColor.text : "#000305",
+                  }}
+                >
+                  <p
+                    className="text-sm whitespace-pre-wrap"
+                    style={{
+                      fontFamily: postStyleData?.font ? `'${postStyleData.font}', sans-serif` : isTextOnly ? "serif" : undefined,
+                      fontWeight: postStyleData?.bold ? 700 : undefined,
+                      fontStyle: postStyleData?.italic ? "italic" : undefined,
+                      textAlign: postStyleData?.alignment || undefined,
+                    }}
+                  >
+                    {post.content}
+                  </p>
+                  <div className="mt-1 flex items-center gap-2" style={{ color: isTextOnly ? `${postItColor.text}80` : "rgba(1,56,106,0.4)" }}>
+                    <span className="text-[10px]">{timeAgo(post.created_at)}</span>
+                    {post.neighborhood && <span className="text-[10px]">· {post.neighborhood}</span>}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
