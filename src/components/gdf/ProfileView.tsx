@@ -38,6 +38,7 @@ import {
   MessageCircle,
   Maximize2,
   Minimize2,
+  Loader2,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo, BAIRROS } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
