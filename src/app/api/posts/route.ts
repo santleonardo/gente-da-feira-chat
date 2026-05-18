@@ -7,6 +7,7 @@
 // - Compartilhamento: shared_post_id referencia um post original
 // - Máx 5 posts com mídia expirável ativos por usuário
 // - Limpeza automática de posts expirados
+// - Suporte a post_style (fonte, bold, itálico, alinhamento, cor do post-it)
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server";
@@ -154,13 +155,30 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-    const { content, neighborhood, imageUrls, videoUrl, audioUrl, audioDuration, videoDuration, visibility, sharedPostId } = await req.json();
+    const { content, neighborhood, imageUrls, videoUrl, audioUrl, audioDuration, videoDuration, visibility, sharedPostId, postStyle } = await req.json();
 
     if (!content || !content.trim()) {
       return NextResponse.json({ error: "Conteúdo é obrigatório" }, { status: 400 });
     }
     if (content.trim().length > 500) {
       return NextResponse.json({ error: "Post muito longo (máx 500 chars)" }, { status: 400 });
+    }
+
+    // Validate postStyle if provided
+    const validFonts = ["Nunito", "Quicksand", "Poppins", "Inter", "Comfortaa", "Montserrat", "Lato", "Raleway", "DM Sans", "Work Sans"];
+    const validAlignments = ["left", "center", "right", "justify"];
+    let validatedStyle: any = null;
+    if (postStyle && typeof postStyle === "object") {
+      validatedStyle = {
+        font: validFonts.includes(postStyle.font) ? postStyle.font : null,
+        bold: typeof postStyle.bold === "boolean" ? postStyle.bold : false,
+        italic: typeof postStyle.italic === "boolean" ? postStyle.italic : false,
+        alignment: validAlignments.includes(postStyle.alignment) ? postStyle.alignment : "left",
+        postItColor: typeof postStyle.postItColor === "number" && postStyle.postItColor >= 0 && postStyle.postItColor <= 9 ? postStyle.postItColor : null,
+      };
+      // Remove null font to keep it clean
+      if (!validatedStyle.font) delete validatedStyle.font;
+      if (validatedStyle.postItColor === null) delete validatedStyle.postItColor;
     }
 
     // Validate visibility
@@ -261,6 +279,7 @@ export async function POST(req: NextRequest) {
       visibility: validVisibility,
       expires_at: expiresAt,
       shared_post_id: validSharedPostId,
+      post_style: validatedStyle,
     };
 
     const { data: post, error } = await supabase
