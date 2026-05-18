@@ -58,6 +58,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const isPrivate = profile.is_private || false;
     const hideFollowing = profile.hide_following || false;
     const hideFollowers = profile.hide_followers || false;
+    const hideNeighborhood = profile.hide_neighborhood || false;
     const approveFollowers = profile.approve_followers || false;
     const isRestricted = isPrivate && !isOwnProfile && !isFollowing;
 
@@ -72,6 +73,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       is_private: isPrivate,
       hide_following: hideFollowing,
       hide_followers: hideFollowers,
+      hide_neighborhood: hideNeighborhood,
       approve_followers: approveFollowers,
       isRestricted,
       isPending,
@@ -133,6 +135,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     if (data.hide_followers !== undefined) {
       updates.hide_followers = Boolean(data.hide_followers);
+    }
+
+    if (data.hide_neighborhood !== undefined) {
+      updates.hide_neighborhood = Boolean(data.hide_neighborhood);
     }
 
     if (data.approve_followers !== undefined) {
