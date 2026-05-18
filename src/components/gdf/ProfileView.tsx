@@ -136,8 +136,8 @@ function sanitizeHTML(html: string): string {
 // ═══════════════════════════════════════════════════════════
 function parseInlineFormatting(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Match ***bold+italic***, **bold**, _italic_ (order matters: triple first)
-  const regex = /(\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|_(.+?)_)/g;
+  // Match URLs, ***bold+italic***, **bold**, _italic_ (URLs first, then formatting)
+  const regex = /(https?:\/\/[^\s<>"')\]]+|\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|_(.+?)_)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -146,7 +146,15 @@ function parseInlineFormatting(text: string): React.ReactNode[] {
     if (match.index > lastIndex) {
       parts.push(<Fragment key={`t${key++}`}>{text.slice(lastIndex, match.index)}</Fragment>);
     }
-    if (match[2]) {
+    const matchedText = match[0];
+    if (matchedText.startsWith('http')) {
+      // URL — render as clickable link
+      parts.push(
+        <a key={`url${key++}`} href={matchedText} target="_blank" rel="noopener noreferrer" className="text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors" onClick={(e) => e.stopPropagation()}>
+          {matchedText}
+        </a>
+      );
+    } else if (match[2]) {
       // ***bold+italic***
       parts.push(<strong key={`bi${key++}`}><em>{match[2]}</em></strong>);
     } else if (match[3]) {
