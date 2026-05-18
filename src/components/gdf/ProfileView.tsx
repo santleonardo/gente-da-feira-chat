@@ -24,26 +24,45 @@ import {
   AlignJustify,
   ChevronDown,
   Type,
+  Plus,
+  ImagePlus,
+  Video,
+  Mic,
+  Music,
+  X,
+  Globe,
+  Users as UsersIcon,
+  Play,
+  Pause,
+  Send,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo, BAIRROS } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import {
+  compressImage,
+  validateImageFile,
+  createPreviewUrl,
+  revokePreviewUrl,
+} from "@/lib/image-compression";
 
 // ═══════════════════════════════════════════════════════════
-// Post-it colors (mesmas do FeedView)
+// Post-it colors — SUAVES (pastel bem leve)
 // ═══════════════════════════════════════════════════════════
 const POST_IT_COLORS = [
-  { bg: "#fef9c3", text: "#5c4f1e", border: "#fde68a", label: "Amarelo" },
-  { bg: "#fecdd3", text: "#7c2d35", border: "#fda4af", label: "Rosa" },
-  { bg: "#bae6fd", text: "#1e5070", border: "#7dd3fc", label: "Azul" },
-  { bg: "#bbf7d0", text: "#2d5a3a", border: "#86efac", label: "Verde" },
-  { bg: "#fed7aa", text: "#6b3a15", border: "#fdba74", label: "Laranja" },
-  { bg: "#ddd6fe", text: "#4a3580", border: "#c4b5fd", label: "Roxo" },
-  { bg: "#fecaca", text: "#6b2020", border: "#fca5a5", label: "Coral" },
-  { bg: "#a7f3d0", text: "#1a5a3a", border: "#6ee7b7", label: "Menta" },
-  { bg: "#c4b5fd", text: "#3b2d70", border: "#a78bfa", label: "Lavanda" },
-  { bg: "#fde68a", text: "#6b4e10", border: "#fbbf24", label: "Pêssego" },
+  { bg: "#fffdf5", text: "#7a6c30", border: "#fef3c7", label: "Amarelo" },
+  { bg: "#fff5f6", text: "#8c3d45", border: "#fce7eb", label: "Rosa" },
+  { bg: "#f2f9ff", text: "#3a6d8c", border: "#dbeefe", label: "Azul" },
+  { bg: "#f2faf5", text: "#3a6b4a", border: "#d1f5df", label: "Verde" },
+  { bg: "#fff8f2", text: "#8c5a2a", border: "#fee8d1", label: "Laranja" },
+  { bg: "#f8f5ff", text: "#5e4a8c", border: "#e8e0fe", label: "Roxo" },
+  { bg: "#fff5f5", text: "#8c3a3a", border: "#fed7d7", label: "Coral" },
+  { bg: "#f0faf5", text: "#2a6b4a", border: "#c6f5e0", label: "Menta" },
+  { bg: "#f5f2ff", text: "#4a3d7a", border: "#ddd6fe", label: "Lavanda" },
+  { bg: "#fffbf0", text: "#7a5c20", border: "#fde68a", label: "Pêssego" },
+  { bg: "#ffffff", text: "#3a3a3a", border: "#e5e7eb", label: "Branco" },
+  { bg: "#f5f5f5", text: "#4a4a4a", border: "#d4d4d4", label: "Cinza" },
 ] as const;
 
 // ═══════════════════════════════════════════════════════════
@@ -62,6 +81,10 @@ const FONTS = [
   { name: "Work Sans", value: "Work Sans" },
 ] as const;
 
+const MAX_PHOTOS_PER_POST = 5;
+const MAX_VIDEO_DURATION = 30;
+const MAX_AUDIO_DURATION = 60;
+
 // ═══════════════════════════════════════════════════════════
 // Interface do estilo do post
 // ═══════════════════════════════════════════════════════════
@@ -71,6 +94,12 @@ interface PostStyle {
   italic?: boolean;
   alignment?: "left" | "center" | "right" | "justify";
   postItColor?: number | null;
+}
+
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 export function ProfileView() {
@@ -85,7 +114,7 @@ export function ProfileView() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [myPosts, setMyPosts] = useState<any[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   // ═══════ Composer state ═══════
   const [content, setContent] = useState("");
@@ -100,6 +129,45 @@ export function ProfileView() {
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
   const fontMenuRef = useRef<HTMLDivElement>(null);
 
+  // Media state
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [videoDuration, setVideoDuration] = useState<number>(0);
+  const [selectedAudio, setSelectedAudio] = useState<File | null>(null);
+  const [audioPreview, setAudioPreview] = useState<string | null>(null);
+  const [audioDuration, setAudioDuration] = useState<number>(0);
+  const [visibility, setVisibility] = useState<"public" | "followers">("public");
+  const [mediaMenuOpen, setMediaMenuOpen] = useState(false);
+  const mediaMenuRef = useRef<HTMLDivElement>(null);
+
+  // Audio recording
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [isPausedRecording, setIsPausedRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  // Input refs
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const cameraPhotoRef = useRef<HTMLInputElement>(null);
+  const cameraVideoRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+
+  // Derived
+  const hasPhotosInComposer = selectedFiles.length > 0;
+  const hasVideoInComposer = !!selectedVideo;
+  const hasAudioInComposer = !!selectedAudio;
+  const hasMediaInComposer = hasPhotosInComposer || hasVideoInComposer || hasAudioInComposer;
+  const canPost = !!profile && (content.trim().length > 0 || hasMediaInComposer);
+  const canAddPhotos = !hasVideoInComposer && !hasAudioInComposer && selectedFiles.length < MAX_PHOTOS_PER_POST;
+  const canAddVideo = !hasPhotosInComposer && !hasAudioInComposer && !hasVideoInComposer;
+  const canAddAudio = !hasPhotosInComposer && !hasVideoInComposer && !hasAudioInComposer;
+
   // Carregar Google Fonts
   useEffect(() => {
     const fontsParam = FONTS.map(
@@ -111,26 +179,34 @@ export function ProfileView() {
     document.head.appendChild(link);
   }, []);
 
-  // Fechar menu de fontes ao clicar fora
+  // Fechar menus ao clicar fora
   useEffect(() => {
-    if (!fontMenuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (fontMenuRef.current && !fontMenuRef.current.contains(e.target as Node)) {
+      if (fontMenuOpen && fontMenuRef.current && !fontMenuRef.current.contains(e.target as Node)) {
         setFontMenuOpen(false);
+      }
+      if (mediaMenuOpen && mediaMenuRef.current && !mediaMenuRef.current.contains(e.target as Node)) {
+        setMediaMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [fontMenuOpen]);
+  }, [fontMenuOpen, mediaMenuOpen]);
+
+  // Cleanup recording on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (mediaStreamRef.current) mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
 
   useEffect(() => {
     if (!profile) return;
     fetch(`/api/users/${profile.id}`)
       .then((r) => r.json())
       .then((data) => {
-        if (data.user) {
-          setPostCount(data.user._count?.posts || 0);
-        }
+        if (data.user) setPostCount(data.user._count?.posts || 0);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -158,34 +234,206 @@ export function ProfileView() {
       .catch(() => {});
   };
 
+  // ═══════ Media handlers ═══════
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const remaining = MAX_PHOTOS_PER_POST - selectedFiles.length;
+    const toAdd = files.slice(0, remaining);
+    for (const file of toAdd) {
+      const error = validateImageFile(file);
+      if (error) { toast.error(error); continue; }
+      setSelectedFiles((prev) => [...prev, file]);
+      setPreviewUrls((prev) => [...prev, createPreviewUrl(file)]);
+    }
+    if (photoInputRef.current) photoInputRef.current.value = "";
+    setMediaMenuOpen(false);
+  };
+
+  const handleCameraPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const error = validateImageFile(file);
+    if (error) { toast.error(error); return; }
+    setSelectedFiles((prev) => [...prev, file]);
+    setPreviewUrls((prev) => [...prev, createPreviewUrl(file)]);
+    if (cameraPhotoRef.current) cameraPhotoRef.current.value = "";
+    setMediaMenuOpen(false);
+  };
+
+  const removePhoto = (index: number) => {
+    revokePreviewUrl(previewUrls[index]);
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) { toast.error("Vídeo muito grande (máx 50MB)"); return; }
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      if (video.duration > MAX_VIDEO_DURATION) { toast.error(`Vídeo muito longo (máx ${MAX_VIDEO_DURATION}s)`); URL.revokeObjectURL(video.src); return; }
+      setVideoDuration(video.duration);
+      setSelectedVideo(file);
+      setVideoPreview(URL.createObjectURL(file));
+      URL.revokeObjectURL(video.src);
+    };
+    video.src = URL.createObjectURL(file);
+    setMediaMenuOpen(false);
+  };
+
+  const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { toast.error("Áudio muito grande (máx 10MB)"); return; }
+    const audio = document.createElement("audio");
+    audio.preload = "metadata";
+    audio.onloadedmetadata = () => {
+      if (audio.duration > MAX_AUDIO_DURATION) { toast.error(`Áudio muito longo (máx ${MAX_AUDIO_DURATION}s)`); URL.revokeObjectURL(audio.src); return; }
+      setAudioDuration(audio.duration);
+      setSelectedAudio(file);
+      setAudioPreview(URL.createObjectURL(file));
+      URL.revokeObjectURL(audio.src);
+    };
+    audio.src = URL.createObjectURL(file);
+    setMediaMenuOpen(false);
+  };
+
+  // ═══════ Audio recording ═══════
+  const startAudioRecording = async () => {
+    setMediaMenuOpen(false);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      let mimeType = "audio/webm";
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "audio/webm;codecs=opus";
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "audio/mp4";
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        const ext = mimeType.includes("mp4") ? "m4a" : "webm";
+        const file = new File([blob], `gravação.${ext}`, { type: mimeType });
+        const url = URL.createObjectURL(file);
+        const tempAudio = document.createElement("audio");
+        tempAudio.preload = "metadata";
+        tempAudio.onloadedmetadata = () => {
+          setAudioDuration(tempAudio.duration);
+          setSelectedAudio(file);
+          setAudioPreview(url);
+          URL.revokeObjectURL(tempAudio.src);
+        };
+        tempAudio.src = url;
+        if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach((t) => t.stop()); mediaStreamRef.current = null; }
+        mediaRecorderRef.current = null;
+        setIsRecordingAudio(false);
+        setIsPausedRecording(false);
+      };
+      mediaRecorder.start(1000);
+      setIsRecordingAudio(true);
+      setRecordingSeconds(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => { if (prev + 1 >= MAX_AUDIO_DURATION) { stopAudioRecording(); return MAX_AUDIO_DURATION; } return prev + 1; });
+      }, 1000);
+    } catch { toast.error("Não foi possível acessar o microfone."); }
+  };
+
+  const stopAudioRecording = () => {
+    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") mediaRecorderRef.current.stop();
+  };
+
+  const cancelAudioRecording = () => {
+    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") { mediaRecorderRef.current.onstop = null; mediaRecorderRef.current.stop(); }
+    if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach((t) => t.stop()); mediaStreamRef.current = null; }
+    mediaRecorderRef.current = null;
+    audioChunksRef.current = [];
+    setIsRecordingAudio(false);
+    setIsPausedRecording(false);
+    setRecordingSeconds(0);
+  };
+
+  const clearMedia = () => {
+    setSelectedFiles([]);
+    previewUrls.forEach(revokePreviewUrl);
+    setPreviewUrls([]);
+    setSelectedVideo(null);
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
+    setVideoPreview(null);
+    setVideoDuration(0);
+    setSelectedAudio(null);
+    if (audioPreview) URL.revokeObjectURL(audioPreview);
+    setAudioPreview(null);
+    setAudioDuration(0);
+    cancelAudioRecording();
+  };
+
+  // ═══════ Upload helpers ═══════
+  const uploadPhotos = async (): Promise<string[]> => {
+    const urls: string[] = [];
+    for (const file of selectedFiles) {
+      try {
+        const compressed = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.55, maxSizeKB: 150 });
+        const formData = new FormData();
+        formData.append("file", compressed, "photo.webp");
+        formData.append("folder", "posts");
+        const res = await fetch("/api/upload", { method: "POST", body: formData });
+        const data = await res.json();
+        if (data.url) urls.push(data.url);
+        else toast.error(data.error || "Erro ao enviar foto");
+      } catch { toast.error("Erro ao processar foto"); }
+    }
+    return urls;
+  };
+
+  const uploadVideo = async (file: File): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "posts");
+      const res = await fetch("/api/upload/video", { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.url) return data.url;
+      toast.error(data.error || "Erro ao enviar vídeo");
+      return null;
+    } catch { toast.error("Erro ao enviar vídeo"); return null; }
+  };
+
+  const uploadAudio = async (file: File): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "posts");
+      const res = await fetch("/api/upload/audio", { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.url) return data.url;
+      toast.error(data.error || "Erro ao enviar áudio");
+      return null;
+    } catch { toast.error("Erro ao enviar áudio"); return null; }
+  };
+
+  // ═══════ Profile handlers ═══════
   const handleSave = async () => {
     if (!profile) return;
     try {
       const res = await fetch(`/api/users/${profile.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim().slice(0, 50),
-          bio: bio.trim().slice(0, 300),
-          neighborhood,
-        }),
+        body: JSON.stringify({ name: name.trim().slice(0, 50), bio: bio.trim().slice(0, 300), neighborhood }),
       });
       const data = await res.json();
-      if (data.user) {
-        updateProfile(data.user);
-        setEditing(false);
-        toast.success("Perfil atualizado!");
-      }
+      if (data.user) { updateProfile(data.user); setEditing(false); toast.success("Perfil atualizado!"); }
     } catch { toast.error("Erro ao salvar"); }
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Imagem muito grande (máx 2MB)");
-      return;
-    }
+    if (file.size > 2 * 1024 * 1024) { toast.error("Imagem muito grande (máx 2MB)"); return; }
     setUploading(true);
     try {
       const formData = new FormData();
@@ -193,15 +441,9 @@ export function ProfileView() {
       formData.append("userId", profile.id);
       const res = await fetch("/api/users/avatar", { method: "POST", body: formData });
       const data = await res.json();
-      if (data.avatar_url) {
-        updateProfile({ avatar_url: data.avatar_url });
-        toast.success("Avatar atualizado!");
-      } else {
-        toast.error(data.error || "Erro ao enviar avatar");
-      }
-    } catch {
-      toast.error("Erro ao enviar avatar");
-    }
+      if (data.avatar_url) { updateProfile({ avatar_url: data.avatar_url }); toast.success("Avatar atualizado!"); }
+      else toast.error(data.error || "Erro ao enviar avatar");
+    } catch { toast.error("Erro ao enviar avatar"); }
     setUploading(false);
   };
 
@@ -211,18 +453,39 @@ export function ProfileView() {
       await supabase.removeAllChannels();
       await supabase.auth.signOut();
       logout();
-    } catch {
-      toast.error("Erro ao sair");
-    }
+    } catch { toast.error("Erro ao sair"); }
   };
 
-  // ═══════ Publicar post com estilo ═══════
+  // ═══════ Publicar post com estilo e mídia ═══════
   const handlePublish = async () => {
-    if (!profile || !content.trim()) return;
+    if (!profile) return;
+    if (!content.trim() && !hasMediaInComposer) return;
     setPublishing(true);
     try {
+      let imageUrls: string[] = [];
+      let videoUrl: string | null = null;
+      let audioUrl: string | null = null;
+
+      if (selectedFiles.length > 0) {
+        imageUrls = await uploadPhotos();
+        if (imageUrls.length === 0 && selectedFiles.length > 0) { toast.error("Falha ao enviar fotos."); setPublishing(false); return; }
+      }
+      if (selectedVideo) {
+        videoUrl = await uploadVideo(selectedVideo);
+        if (!videoUrl) { setPublishing(false); return; }
+      }
+      if (selectedAudio) {
+        audioUrl = await uploadAudio(selectedAudio);
+        if (!audioUrl) { setPublishing(false); return; }
+      }
+
+      const postContent = content.trim() || (
+        selectedFiles.length > 0 ? "📷" :
+        selectedVideo ? "🎥" :
+        selectedAudio ? "🎙️" : ""
+      );
+
       const styleToSend: PostStyle = { ...postStyle };
-      // Remover valores default para economizar espaço
       if (!styleToSend.font) delete styleToSend.font;
       if (!styleToSend.bold) delete styleToSend.bold;
       if (!styleToSend.italic) delete styleToSend.italic;
@@ -233,12 +496,14 @@ export function ProfileView() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: content.trim(),
+          content: postContent,
           neighborhood: profile.neighborhood,
-          imageUrls: [],
-          videoUrl: null,
-          audioUrl: null,
-          visibility: "public",
+          imageUrls,
+          videoUrl,
+          audioUrl,
+          audioDuration,
+          videoDuration,
+          visibility,
           postStyle: styleToSend,
         }),
       });
@@ -246,22 +511,19 @@ export function ProfileView() {
       if (data.post) {
         setContent("");
         setPostStyle({ font: null, bold: false, italic: false, alignment: "left", postItColor: 0 });
+        clearMedia();
         toast.success("Post publicado!");
         fetchMyPosts();
       } else if (data.error) {
         toast.error(data.error);
       }
-    } catch {
-      toast.error("Erro ao publicar");
-    }
+    } catch { toast.error("Erro ao publicar"); }
     setPublishing(false);
   };
 
   if (loading) return <div className="space-y-4">{[1,2].map(i=><div key={i} className="h-24 rounded-xl bg-[#01386A]/[0.04] animate-pulse"/>)}</div>;
 
   const isPrivate = profile?.is_private || false;
-
-  // Cor do post-it selecionada
   const selectedColor = POST_IT_COLORS[postStyle.postItColor ?? 0];
 
   return (
@@ -275,10 +537,10 @@ export function ProfileView() {
                   user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }}
                   className="h-16 w-16"
                 />
-                <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#f7f9fa] bg-[#01386A] text-[#f7f9fa] shadow-sm transition-colors hover:bg-[#01386A]/90">
+                <button onClick={() => avatarInputRef.current?.click()} disabled={uploading} className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#f7f9fa] bg-[#01386A] text-[#f7f9fa] shadow-sm transition-colors hover:bg-[#01386A]/90">
                   <Camera className="h-3.5 w-3.5" />
                 </button>
-                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleAvatarUpload} className="hidden" />
+                <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleAvatarUpload} className="hidden" />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
@@ -330,21 +592,21 @@ export function ProfileView() {
         </CardContent>
       </Card>
 
-      {/* ═══════ CAIXINHA DE POSTAR COM EDITOR ═══════ */}
-      <div className="rounded-3xl bg-[#eef1f3] p-5 shadow-lg border border-[#0A4D5C]/8">
-        <div className="flex items-start gap-3.5">
-          <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-12 w-12 shrink-0" />
-          <div className="flex-1 space-y-2.5">
-            {/* Textarea com estilo visual */}
+      {/* ═══════ CAIXINHA DE POSTAR COM EDITOR — MOBILE-FRIENDLY ═══════ */}
+      <div className="rounded-2xl bg-[#eef1f3] p-3 sm:p-4 shadow-lg border border-[#0A4D5C]/8">
+        <div className="flex items-start gap-2.5 sm:gap-3">
+          <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-10 w-10 sm:h-12 sm:w-12 shrink-0" />
+          <div className="flex-1 min-w-0 space-y-2">
+            {/* Textarea com visualização de estilo */}
             <div
-              className="rounded-2xl border border-[#0A4D5C]/10 overflow-hidden transition-all"
+              className="rounded-xl border border-[#0A4D5C]/8 overflow-hidden transition-all"
               style={{ backgroundColor: selectedColor.bg }}
             >
               <textarea
                 placeholder="Escreva algo bonito..."
                 value={content}
                 onChange={(e) => setContent(e.target.value.slice(0, 500))}
-                className="w-full min-h-[80px] resize-none border-0 bg-transparent p-3 text-sm focus:outline-none placeholder:opacity-40"
+                className="w-full min-h-[64px] resize-none border-0 bg-transparent p-2.5 text-sm focus:outline-none placeholder:opacity-40"
                 style={{
                   color: selectedColor.text,
                   fontFamily: postStyle.font ? `'${postStyle.font}', sans-serif` : undefined,
@@ -352,35 +614,78 @@ export function ProfileView() {
                   fontStyle: postStyle.italic ? "italic" : "normal",
                   textAlign: postStyle.alignment || "left",
                 }}
-                rows={3}
+                rows={2}
               />
             </div>
 
-            {/* ═══════ TOOLBAR DO EDITOR ═══════ */}
-            <div className="space-y-2">
+            {/* Photo previews */}
+            {hasPhotosInComposer && previewUrls.length > 0 && (
+              <div className="flex gap-1.5 flex-wrap">
+                {previewUrls.map((url, i) => (
+                  <div key={i} className="relative group">
+                    <img src={url} alt={`Preview ${i + 1}`} className="h-14 w-14 rounded-lg object-cover shadow-sm border border-[#f7f9fa]" />
+                    <button onClick={() => removePhoto(i)} className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa] opacity-0 group-hover:opacity-100 transition-opacity">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Video preview */}
+            {hasVideoInComposer && videoPreview && (
+              <div className="relative rounded-lg overflow-hidden">
+                <video src={videoPreview} className="w-full max-h-32 object-cover" playsInline muted />
+                <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded-full bg-[#f7f75e] px-1.5 py-0.5 text-[9px] font-semibold text-[#000305]">
+                  <Video className="h-2.5 w-2.5" /> {formatDuration(videoDuration)}
+                </div>
+                <button onClick={() => { setSelectedVideo(null); if (videoPreview) URL.revokeObjectURL(videoPreview); setVideoPreview(null); setVideoDuration(0); }} className="absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa]">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Audio preview */}
+            {hasAudioInComposer && audioPreview && (
+              <div className="relative rounded-lg bg-[#0A4D5C]/[0.06] p-2 border border-[#0A4D5C]/10">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa]">
+                    <Music className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[11px] font-medium text-[#000305]">Áudio</span>
+                    <span className="text-[9px] text-[#0A4D5C]/40 ml-1.5">{formatDuration(audioDuration)}</span>
+                  </div>
+                </div>
+                <audio src={audioPreview} controls className="mt-1.5 w-full h-7" />
+                <button onClick={() => { setSelectedAudio(null); if (audioPreview) URL.revokeObjectURL(audioPreview); setAudioPreview(null); setAudioDuration(0); }} className="absolute top-1.5 right-1.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa]">
+                  <X className="h-2 w-2" />
+                </button>
+              </div>
+            )}
+
+            {/* ═══════ TOOLBAR COMPACTA — 2 LINHAS ═══════ */}
+            <div className="space-y-1.5">
               {/* Linha 1: Bold, Italic, Alinhamento, Fonte */}
-              <div className="flex items-center gap-1 flex-wrap">
-                {/* Bold */}
+              <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-hide">
                 <button
                   onClick={() => setPostStyle((s) => ({ ...s, bold: !s.bold }))}
-                  className={`flex items-center justify-center rounded-lg h-8 w-8 text-xs transition-colors ${postStyle.bold ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                  className={`flex items-center justify-center rounded-md h-7 w-7 shrink-0 transition-colors ${postStyle.bold ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
                   title="Negrito"
                 >
-                  <Bold className="h-3.5 w-3.5" />
+                  <Bold className="h-3 w-3" />
                 </button>
 
-                {/* Italic */}
                 <button
                   onClick={() => setPostStyle((s) => ({ ...s, italic: !s.italic }))}
-                  className={`flex items-center justify-center rounded-lg h-8 w-8 text-xs transition-colors ${postStyle.italic ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                  className={`flex items-center justify-center rounded-md h-7 w-7 shrink-0 transition-colors ${postStyle.italic ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
                   title="Itálico"
                 >
-                  <Italic className="h-3.5 w-3.5" />
+                  <Italic className="h-3 w-3" />
                 </button>
 
-                <div className="w-px h-5 bg-[#0A4D5C]/10 mx-0.5" />
+                <div className="w-px h-4 bg-[#0A4D5C]/10 mx-0.5 shrink-0" />
 
-                {/* Alinhamento */}
                 {([
                   { align: "left" as const, Icon: AlignLeft, label: "Esquerda" },
                   { align: "center" as const, Icon: AlignCenter, label: "Centro" },
@@ -390,30 +695,30 @@ export function ProfileView() {
                   <button
                     key={align}
                     onClick={() => setPostStyle((s) => ({ ...s, alignment: align }))}
-                    className={`flex items-center justify-center rounded-lg h-8 w-8 transition-colors ${postStyle.alignment === align ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                    className={`flex items-center justify-center rounded-md h-7 w-7 shrink-0 transition-colors ${postStyle.alignment === align ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
                     title={label}
                   >
-                    <Icon className="h-3.5 w-3.5" />
+                    <Icon className="h-3 w-3" />
                   </button>
                 ))}
 
-                <div className="w-px h-5 bg-[#0A4D5C]/10 mx-0.5" />
+                <div className="w-px h-4 bg-[#0A4D5C]/10 mx-0.5 shrink-0" />
 
-                {/* Seletor de fonte */}
-                <div className="relative" ref={fontMenuRef}>
+                {/* Fonte dropdown */}
+                <div className="relative shrink-0" ref={fontMenuRef}>
                   <button
                     onClick={() => setFontMenuOpen(!fontMenuOpen)}
-                    className={`flex items-center gap-1 rounded-lg h-8 px-2.5 text-xs font-medium transition-colors ${fontMenuOpen ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                    className={`flex items-center gap-0.5 rounded-md h-7 px-1.5 text-[10px] font-medium transition-colors ${fontMenuOpen ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
                   >
-                    <Type className="h-3.5 w-3.5" />
-                    <span className="max-w-[60px] truncate">{postStyle.font || "Fonte"}</span>
-                    <ChevronDown className={`h-3 w-3 transition-transform ${fontMenuOpen ? "rotate-180" : ""}`} />
+                    <Type className="h-3 w-3" />
+                    <span className="max-w-[44px] truncate">{postStyle.font || "Fonte"}</span>
+                    <ChevronDown className={`h-2.5 w-2.5 transition-transform ${fontMenuOpen ? "rotate-180" : ""}`} />
                   </button>
                   {fontMenuOpen && (
-                    <div className="absolute left-0 top-full mt-1 z-50 w-44 rounded-xl bg-[#f7f9fa] p-1.5 shadow-lg border border-[#0A4D5C]/10 animate-in fade-in-0 zoom-in-95 max-h-[240px] overflow-y-auto">
+                    <div className="absolute left-0 top-full mt-1 z-50 w-36 rounded-xl bg-[#f7f9fa] p-1 shadow-lg border border-[#0A4D5C]/10 animate-in fade-in-0 zoom-in-95 max-h-[200px] overflow-y-auto">
                       <button
                         onClick={() => { setPostStyle((s) => ({ ...s, font: null })); setFontMenuOpen(false); }}
-                        className={`w-full text-left rounded-lg px-3 py-2 text-xs transition-colors ${!postStyle.font ? "bg-[#0A4D5C] text-[#f7f9fa]" : "text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                        className={`w-full text-left rounded-lg px-2.5 py-1.5 text-[11px] transition-colors ${!postStyle.font ? "bg-[#0A4D5C] text-[#f7f9fa]" : "text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
                       >
                         Padrão
                       </button>
@@ -421,7 +726,7 @@ export function ProfileView() {
                         <button
                           key={f.value}
                           onClick={() => { setPostStyle((s) => ({ ...s, font: f.value })); setFontMenuOpen(false); }}
-                          className={`w-full text-left rounded-lg px-3 py-2 text-xs transition-colors ${postStyle.font === f.value ? "bg-[#0A4D5C] text-[#f7f9fa]" : "text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                          className={`w-full text-left rounded-lg px-2.5 py-1.5 text-[11px] transition-colors ${postStyle.font === f.value ? "bg-[#0A4D5C] text-[#f7f9fa]" : "text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
                           style={{ fontFamily: `'${f.value}', sans-serif` }}
                         >
                           {f.name}
@@ -432,14 +737,13 @@ export function ProfileView() {
                 </div>
               </div>
 
-              {/* Linha 2: Cores do post-it */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-[#0A4D5C]/40 mr-0.5">Cor:</span>
+              {/* Linha 2: Cores do post-it (compacta, scroll horizontal) */}
+              <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
                 {POST_IT_COLORS.map((color, i) => (
                   <button
                     key={i}
                     onClick={() => setPostStyle((s) => ({ ...s, postItColor: i }))}
-                    className={`h-6 w-6 rounded-full border-2 transition-all hover:scale-110 ${postStyle.postItColor === i ? "border-[#0A4D5C] scale-110 shadow-md" : "border-transparent"}`}
+                    className={`h-5 w-5 rounded-full border-2 shrink-0 transition-all hover:scale-110 ${postStyle.postItColor === i ? "border-[#0A4D5C] scale-110 shadow-sm" : "border-[#0A4D5C]/10"}`}
                     style={{ backgroundColor: color.bg }}
                     title={color.label}
                   />
@@ -447,27 +751,105 @@ export function ProfileView() {
               </div>
             </div>
 
-            {/* ═══════ Contagem e botão publicar ═══════ */}
-            <div className="flex items-center justify-between pt-1">
-              {content.trim().length > 0 && (
-                <span className={`text-[10px] ${content.length > 450 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>
-                  {content.length}/500
-                </span>
-              )}
-              {content.trim().length === 0 && <span />}
+            {/* ═══════ BARRA INFERIOR: Menu mídias + Contagem + Publicar ═══════ */}
+            <div className="flex items-center justify-between gap-1.5">
+              {/* Menu de mídias */}
+              <div className="relative" ref={mediaMenuRef}>
+                <button
+                  onClick={() => setMediaMenuOpen(!mediaMenuOpen)}
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[10px] font-semibold transition-colors ${mediaMenuOpen ? "bg-[#f7f75e] text-[#0A4D5C]" : "bg-[#f7f75e] text-[#0A4D5C] hover:bg-[#f7f75e]/80"}`}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Mídia</span>
+                  <ChevronDown className={`h-2.5 w-2.5 transition-transform ${mediaMenuOpen ? "rotate-180" : ""}`} />
+                </button>
 
-              <button
-                disabled={!content.trim() || publishing}
-                onClick={handlePublish}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] shadow-md hover:bg-[#25b0a3] active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
-                title="Publicar"
-              >
-                {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="text-base">💬</span>}
-              </button>
+                {mediaMenuOpen && (
+                  <div className="absolute left-0 top-full mt-1 z-50 flex flex-col items-center gap-0.5 rounded-2xl bg-[#f7f9fa] p-1 shadow-lg border border-[#0A4D5C]/10 animate-in fade-in-0 zoom-in-95">
+                    <button onClick={() => { if (canAddPhotos) cameraPhotoRef.current?.click(); }} disabled={!canAddPhotos} title="Tirar foto" className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddPhotos ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}>
+                      <Camera className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => { if (canAddPhotos) photoInputRef.current?.click(); }} disabled={!canAddPhotos} title="Galeria" className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddPhotos ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}>
+                      <ImagePlus className="h-4 w-4" />
+                    </button>
+                    <div className="w-7 h-px bg-[#0A4D5C]/10" />
+                    <button onClick={() => { if (canAddVideo) cameraVideoRef.current?.click(); }} disabled={!canAddVideo} title="Gravar vídeo" className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddVideo ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}>
+                      <Video className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => { if (canAddVideo) videoInputRef.current?.click(); }} disabled={!canAddVideo} title="Escolher vídeo" className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddVideo ? "text-[#0A4D5C]/70 hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}>
+                      <Video className="h-4 w-4" />
+                    </button>
+                    <div className="w-7 h-px bg-[#0A4D5C]/10" />
+                    <button onClick={() => { if (canAddAudio && !isRecordingAudio) startAudioRecording(); }} disabled={!canAddAudio || isRecordingAudio} title="Gravar áudio" className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddAudio && !isRecordingAudio ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}>
+                      <Mic className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => { if (canAddAudio) audioInputRef.current?.click(); }} disabled={!canAddAudio} title="Escolher áudio" className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddAudio ? "text-[#0A4D5C]/70 hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}>
+                      <Music className="h-4 w-4" />
+                    </button>
+                    <div className="w-7 h-px bg-[#0A4D5C]/10" />
+                    <button onClick={() => setVisibility((v) => v === "public" ? "followers" : "public")} title={visibility === "public" ? "Público" : "Seguidores"} className="flex items-center justify-center rounded-full p-2 text-[#0A4D5C] transition-colors hover:bg-[#f7f75e]/30">
+                      {visibility === "public" ? <Globe className="h-4 w-4" /> : <UsersIcon className="h-4 w-4" />}
+                    </button>
+                  </div>
+                )}
+
+                {/* Hidden inputs */}
+                <input ref={cameraPhotoRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhoto} className="hidden" />
+                <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handlePhotoSelect} className="hidden" />
+                <input ref={cameraVideoRef} type="file" accept="video/*" capture="environment" onChange={handleVideoSelect} className="hidden" />
+                <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
+                <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
+              </div>
+
+              {/* Contagem + Publicar */}
+              <div className="flex items-center gap-1.5">
+                {content.trim().length > 0 && (
+                  <span className={`text-[9px] ${content.length > 450 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>
+                    {content.length}/500
+                  </span>
+                )}
+                <button
+                  disabled={!canPost || publishing}
+                  onClick={handlePublish}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] shadow-md hover:bg-[#25b0a3] active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
+                  title="Publicar"
+                >
+                  {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="text-sm">💬</span>}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Recording overlay */}
+      {isRecordingAudio && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#000305]/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-5 p-6">
+            <div className={`flex h-20 w-20 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa] shadow-2xl ${isPausedRecording ? "" : "animate-pulse"}`}>
+              <Mic className="h-10 w-10" />
+            </div>
+            <div className="text-center">
+              <p className="text-xl font-bold text-[#f7f9fa] tabular-nums">{formatDuration(recordingSeconds)}</p>
+              <p className="text-[10px] text-[#f7f9fa]/50 mt-0.5">{isPausedRecording ? "Pausado" : "Gravando..."}</p>
+            </div>
+            <div className="w-36 h-1.5 bg-[#f7f9fa]/20 rounded-full overflow-hidden">
+              <div className="h-full bg-[#f7f75e] rounded-full transition-all" style={{ width: `${(recordingSeconds / MAX_AUDIO_DURATION) * 100}%` }} />
+            </div>
+            <div className="flex items-center gap-3">
+              <button onClick={() => { if (!mediaRecorderRef.current) return; if (isPausedRecording) { mediaRecorderRef.current.resume(); setIsPausedRecording(false); recordingTimerRef.current = setInterval(() => { setRecordingSeconds((prev) => { if (prev + 1 >= MAX_AUDIO_DURATION) { stopAudioRecording(); return MAX_AUDIO_DURATION; } return prev + 1; }); }, 1000); } else { mediaRecorderRef.current.pause(); setIsPausedRecording(true); if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; } } }} className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f7f9fa]/10 text-[#f7f9fa] hover:bg-[#f7f9fa]/20 transition-colors" title={isPausedRecording ? "Continuar" : "Pausar"}>
+                {isPausedRecording ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+              </button>
+              <button onClick={stopAudioRecording} className="flex h-12 w-12 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] shadow-lg hover:bg-[#25b0a3] transition-colors" title="Enviar">
+                <Send className="h-5 w-5" />
+              </button>
+              <button onClick={cancelAudioRecording} className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f7f9fa]/10 text-[#f7f9fa] hover:bg-red-500/80 transition-colors" title="Cancelar">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Configurações */}
       <Card className="cursor-pointer hover:bg-[#f7f75e]/10 transition-colors border-[#01386A]/8" onClick={() => setProfileSubView("settings")}>
@@ -499,7 +881,6 @@ export function ProfileView() {
           <div className="space-y-2">
             {myPosts.map((post: any) => {
               const postStyleData: PostStyle | null = post.post_style;
-              const hasStyle = postStyleData && Object.keys(postStyleData).length > 0;
               const isTextOnly = !post.image_urls?.length && !post.video_url && !post.audio_url;
               const colorIdx = postStyleData?.postItColor ?? 0;
               const postItColor = isTextOnly ? POST_IT_COLORS[colorIdx >= 0 && colorIdx < POST_IT_COLORS.length ? colorIdx : 0] : POST_IT_COLORS[0];

@@ -75,30 +75,34 @@ const REACTION_EMOJIS = [
 // Post-it colors for text-only posts (suaves/pastel)
 // ═══════════════════════════════════════════════════════════
 const POST_IT_COLORS = [
-  { bg: "bg-[#fef9c3]", text: "text-[#5c4f1e]", border: "border-[#fde68a]" },       // Amarelo
-  { bg: "bg-[#fecdd3]", text: "text-[#7c2d35]", border: "border-[#fda4af]" },        // Rosa
-  { bg: "bg-[#bae6fd]", text: "text-[#1e5070]", border: "border-[#7dd3fc]" },        // Azul
-  { bg: "bg-[#bbf7d0]", text: "text-[#2d5a3a]", border: "border-[#86efac]" },        // Verde
-  { bg: "bg-[#fed7aa]", text: "text-[#6b3a15]", border: "border-[#fdba74]" },        // Laranja
-  { bg: "bg-[#ddd6fe]", text: "text-[#4a3580]", border: "border-[#c4b5fd]" },        // Roxo
-  { bg: "bg-[#fecaca]", text: "text-[#6b2020]", border: "border-[#fca5a5]" },        // Coral
-  { bg: "bg-[#a7f3d0]", text: "text-[#1a5a3a]", border: "border-[#6ee7b7]" },        // Menta
-  { bg: "bg-[#c4b5fd]", text: "text-[#3b2d70]", border: "border-[#a78bfa]" },        // Lavanda
-  { bg: "bg-[#fde68a]", text: "text-[#6b4e10]", border: "border-[#fbbf24]" },        // Pêssego
+  { bg: "bg-[#fffdf5]", text: "text-[#7a6c30]", border: "border-[#fef3c7]" },       // Amarelo suave
+  { bg: "bg-[#fff5f6]", text: "text-[#8c3d45]", border: "border-[#fce7eb]" },        // Rosa suave
+  { bg: "bg-[#f2f9ff]", text: "text-[#3a6d8c]", border: "border-[#dbeefe]" },        // Azul suave
+  { bg: "bg-[#f2faf5]", text: "text-[#3a6b4a]", border: "border-[#d1f5df]" },        // Verde suave
+  { bg: "bg-[#fff8f2]", text: "text-[#8c5a2a]", border: "border-[#fee8d1]" },        // Laranja suave
+  { bg: "bg-[#f8f5ff]", text: "text-[#5e4a8c]", border: "border-[#e8e0fe]" },        // Roxo suave
+  { bg: "bg-[#fff5f5]", text: "text-[#8c3a3a]", border: "border-[#fed7d7]" },        // Coral suave
+  { bg: "bg-[#f0faf5]", text: "text-[#2a6b4a]", border: "border-[#c6f5e0]" },        // Menta suave
+  { bg: "bg-[#f5f2ff]", text: "text-[#4a3d7a]", border: "border-[#ddd6fe]" },        // Lavanda suave
+  { bg: "bg-[#fffbf0]", text: "text-[#7a5c20]", border: "border-[#fde68a]" },        // Pêssego suave
+  { bg: "bg-white", text: "text-[#3a3a3a]", border: "border-[#e5e7eb]" },              // Branco
+  { bg: "bg-[#f5f5f5]", text: "text-[#4a4a4a]", border: "border-[#d4d4d4]" },        // Cinza claro
 ] as const;
 
 // Cores em hex para uso com inline styles (post_style)
 const POST_IT_COLORS_HEX = [
-  { bg: "#fef9c3", text: "#5c4f1e", border: "#fde68a" },       // Amarelo
-  { bg: "#fecdd3", text: "#7c2d35", border: "#fda4af" },        // Rosa
-  { bg: "#bae6fd", text: "#1e5070", border: "#7dd3fc" },        // Azul
-  { bg: "#bbf7d0", text: "#2d5a3a", border: "#86efac" },        // Verde
-  { bg: "#fed7aa", text: "#6b3a15", border: "#fdba74" },        // Laranja
-  { bg: "#ddd6fe", text: "#4a3580", border: "#c4b5fd" },        // Roxo
-  { bg: "#fecaca", text: "#6b2020", border: "#fca5a5" },        // Coral
-  { bg: "#a7f3d0", text: "#1a5a3a", border: "#6ee7b7" },        // Menta
-  { bg: "#c4b5fd", text: "#3b2d70", border: "#a78bfa" },        // Lavanda
-  { bg: "#fde68a", text: "#6b4e10", border: "#fbbf24" },        // Pêssego
+  { bg: "#fffdf5", text: "#7a6c30", border: "#fef3c7" },       // Amarelo suave
+  { bg: "#fff5f6", text: "#8c3d45", border: "#fce7eb" },        // Rosa suave
+  { bg: "#f2f9ff", text: "#3a6d8c", border: "#dbeefe" },        // Azul suave
+  { bg: "#f2faf5", text: "#3a6b4a", border: "#d1f5df" },        // Verde suave
+  { bg: "#fff8f2", text: "#8c5a2a", border: "#fee8d1" },        // Laranja suave
+  { bg: "#f8f5ff", text: "#5e4a8c", border: "#e8e0fe" },        // Roxo suave
+  { bg: "#fff5f5", text: "#8c3a3a", border: "#fed7d7" },        // Coral suave
+  { bg: "#f0faf5", text: "#2a6b4a", border: "#c6f5e0" },        // Menta suave
+  { bg: "#f5f2ff", text: "#4a3d7a", border: "#ddd6fe" },        // Lavanda suave
+  { bg: "#fffbf0", text: "#7a5c20", border: "#fde68a" },        // Pêssego suave
+  { bg: "#ffffff", text: "#3a3a3a", border: "#e5e7eb" },        // Branco
+  { bg: "#f5f5f5", text: "#4a4a4a", border: "#d4d4d4" },        // Cinza claro
 ] as const;
 
 // Fontes disponíveis para post_style
