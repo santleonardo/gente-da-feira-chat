@@ -8,6 +8,7 @@ import { RoomsView } from "@/components/gdf/RoomsView";
 import { DMsView } from "@/components/gdf/DMsView";
 import { ProfileView } from "@/components/gdf/ProfileView";
 import { SettingsView } from "@/components/gdf/SettingsView";
+import { AlbumView } from "@/components/gdf/AlbumView";
 import { DiscoverView } from "@/components/gdf/DiscoverView";
 import { UserProfileDialog } from "@/components/gdf/UserProfileDialog";
 import { PostDetailDialog } from "@/components/gdf/PostDetailDialog";
@@ -119,6 +120,7 @@ export function AppShell() {
 
   const renderProfileContent = () => {
     if (profileSubView === "settings") return <SettingsView />;
+    if (profileSubView === "album") return <AlbumView />;
     return <ProfileView />;
   };
 
