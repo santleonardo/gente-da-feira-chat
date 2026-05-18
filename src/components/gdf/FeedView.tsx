@@ -493,7 +493,7 @@ function ShareMenu({
   };
 
   return (
-    <div className="absolute right-0 bottom-full mb-2 w-12 rounded-2xl bg-[#f7f9fa] p-1 shadow-lg border border-[#0A4D5C]/10 z-30 animate-in fade-in-0 zoom-in-95 flex flex-col items-center gap-0.5">
+    <div className="absolute right-0 bottom-full mb-2 w-12 rounded-2xl bg-[#f7f9fa] p-1 shadow-xl border border-[#0A4D5C]/10 z-50 animate-in fade-in-0 zoom-in-95 flex flex-col items-center gap-0.5">
       <button
         onClick={() => { onRepost(post); onClose(); }}
         className="flex items-center justify-center rounded-xl p-2.5 text-[#000305] transition-colors hover:bg-[#f7f75e]/20"
@@ -1580,7 +1580,7 @@ function PostThread({
 
   return (
     <div
-      className={`rounded-2xl ${cardBg} shadow-md overflow-hidden transition-shadow hover:shadow-lg ${isOwnPost ? "border-l-3 border-l-[#f7f75e]" : ""} ${isTextOnly && !useInlineStyle && postItColor ? `border ${postItColor.border}` : ""} ${!useInlineStyle ? "border border-[#0A4D5C]/8" : ""}`}
+      className={`rounded-2xl ${cardBg} shadow-md ${shareMenuOpen === post.id ? "overflow-visible" : "overflow-hidden"} transition-shadow hover:shadow-lg ${isOwnPost ? "border-l-3 border-l-[#f7f75e]" : ""} ${isTextOnly && !useInlineStyle && postItColor ? `border ${postItColor.border}` : ""} ${!useInlineStyle ? "border border-[#0A4D5C]/8" : ""}`}
       style={useInlineStyle && postItColorHex ? { backgroundColor: postItColorHex.bg, border: `1px solid ${postItColorHex.border}` } : undefined}
     >
       <div className="p-3 sm:p-4">
