@@ -6,11 +6,47 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, Loader2, Clock, MoreVertical, Ban, ShieldBan, Play, Pause, Video, Mic, X, Repeat2 } from "lucide-react";
+import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, Loader2, Clock, MoreVertical, Ban, ShieldBan, Play, Pause, Video, Mic, X, Repeat2, Users as UsersIcon } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 import { timeAgo } from "@/lib/constants";
 import { renderContentWithLinks } from "@/lib/link-utils";
 import { toast } from "sonner";
+
+// ═══════════════════════════════════════════════════════════
+// Post-it colors (Tailwind classes)
+// ═══════════════════════════════════════════════════════════
+const POST_IT_COLORS = [
+  { bg: "bg-[#fef9c3]", text: "text-[#854d0e]", border: "border-[#fde68a]" },       // Amarelo
+  { bg: "bg-[#fce7f3]", text: "text-[#9d174d]", border: "border-[#fbcfe8]" },        // Rosa
+  { bg: "bg-[#dbeafe]", text: "text-[#1e40af]", border: "border-[#bfdbfe]" },        // Azul
+  { bg: "bg-[#dcfce7]", text: "text-[#166534]", border: "border-[#bbf7d0]" },        // Verde
+  { bg: "bg-[#ffedd5]", text: "text-[#9a3412]", border: "border-[#fed7aa]" },        // Laranja
+  { bg: "bg-[#ede9fe]", text: "text-[#5b21b6]", border: "border-[#ddd6fe]" },        // Roxo
+  { bg: "bg-[#fee2e2]", text: "text-[#991b1b]", border: "border-[#fecaca]" },        // Coral
+  { bg: "bg-[#d1fae5]", text: "text-[#065f46]", border: "border-[#a7f3d0]" },        // Menta
+  { bg: "bg-[#e0e7ff]", text: "text-[#3730a3]", border: "border-[#c7d2fe]" },        // Lavanda
+  { bg: "bg-[#fef3c7]", text: "text-[#92400e]", border: "border-[#fde68a]" },        // Pêssego
+  { bg: "bg-white", text: "text-[#374151]", border: "border-[#d1d5db]" },              // Branco
+  { bg: "bg-[#f3f4f6]", text: "text-[#4b5563]", border: "border-[#d1d5db]" },        // Cinza
+] as const;
+
+// Cores em hex para uso com inline styles (post_style)
+const POST_IT_COLORS_HEX = [
+  { bg: "#fef9c3", text: "#854d0e", border: "#fde68a" },       // Amarelo
+  { bg: "#fce7f3", text: "#9d174d", border: "#fbcfe8" },        // Rosa
+  { bg: "#dbeafe", text: "#1e40af", border: "#bfdbfe" },        // Azul
+  { bg: "#dcfce7", text: "#166534", border: "#bbf7d0" },        // Verde
+  { bg: "#ffedd5", text: "#9a3412", border: "#fed7aa" },        // Laranja
+  { bg: "#ede9fe", text: "#5b21b6", border: "#ddd6fe" },        // Roxo
+  { bg: "#fee2e2", text: "#991b1b", border: "#fecaca" },        // Coral
+  { bg: "#d1fae5", text: "#065f46", border: "#a7f3d0" },        // Menta
+  { bg: "#e0e7ff", text: "#3730a3", border: "#c7d2fe" },        // Lavanda
+  { bg: "#fef3c7", text: "#92400e", border: "#fde68a" },        // Pêssego
+  { bg: "#ffffff", text: "#374151", border: "#d1d5db" },        // Branco
+  { bg: "#f3f4f6", text: "#4b5563", border: "#d1d5db" },        // Cinza
+] as const;
+
+const EDITOR_FONTS = ["Nunito", "Quicksand", "Poppins", "Inter", "Comfortaa", "Montserrat", "Lato", "Raleway", "DM Sans", "Work Sans"] as const;
 
 // ═══════════════════════════════════════════════════════════
 // Helpers para renderização de mídia nos posts
@@ -228,6 +264,116 @@ function ExpirationCounter({ expiresAt }: { expiresAt: string }) {
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+// FormattedText — renderiza HTML do editor WYSIWYG ou markdown
+// ═══════════════════════════════════════════════════════════
+function isHTMLContent(content: string): boolean {
+  return /<\/?[a-z][\s\S]*>/i.test(content);
+}
+
+function sanitizeHTML(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/\bon\w+\s*=\s*[^\s>]+/gi, '')
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+    .replace(/javascript:/gi, '');
+}
+
+function parseInlineFormatting(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const regex = /(https?:\/\/[^\s<>"')\]]+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(<Fragment key={`t${key++}`}>{text.slice(lastIndex, match.index)}</Fragment>);
+    }
+    if (match[1]) {
+      parts.push(
+        <a key={`url${key++}`} href={match[1]} target="_blank" rel="noopener noreferrer" className="text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors" onClick={(e) => e.stopPropagation()}>
+          {match[1]}
+        </a>
+      );
+    } else if (match[3]) {
+      parts.push(<strong key={`bi${key++}`}><em>{match[3]}</em></strong>);
+    } else if (match[5]) {
+      parts.push(<strong key={`b${key++}`}>{match[5]}</strong>);
+    } else if (match[6]) {
+      parts.push(<em key={`i${key++}`}>{match[6]}</em>);
+    }
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(<Fragment key={`r${key++}`}>{text.slice(lastIndex)}</Fragment>);
+  }
+
+  return parts.length > 0 ? parts : [<Fragment key="empty">{text}</Fragment>];
+}
+
+function FormattedText({
+  content,
+  className,
+  style,
+}: {
+  content: string;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  if (isHTMLContent(content)) {
+    return (
+      <div
+        className={`post-content ${className || ""}`}
+        style={style}
+        dangerouslySetInnerHTML={{ __html: sanitizeHTML(content) }}
+      />
+    );
+  }
+
+  const lines = content.split("\n");
+
+  return (
+    <div className={className} style={style}>
+      {lines.map((line, i) => {
+        let headingLevel = 0;
+        let text = line;
+        if (text.startsWith("### ")) { headingLevel = 3; text = text.slice(4); }
+        else if (text.startsWith("## ")) { headingLevel = 2; text = text.slice(3); }
+        else if (text.startsWith("# ")) { headingLevel = 1; text = text.slice(2); }
+
+        const headingStyle: React.CSSProperties =
+          headingLevel > 0
+            ? {
+                fontSize: headingLevel === 1 ? "1.25rem" : headingLevel === 2 ? "1.1rem" : "1rem",
+                fontWeight: 700,
+                lineHeight: 1.3,
+                display: "block",
+                marginTop: i > 0 ? "0.35em" : undefined,
+              }
+            : {};
+
+        return (
+          <Fragment key={i}>
+            {i > 0 && <br />}
+            <span style={headingStyle}>{parseInlineFormatting(text)}</span>
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+function getPostItColor(postId: string) {
+  let hash = 0;
+  for (let i = 0; i < postId.length; i++) {
+    hash = postId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return POST_IT_COLORS[Math.abs(hash) % POST_IT_COLORS.length];
+}
+
 interface UserProfileDialogProps {
   userId: string | null;
   open: boolean;
@@ -274,6 +420,17 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     isBlockedByViewer: boolean;
     isBlockedByTarget: boolean;
   }>({ is_private: false, hide_following: false, hide_followers: false, approve_followers: false, isRestricted: false, isPending: false, isBlockedByViewer: false, isBlockedByTarget: false });
+
+  // Carregar Google Fonts para post_style
+  useEffect(() => {
+    const fontsParam = EDITOR_FONTS.map(
+      (f) => `family=${f.replace(/ /g, "+")}:wght@400;700`
+    ).join("&");
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = `https://fonts.googleapis.com/css2?${fontsParam}&display=swap`;
+    document.head.appendChild(link);
+  }, []);
 
   useEffect(() => {
     if (!userId || !open) return;
@@ -446,30 +603,38 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
           </div>
         ) : userData ? (
           <>
-            <div className={`h-20 ${isBlocked ? "bg-gradient-to-br from-muted/50 via-muted/30 to-muted/10" : "bg-gradient-to-br from-primary/30 via-primary/10 to-transparent"}`} />
-            <div className="px-5 pb-5 -mt-8">
-              <div className="flex items-end justify-between mb-3">
-                <div className="relative">
-                  <UserAvatar user={{ id: userId!, display_name: userData.display_name, avatar_url: userData.avatar_url }} className="h-16 w-16 border-4 border-background shadow-lg" />
-                  {(isRestricted || isBlocked) && (
-                    <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-muted text-muted-foreground">
-                      <Lock className="h-3.5 w-3.5" />
+            <div className="px-5 pb-5 pt-4">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <UserAvatar user={{ id: userId!, display_name: userData.display_name, avatar_url: userData.avatar_url }} className="h-14 w-14 shadow-lg" />
+                    {(isRestricted || isBlocked) && (
+                      <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted text-muted-foreground">
+                        <Lock className="h-3 w-3" />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <h2 className="text-lg font-bold leading-tight">{userData.display_name}</h2>
+                      {privacyInfo.is_private && <Lock className="h-4 w-4 text-muted-foreground" />}
                     </div>
-                  )}
+                    <p className="text-sm text-muted-foreground">@{userData.username}</p>
+                  </div>
                 </div>
                 {!isOwnProfile && (
                   <div className="flex items-center gap-1.5">
-                    {!isBlocked && (
-                      <Button variant="outline" size="sm" onClick={handleStartDM} className="gap-1.5 rounded-full px-3">
-                        <MessageCircle className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
                     {renderFollowButton()}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full"><MoreVertical className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        {!isBlocked && (
+                          <DropdownMenuItem onClick={handleStartDM}>
+                            <MessageCircle className="h-4 w-4 mr-2" />Enviar mensagem
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={handleBlockToggle} disabled={blockLoading}>
                           {privacyInfo.isBlockedByViewer ? <><ShieldBan className="h-4 w-4 mr-2" />Desbloquear</> : <><Ban className="h-4 w-4 mr-2" />Bloquear</>}
                         </DropdownMenuItem>
@@ -478,12 +643,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                   </div>
                 )}
               </div>
-
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-lg font-bold leading-tight">{userData.display_name}</h2>
-                {privacyInfo.is_private && <Lock className="h-4 w-4 text-muted-foreground" />}
-              </div>
-              <p className="text-sm text-muted-foreground">@{userData.username}</p>
 
               {isBlocked && privacyInfo.isBlockedByViewer ? (
                 <div className="mt-4 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/30 p-4 text-center">
@@ -509,8 +668,8 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                 </>
               )}
 
-              <div className="mt-4 flex gap-5">
-                <div className="text-center"><p className="text-base font-bold">{postCount}</p><p className="text-[11px] text-muted-foreground">Posts</p></div>
+              <div className="mt-3 flex gap-5">
+                <button onClick={() => setActiveTab("posts")} className="text-center hover:opacity-80 transition-opacity"><p className="text-base font-bold">{postCount}</p><p className="text-[11px] text-muted-foreground">Posts</p></button>
                 {canSeeFollowing && <button onClick={() => setActiveTab("following")} className="text-center hover:opacity-80 transition-opacity"><p className="text-base font-bold">{followData.followingCount}</p><p className="text-[11px] text-muted-foreground">Seguindo</p></button>}
                 {canSeeFollowers && <button onClick={() => setActiveTab("followers")} className="text-center hover:opacity-80 transition-opacity"><p className="text-base font-bold">{followData.followersCount}</p><p className="text-[11px] text-muted-foreground">Seguidores</p></button>}
               </div>
@@ -524,7 +683,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
               )}
 
               {!isRestricted && (
-                <div className="max-h-64 overflow-y-auto mt-2 custom-scrollbar">
+                <div className="max-h-[60vh] overflow-y-auto mt-2 custom-scrollbar">
                   {activeTab === "posts" && (postsLoading ? <div className="space-y-2 py-2">{[1,2,3].map(i=><div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)}</div> : userPosts.length === 0 ? <div className="py-8 text-center"><p className="text-xs text-muted-foreground">Nenhum post ainda</p></div> : (
                     <div className="space-y-2">
                       {userPosts.map((post: any) => {
@@ -535,10 +694,26 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                             ? [post.image_url]
                             : [];
 
+                        const hasPhotos = postPhotos.length > 0;
+                        const hasVideo = !!post.video_url;
+                        const hasAudio = !!post.audio_url;
+                        const isTextOnly = !hasPhotos && !hasVideo && !hasAudio;
+
+                        // Post-it color logic (same as FeedView)
+                        const hasPostStyle = post.post_style && typeof post.post_style === "object";
+                        const styleColorIdx = hasPostStyle && post.post_style!.postItColor != null ? post.post_style!.postItColor : -1;
+                        const postItColor = isTextOnly ? (styleColorIdx >= 0 && styleColorIdx < POST_IT_COLORS.length ? POST_IT_COLORS[styleColorIdx] : getPostItColor(post.id)) : null;
+                        const postItColorHex = isTextOnly ? (styleColorIdx >= 0 && styleColorIdx < POST_IT_COLORS_HEX.length ? POST_IT_COLORS_HEX[styleColorIdx] : null) : null;
+                        const useInlineStyle = isTextOnly && styleColorIdx >= 0;
+                        const cardBg = isTextOnly
+                          ? (useInlineStyle ? "" : (postItColor?.bg || "bg-[#fdf6b2]"))
+                          : "bg-[#eef1f3]";
+
                         return (
                           <div
                             key={post.id}
-                            className="rounded-lg border bg-card p-3 cursor-pointer hover:bg-accent/50 transition-colors"
+                            className={`rounded-2xl ${cardBg} shadow-sm cursor-pointer hover:shadow-md transition-shadow ${isTextOnly && !useInlineStyle && postItColor ? `border ${postItColor.border}` : ""} ${!useInlineStyle && !isTextOnly ? "border border-[#0A4D5C]/8" : ""} ${!useInlineStyle && isTextOnly && !postItColor ? "border border-[#0A4D5C]/8" : ""}`}
+                            style={useInlineStyle && postItColorHex ? { backgroundColor: postItColorHex.bg, border: `1px solid ${postItColorHex.border}` } : undefined}
                             onClick={(e) => {
                               const target = e.target as HTMLElement;
                               if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('audio') || target.closest('video')) return;
@@ -557,59 +732,78 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                               }, 200);
                             }}
                           >
-                            {/* Fotos */}
-                            {postPhotos.length > 0 && (
-                              <PhotoGrid
-                                photos={postPhotos}
-                                onPhotoClick={(index) => openPhotoViewer(postPhotos, index)}
-                              />
-                            )}
+                            <div className="p-3">
+                              {/* Fotos */}
+                              {postPhotos.length > 0 && (
+                                <PhotoGrid
+                                  photos={postPhotos}
+                                  onPhotoClick={(index) => openPhotoViewer(postPhotos, index)}
+                                />
+                              )}
 
-                            {/* Vídeo */}
-                            {post.video_url && <VideoPlayer src={post.video_url} />}
+                              {/* Vídeo */}
+                              {post.video_url && <VideoPlayer src={post.video_url} />}
 
-                            {/* Áudio */}
-                            {post.audio_url && <AudioPlayer src={post.audio_url} />}
+                              {/* Áudio */}
+                              {post.audio_url && <AudioPlayer src={post.audio_url} />}
 
-                            {/* Texto */}
-                            <p className="text-sm mt-1">{renderContentWithLinks(post.content)}</p>
+                              {/* Texto com FormattedText + post_style */}
+                              {isTextOnly ? (
+                                <FormattedText
+                                  className={`mt-1 text-sm leading-snug whitespace-pre-wrap ${useInlineStyle ? "" : (postItColor?.text || "text-[#000305]")}`}
+                                  content={post.content}
+                                  style={{
+                                    fontFamily: hasPostStyle && post.post_style!.font ? `'${post.post_style!.font}', sans-serif` : "serif",
+                                    fontWeight: hasPostStyle && post.post_style!.bold ? 700 : undefined,
+                                    fontStyle: hasPostStyle && post.post_style!.italic ? "italic" : undefined,
+                                    textAlign: hasPostStyle && post.post_style!.alignment ? post.post_style!.alignment : undefined,
+                                    color: useInlineStyle && postItColorHex ? postItColorHex.text : undefined,
+                                  }}
+                                />
+                              ) : (
+                                <FormattedText
+                                  className="mt-1 text-sm leading-relaxed whitespace-pre-wrap text-[#000305]"
+                                  content={post.content}
+                                />
+                              )}
 
-                            {/* Post compartilhado/repostado */}
-                            {post.shared_post && (
-                              <div className="mt-2 rounded-lg bg-muted/50 p-2.5 border border-muted">
-                                <div className="flex items-center gap-1.5 mb-1">
-                                  <Repeat2 className="h-3 w-3 text-muted-foreground" />
-                                  <span className="text-[10px] text-muted-foreground">Compartilhado de</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 mb-1">
-                                  {post.shared_post.author?.avatar_url && (
-                                    <img src={post.shared_post.author.avatar_url} alt="" className="h-4 w-4 rounded-full object-cover" />
-                                  )}
-                                  <span className="text-xs font-semibold">{post.shared_post.author?.display_name || "Usuário"}</span>
-                                </div>
-                                <p className="text-xs text-muted-foreground line-clamp-3">{post.shared_post.content}</p>
-                                {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
-                                  <div className="mt-1.5 flex gap-1 overflow-x-auto">
-                                    {post.shared_post.image_urls.slice(0, 2).map((url: string, i: number) => (
-                                      <img key={i} src={url} alt="" className="h-12 w-12 rounded-lg object-cover shrink-0" />
-                                    ))}
-                                    {post.shared_post.image_urls.length > 2 && (
-                                      <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center text-[10px] text-muted-foreground shrink-0">
-                                        +{post.shared_post.image_urls.length - 2}
-                                      </div>
-                                    )}
+                              {/* Post compartilhado/repostado */}
+                              {post.shared_post && (
+                                <div className="mt-2 rounded-xl bg-[#0A4D5C]/[0.04] p-2.5 border border-[#0A4D5C]/8">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <Repeat2 className="h-3 w-3 text-[#0A4D5C]/40" />
+                                    <span className="text-[10px] text-[#0A4D5C]/40">Compartilhado de</span>
                                   </div>
-                                )}
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    {post.shared_post.author?.avatar_url && (
+                                      <img src={post.shared_post.author.avatar_url} alt="" className="h-4 w-4 rounded-full object-cover" />
+                                    )}
+                                    <span className="text-xs font-semibold">{post.shared_post.author?.display_name || "Usuário"}</span>
+                                  </div>
+                                  <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-3" content={post.shared_post.content} />
+                                  {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
+                                    <div className="mt-1.5 flex gap-1 overflow-x-auto">
+                                      {post.shared_post.image_urls.slice(0, 2).map((url: string, i: number) => (
+                                        <img key={i} src={url} alt="" className="h-12 w-12 rounded-lg object-cover shrink-0" />
+                                      ))}
+                                      {post.shared_post.image_urls.length > 2 && (
+                                        <div className="h-12 w-12 rounded-lg bg-[#0A4D5C]/[0.04] flex items-center justify-center text-[10px] text-[#0A4D5C]/40 shrink-0">
+                                          +{post.shared_post.image_urls.length - 2}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Expiração */}
+                              {post.expires_at && <ExpirationCounter expiresAt={post.expires_at} />}
+
+                              {/* Data e bairro */}
+                              <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground">
+                                <span>{timeAgo(post.created_at)}</span>
+                                {post.neighborhood && <><span>·</span><span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{post.neighborhood}</span></>}
                               </div>
-                            )}
-
-                            {/* Expiração */}
-                            {post.expires_at && <ExpirationCounter expiresAt={post.expires_at} />}
-
-                            {/* Data e bairro */}
-                            <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground">
-                              <span>{timeAgo(post.created_at)}</span>
-                              {post.neighborhood && <><span>·</span><span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{post.neighborhood}</span></>}
                             </div>
                           </div>
                         );
