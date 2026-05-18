@@ -18,7 +18,7 @@ export interface Profile {
 }
 
 type Tab = "feed" | "rooms" | "dms" | "discover" | "profile";
-type ProfileSubView = "profile" | "settings";
+type ProfileSubView = "profile" | "settings" | "album";
 
 interface AppState {
   profile: Profile | null;
