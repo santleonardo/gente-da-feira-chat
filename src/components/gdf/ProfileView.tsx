@@ -45,6 +45,8 @@ import {
   Maximize2,
   Minimize2,
   Loader2,
+  Clock,
+  Repeat2,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo, BAIRROS } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -113,6 +115,212 @@ function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function getExpirationLabel(expiresAt: string): string {
+  const now = Date.now();
+  const expires = new Date(expiresAt).getTime();
+  const diff = expires - now;
+  if (diff <= 0) return "Expirado";
+  const hours = Math.floor(diff / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  if (hours > 0) return `Expira em ${hours}h${mins > 0 ? ` ${mins}min` : ""}`;
+  return `Expira em ${mins}min`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// VideoPlayer (para Meus Posts)
+// ═══════════════════════════════════════════════════════════
+function VideoPlayer({ src }: { src: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  const toggle = () => {
+    if (!videoRef.current) return;
+    if (playing) videoRef.current.pause();
+    else videoRef.current.play();
+    setPlaying(!playing);
+  };
+
+  return (
+    <div className="mt-2.5 relative rounded-2xl overflow-hidden bg-[#000305] shadow-lg group">
+      <video
+        ref={videoRef}
+        src={src}
+        className="w-full max-h-72 object-contain"
+        playsInline
+        preload="metadata"
+        onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
+        onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
+        onEnded={() => setPlaying(false)}
+        onClick={toggle}
+      />
+      {!playing && (
+        <div className="absolute inset-0 flex items-center justify-center bg-[#000305]/30 cursor-pointer" onClick={toggle}>
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#0A4D5C] shadow-lg transition-transform hover:scale-110">
+            <Play className="h-7 w-7 text-[#f7f9fa] fill-[#f7f9fa] ml-1" />
+          </div>
+        </div>
+      )}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#000305]/70 to-transparent p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="flex items-center gap-2">
+          <button onClick={toggle} className="text-[#f7f9fa]">
+            {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          </button>
+          <div className="flex-1 h-1 bg-[#f7f9fa]/30 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const pct = (e.clientX - rect.left) / rect.width;
+            if (videoRef.current && duration) videoRef.current.currentTime = pct * duration;
+          }}>
+            <div className="h-full bg-[#f7f75e] rounded-full transition-all" style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }} />
+          </div>
+          <span className="text-[10px] text-[#f7f9fa]/80 tabular-nums">{formatDuration(currentTime)}/{formatDuration(duration)}</span>
+        </div>
+      </div>
+      <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-[#f7f75e] px-2 py-0.5 text-[9px] font-semibold text-[#000305]">
+        <Video className="h-2.5 w-2.5" /> Vídeo
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// AudioPlayer (para Meus Posts)
+// ═══════════════════════════════════════════════════════════
+function AudioPlayer({ src }: { src: string }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  const toggle = () => {
+    if (!audioRef.current) return;
+    if (playing) audioRef.current.pause();
+    else audioRef.current.play();
+    setPlaying(!playing);
+  };
+
+  return (
+    <div className="mt-2.5 rounded-2xl bg-[#0A4D5C]/[0.06] p-3 shadow-sm border border-[#0A4D5C]/10">
+      <div className="flex items-center gap-3">
+        <button onClick={toggle} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa] shadow-md hover:bg-[#0A4D5C]/90 transition-all hover:scale-105">
+          {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[10px] font-semibold text-[#000305]/70 tabular-nums">{formatDuration(currentTime)}</span>
+            <span className="text-[9px] text-[#0A4D5C]/30">/</span>
+            <span className="text-[10px] text-[#0A4D5C]/40 tabular-nums">{formatDuration(duration)}</span>
+          </div>
+          <div className="h-1.5 bg-[#0A4D5C]/20 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const pct = (e.clientX - rect.left) / rect.width;
+            if (audioRef.current && duration) audioRef.current.currentTime = pct * duration;
+          }}>
+            <div className="h-full bg-[#0A4D5C] rounded-full transition-all" style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }} />
+          </div>
+        </div>
+      </div>
+      <audio ref={audioRef} src={src} preload="metadata" onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)} onLoadedMetadata={() => { const d = audioRef.current?.duration; setDuration(d && isFinite(d) ? d : 0); }} onEnded={() => setPlaying(false)} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// PhotoGrid (para Meus Posts)
+// ═══════════════════════════════════════════════════════════
+function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: (index: number) => void }) {
+  const count = photos.length;
+  if (count === 0) return null;
+
+  if (count === 1) {
+    return (
+      <button onClick={() => onPhotoClick?.(0)} className="mt-2.5 w-full overflow-hidden rounded-2xl shadow-lg">
+        <img src={photos[0]} alt="Foto do post" className="w-full max-h-72 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+      </button>
+    );
+  }
+  if (count === 2) {
+    return (
+      <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-2xl shadow-lg">
+        {photos.map((url, i) => (
+          <button key={i} onClick={() => onPhotoClick?.(i)} className="overflow-hidden">
+            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-36 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          </button>
+        ))}
+      </div>
+    );
+  }
+  if (count === 3) {
+    return (
+      <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-2xl shadow-lg">
+        <button onClick={() => onPhotoClick?.(0)} className="row-span-2 overflow-hidden">
+          <img src={photos[0]} alt="Foto 1" className="w-full h-full object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+        </button>
+        <button onClick={() => onPhotoClick?.(1)} className="overflow-hidden">
+          <img src={photos[1]} alt="Foto 2" className="w-full h-36 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+        </button>
+        <button onClick={() => onPhotoClick?.(2)} className="overflow-hidden">
+          <img src={photos[2]} alt="Foto 3" className="w-full h-36 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-2xl shadow-lg">
+      {photos.slice(0, 4).map((url, i) => (
+        <button key={i} onClick={() => onPhotoClick?.(i)} className="relative overflow-hidden">
+          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-36 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          {i === 3 && count > 4 && (
+            <div className="absolute inset-0 flex items-center justify-center bg-[#000305]/50 text-[#f7f9fa] font-bold text-lg">+{count - 4}</div>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// PhotoViewer — fullscreen overlay
+// ═══════════════════════════════════════════════════════════
+function PhotoViewer({ photos, initialIndex, onClose }: { photos: string[]; initialIndex: number; onClose: () => void }) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#000305]/90 backdrop-blur-sm" onClick={onClose}>
+      <button onClick={onClose} className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-[#f7f9fa]/10 text-[#f7f9fa] hover:bg-[#f7f75e] hover:text-[#000305] transition-colors"><X className="h-5 w-5" /></button>
+      {photos.length > 1 && (
+        <>
+          <button onClick={(e) => { e.stopPropagation(); setCurrentIndex((i) => (i > 0 ? i - 1 : photos.length - 1)); }} className="absolute left-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-[#f7f9fa]/10 text-[#f7f9fa] hover:bg-[#f7f75e] hover:text-[#000305] transition-colors">&#8249;</button>
+          <button onClick={(e) => { e.stopPropagation(); setCurrentIndex((i) => (i < photos.length - 1 ? i + 1 : 0)); }} className="absolute right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-[#f7f9fa]/10 text-[#f7f9fa] hover:bg-[#f7f75e] hover:text-[#000305] transition-colors">&#8250;</button>
+        </>
+      )}
+      <img src={photos[currentIndex]} alt={`Foto ${currentIndex + 1}`} className="max-h-[90vh] max-w-[95vw] object-contain" onClick={(e) => e.stopPropagation()} />
+      {photos.length > 1 && <div className="absolute bottom-4 text-[#f7f9fa]/70 text-sm">{currentIndex + 1} / {photos.length}</div>}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// ExpirationCounter (para Meus Posts)
+// ═══════════════════════════════════════════════════════════
+function ExpirationCounter({ expiresAt }: { expiresAt: string }) {
+  const [label, setLabel] = useState("");
+  useEffect(() => {
+    const update = () => setLabel(getExpirationLabel(expiresAt));
+    update();
+    const interval = setInterval(update, 60000);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
+
+  if (!label) return null;
+  return (
+    <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-[#000305] bg-[#f7f75e] rounded-full px-2.5 py-1 w-fit">
+      <Clock className="h-3 w-3" />
+      <span>{label}</span>
+    </div>
+  );
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -296,6 +504,11 @@ export function ProfileView() {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  // Photo viewer state (Meus Posts)
+  const [viewerPhotos, setViewerPhotos] = useState<string[]>([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   // Input refs
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -820,28 +1033,37 @@ export function ProfileView() {
 
       {/* ═══════ CONTEÚDO DAS ABAS ═══════ */}
       <div style={{ display: activeTab === "posts" ? "block" : "none" }}>
-          {/* Meus Posts */}
+          {/* Meus Posts — renderização completa */}
           {myPosts.length > 0 ? (
             <div className="space-y-2">
               {myPosts.map((post: any) => {
                 const postStyleData: PostStyle | null = post.post_style;
-                const isTextOnly = !post.image_urls?.length && !post.video_url && !post.audio_url;
+                const hasPhotos = post.image_urls && post.image_urls.length > 0;
+                const hasVideo = !!post.video_url;
+                const hasAudio = !!post.audio_url;
+                const isTextOnly = !hasPhotos && !hasVideo && !hasAudio;
                 const colorIdx = postStyleData?.postItColor ?? 0;
                 const postItColor = isTextOnly ? POST_IT_COLORS[colorIdx >= 0 && colorIdx < POST_IT_COLORS.length ? colorIdx : 0] : POST_IT_COLORS[0];
+                const useInlineStyle = isTextOnly && colorIdx >= 0;
 
                 return (
                   <div
                     key={post.id}
                     className="rounded-xl p-3 transition-shadow hover:shadow-sm cursor-pointer"
-                    onClick={() => window.dispatchEvent(new CustomEvent("openPostDetail", { detail: { post } }))}
+                    onClick={(e) => {
+                      const target = e.target as HTMLElement;
+                      if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('audio') || target.closest('video')) return;
+                      window.dispatchEvent(new CustomEvent("openPostDetail", { detail: { post } }));
+                    }}
                     style={{
                       backgroundColor: isTextOnly ? postItColor.bg : "#f7f9fa",
                       border: isTextOnly ? `1px solid ${postItColor.border}` : "1px solid rgba(10,77,92,0.08)",
                       color: isTextOnly ? postItColor.text : "#000305",
                     }}
                   >
+                    {/* Conteúdo textual */}
                     <FormattedText
-                      className="text-sm whitespace-pre-wrap"
+                      className={`whitespace-pre-wrap ${isTextOnly ? "text-sm sm:text-base leading-snug" : "text-[13px] sm:text-sm leading-relaxed text-[#000305]"}`}
                       content={post.content}
                       style={{
                         fontFamily: postStyleData?.font ? `'${postStyleData.font}', sans-serif` : isTextOnly ? "serif" : undefined,
@@ -850,9 +1072,67 @@ export function ProfileView() {
                         textAlign: postStyleData?.alignment || undefined,
                       }}
                     />
+
+                    {/* Shared/reposted post */}
+                    {post.shared_post && (
+                      <div className="mt-2.5 rounded-xl bg-[#0A4D5C]/[0.04] p-2.5 border border-[#0A4D5C]/8">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Repeat2 className="h-3 w-3 text-[#0A4D5C]/40" />
+                          <span className="text-[10px] text-[#0A4D5C]/40">Compartilhado de</span>
+                        </div>
+                        <div className="flex items-center gap-2 mb-1">
+                          {post.shared_post.author?.avatar_url && (
+                            <img src={post.shared_post.author.avatar_url} alt="" className="h-5 w-5 rounded-full object-cover" />
+                          )}
+                          <span className="text-xs font-semibold text-[#000305]">{post.shared_post.author?.display_name}</span>
+                        </div>
+                        <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-3" content={post.shared_post.content} />
+                        {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
+                          <div className="mt-1.5 flex gap-1 overflow-x-auto">
+                            {post.shared_post.image_urls.slice(0, 2).map((url: string, i: number) => (
+                              <img key={i} src={url} alt="" className="h-14 w-14 rounded-lg object-cover shrink-0" />
+                            ))}
+                            {post.shared_post.image_urls.length > 2 && (
+                              <div className="h-14 w-14 rounded-lg bg-[#0A4D5C]/[0.04] flex items-center justify-center text-xs text-[#0A4D5C]/40 shrink-0">
+                                +{post.shared_post.image_urls.length - 2}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Fotos */}
+                    {hasPhotos && (
+                      <PhotoGrid
+                        photos={post.image_urls}
+                        onPhotoClick={(index) => {
+                          setViewerPhotos(post.image_urls);
+                          setViewerIndex(index);
+                          setViewerOpen(true);
+                        }}
+                      />
+                    )}
+
+                    {/* Vídeo */}
+                    {hasVideo && <VideoPlayer src={post.video_url} />}
+
+                    {/* Áudio */}
+                    {hasAudio && <AudioPlayer src={post.audio_url} />}
+
+                    {/* Expiration counter */}
+                    {post.expires_at && (
+                      <ExpirationCounter expiresAt={post.expires_at} />
+                    )}
+
                     <div className="mt-1 flex items-center gap-2" style={{ color: isTextOnly ? `${postItColor.text}80` : "rgba(1,56,106,0.4)" }}>
                       <span className="text-[10px]">{timeAgo(post.created_at)}</span>
                       {post.neighborhood && <span className="text-[10px]">· {post.neighborhood}</span>}
+                      {post.visibility === "followers" && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-[#f7f75e] px-1.5 py-0.5 text-[9px] font-semibold text-[#000305]">
+                          <UsersIcon className="h-2.5 w-2.5" />Seguidores
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -1298,6 +1578,9 @@ export function ProfileView() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Photo viewer (Meus Posts) */}
+      {viewerOpen && <PhotoViewer photos={viewerPhotos} initialIndex={viewerIndex} onClose={() => setViewerOpen(false)} />}
     </div>
   );
 }
