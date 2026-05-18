@@ -576,8 +576,8 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
   const renderFollowButton = () => {
     if (isOwnProfile || isBlocked) return null;
     if (followData.isFollowing) {
-      return <Button size="sm" onClick={handleFollowToggle} disabled={followLoading} variant="outline" className="gap-1.5 rounded-full px-4">
-        {followLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><UserMinus className="h-3.5 w-3.5" />Seguindo</>}
+      return <Button size="sm" onClick={handleFollowToggle} disabled={followLoading} variant="outline" className="h-8 w-8 p-0 rounded-full">
+        {followLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserMinus className="h-3.5 w-3.5" />}
       </Button>;
     }
     if (followData.isPending) {
@@ -623,7 +623,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                   </div>
                 </div>
                 {!isOwnProfile && (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 mt-8">
                     {renderFollowButton()}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
