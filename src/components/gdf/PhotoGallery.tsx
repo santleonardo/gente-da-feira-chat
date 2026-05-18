@@ -864,7 +864,7 @@ function PhotoDetailModal({
               <div className="flex items-center gap-1.5 mb-1 text-[10px] text-muted-foreground">
                 <Reply className="h-2.5 w-2.5" />
                 <span>
-                  Respondendo a <strong>@{replyTo.author.display_name}</strong>
+                  Respondendo a <strong>@{replyTo?.author?.display_name || "Usuário"}</strong>
                 </span>
                 <button
                   onClick={() => setReplyTo(null)}
@@ -887,7 +887,7 @@ function PhotoDetailModal({
                 ref={commentInputRef}
                 placeholder={
                   replyTo
-                    ? `Responder @${replyTo.author.display_name}...`
+                    ? `Responder @${replyTo?.author?.display_name || "Usuário"}...`
                     : "Comentar..."
                 }
                 value={commentInput}
@@ -938,16 +938,16 @@ function PhotoCommentItem({
       <div className="flex gap-2">
         <UserAvatar
           user={{
-            id: comment.author.id,
-            display_name: comment.author.display_name,
-            avatar_url: comment.author.avatar_url,
+            id: comment.author?.id || "",
+            display_name: comment.author?.display_name || "Usuário",
+            avatar_url: comment.author?.avatar_url,
           }}
           className="h-5 w-5 shrink-0"
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] font-semibold">
-              {comment.author.display_name}
+              {comment.author?.display_name || "Usuário"}
             </span>
             <span className="text-[9px] text-muted-foreground">
               {timeAgo(comment.created_at)}

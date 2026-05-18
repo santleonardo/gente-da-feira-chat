@@ -156,9 +156,9 @@ export function AppShell() {
         </nav>
         <div className="flex items-center gap-2.5">
           <div className="h-7 w-7 rounded-full bg-[#2EC4B6]/30 flex items-center justify-center">
-            <span className="text-[10px] font-bold text-[#0A4D5C]">{profile.display_name?.charAt(0)?.toUpperCase()}</span>
+            <span className="text-[10px] font-bold text-[#0A4D5C]">{profile?.display_name?.charAt(0)?.toUpperCase()}</span>
           </div>
-          <span className="text-sm font-medium text-[#000305]">{profile.display_name}</span>
+          <span className="text-sm font-medium text-[#000305]">{profile?.display_name || ""}</span>
         </div>
       </header>
 

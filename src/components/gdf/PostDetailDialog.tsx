@@ -306,7 +306,7 @@ function ShareMenu({
 }) {
   const handleExternalShare = async () => {
     const shareData = {
-      title: `Post de ${post.author.display_name}`,
+      title: `Post de ${post.author?.display_name || "Usuário"}`,
       text: post.content.slice(0, 100) + (post.content.length > 100 ? "..." : ""),
       url: window.location.href,
     };
@@ -364,13 +364,13 @@ function CommentItem({
   return (
     <div>
       <div className="flex items-start gap-1.5">
-        <button onClick={() => openUserProfile?.(comment.author.id)} className="shrink-0">
-          <UserAvatar user={comment.author} className="h-5 w-5" />
+        <button onClick={() => comment.author?.id && openUserProfile?.(comment.author.id)} className="shrink-0">
+          <UserAvatar user={comment.author || { id: "", display_name: "Usuário", username: "usuario" }} className="h-5 w-5" />
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1 flex-wrap">
-            <button onClick={() => openUserProfile?.(comment.author.id)} className="text-[10px] sm:text-[11px] font-semibold text-[#000305] hover:underline">
-              {comment.author.display_name}
+            <button onClick={() => comment.author?.id && openUserProfile?.(comment.author.id)} className="text-[10px] sm:text-[11px] font-semibold text-[#000305] hover:underline">
+              {comment.author?.display_name || "Usuário"}
             </button>
             <span className="text-[9px] sm:text-[10px] text-[#0A4D5C]/30">{timeAgo(comment.created_at)}</span>
           </div>
@@ -649,13 +649,13 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
             <div className="p-4 sm:p-5">
               {/* Header */}
               <div className="flex items-start gap-2.5">
-                <button onClick={() => navigateToProfile(localPost.author.id)} className="shrink-0 group">
-                  <UserAvatar user={localPost.author} className="h-10 w-10 sm:h-12 sm:w-12 hover:opacity-80 transition-opacity ring-2 ring-[#f7f9fa] shadow-sm" />
+                <button onClick={() => localPost.author?.id && navigateToProfile(localPost.author.id)} className="shrink-0 group">
+                  <UserAvatar user={localPost.author || { id: "", display_name: "Usuário", username: "usuario" }} className="h-10 w-10 sm:h-12 sm:w-12 hover:opacity-80 transition-opacity ring-2 ring-[#f7f9fa] shadow-sm" />
                 </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <button onClick={() => navigateToProfile(localPost.author.id)} className={`text-sm font-semibold hover:underline underline-offset-2 transition-all ${isTextOnly ? postItColor?.text || "text-[#000305]" : "text-[#000305]"}`}>
-                      {localPost.author.display_name}
+                    <button onClick={() => localPost.author?.id && navigateToProfile(localPost.author.id)} className={`text-sm font-semibold hover:underline underline-offset-2 transition-all ${isTextOnly ? postItColor?.text || "text-[#000305]" : "text-[#000305]"}`}>
+                      {localPost.author?.display_name || "Usuário"}
                     </button>
                     {localPost.visibility === "followers" && (
                       <span className="inline-flex items-center gap-0.5 rounded-full bg-[#f7f75e] px-2 py-0.5 text-[10px] font-semibold text-[#000305]">
@@ -690,11 +690,11 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
                         <span className="text-[10px] text-[#0A4D5C]/40">Compartilhado de</span>
                       </div>
                       <div className="flex items-center gap-2 mb-1">
-                        <button onClick={() => navigateToProfile(localPost.shared_post!.author.id)} className="shrink-0">
-                          <UserAvatar user={localPost.shared_post.author} className="h-6 w-6" />
+                        <button onClick={() => localPost.shared_post?.author?.id && navigateToProfile(localPost.shared_post.author.id)} className="shrink-0">
+                          <UserAvatar user={localPost.shared_post?.author || { id: "", display_name: "Usuário", username: "usuario" }} className="h-6 w-6" />
                         </button>
-                        <button onClick={() => navigateToProfile(localPost.shared_post!.author.id)} className="text-xs font-semibold text-[#000305] hover:underline">
-                          {localPost.shared_post.author.display_name}
+                        <button onClick={() => localPost.shared_post?.author?.id && navigateToProfile(localPost.shared_post.author.id)} className="text-xs font-semibold text-[#000305] hover:underline">
+                          {localPost.shared_post?.author?.display_name || "Usuário"}
                         </button>
                       </div>
                       <p className="text-xs text-[#0A4D5C]/60 leading-relaxed">{renderContentWithLinks(localPost.shared_post.content, linkClass)}</p>
@@ -840,7 +840,7 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
                     {replyTo && (
                       <div className="absolute -top-3.5 left-0 flex items-center gap-1 text-[9px] text-[#0A4D5C]/40">
                         <Reply className="h-2 w-2" />
-                        <span>Respondendo a {replyTo.author.display_name}</span>
+                        <span>Respondendo a {replyTo?.author?.display_name || "Usuário"}</span>
                         <button onClick={() => setReplyTo(null)} className="text-[#0A4D5C]/60 hover:text-[#0A4D5C] ml-1">✕</button>
                       </div>
                     )}
@@ -876,9 +876,9 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
             <h3 className="text-base font-bold text-[#000305] mb-3">Compartilhar no feed</h3>
             <div className="rounded-2xl bg-[#0A4D5C]/[0.04] p-3 mb-3 border border-[#0A4D5C]/8">
               <div className="flex items-center gap-2 mb-1">
-                <UserAvatar user={repostingPost.author} className="h-6 w-6" />
-                <span className="text-xs font-semibold text-[#000305]">{repostingPost.author.display_name}</span>
-                <span className="text-[10px] text-[#0A4D5C]/40">@{repostingPost.author.username}</span>
+                <UserAvatar user={repostingPost.author || { id: "", display_name: "Usuário", username: "usuario" }} className="h-6 w-6" />
+                <span className="text-xs font-semibold text-[#000305]">{repostingPost.author?.display_name || "Usuário"}</span>
+                <span className="text-[10px] text-[#0A4D5C]/40">@{repostingPost.author?.username || "usuario"}</span>
               </div>
               <p className="text-xs text-[#0A4D5C]/60 line-clamp-3">{repostingPost.content}</p>
             </div>

@@ -1053,7 +1053,17 @@ export function ProfileView() {
                     onClick={(e) => {
                       const target = e.target as HTMLElement;
                       if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('audio') || target.closest('video')) return;
-                      window.dispatchEvent(new CustomEvent("openPostDetail", { detail: { post } }));
+                      // Ensure post has author data for PostDetailDialog
+                      const postWithAuthor = {
+                        ...post,
+                        author: post.author || {
+                          id: profile?.id,
+                          display_name: profile?.display_name || "",
+                          username: profile?.username || "",
+                          avatar_url: profile?.avatar_url || null,
+                        },
+                      };
+                      window.dispatchEvent(new CustomEvent("openPostDetail", { detail: { post: postWithAuthor } }));
                     }}
                     style={{
                       backgroundColor: isTextOnly ? postItColor.bg : "#f7f9fa",
