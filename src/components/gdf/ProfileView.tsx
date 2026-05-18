@@ -9,6 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   MapPin,
   LogOut,
   Edit3,
@@ -235,6 +241,12 @@ export function ProfileView() {
   const [myPosts, setMyPosts] = useState<any[]>([]);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
+  // ═══════ Follow list dialog state ═══════
+  const [showFollowingDialog, setShowFollowingDialog] = useState(false);
+  const [showFollowersDialog, setShowFollowersDialog] = useState(false);
+  const [followList, setFollowList] = useState<any[]>([]);
+  const [followListLoading, setFollowListLoading] = useState(false);
+
   // ═══════ Tab state ═══════
   const [activeTab, setActiveTab] = useState<"posts" | "postar" | "config">("posts");
 
@@ -399,6 +411,27 @@ export function ProfileView() {
         if (data.posts) setMyPosts(data.posts);
       })
       .catch(() => {});
+  };
+
+  // ═══════ Follow list dialog ═══════
+  const openFollowDialog = async (type: "following" | "followers") => {
+    if (!profile) return;
+    setFollowList([]);
+    setFollowListLoading(true);
+    if (type === "following") setShowFollowingDialog(true);
+    else setShowFollowersDialog(true);
+    try {
+      const res = await fetch(`/api/follows?userId=${profile.id}`);
+      const data = await res.json();
+      if (type === "following" && data.following) {
+        setFollowList(data.following.map((f: any) => f.following).filter(Boolean));
+      } else if (type === "followers" && data.followers) {
+        setFollowList(data.followers.map((f: any) => f.follower).filter(Boolean));
+      }
+    } catch {
+      setFollowList([]);
+    }
+    setFollowListLoading(false);
   };
 
   // ═══════ Media handlers ═══════
@@ -740,8 +773,12 @@ export function ProfileView() {
 
           <div className="mt-6 flex gap-6">
             <div className="text-center"><p className="text-lg font-bold text-[#000305]">{postCount}</p><p className="text-xs text-[#01386A]/40">Posts</p></div>
-            <div className="text-center"><p className="text-lg font-bold text-[#000305]">{followingCount}</p><p className="text-xs text-[#01386A]/40">Seguindo</p></div>
-            <div className="text-center"><p className="text-lg font-bold text-[#000305]">{followersCount}</p><p className="text-xs text-[#01386A]/40">Seguidores</p></div>
+            <button onClick={() => openFollowDialog("following")} className="text-center hover:opacity-70 transition-opacity">
+              <p className="text-lg font-bold text-[#000305]">{followingCount}</p><p className="text-xs text-[#01386A]/40">Seguindo</p>
+            </button>
+            <button onClick={() => openFollowDialog("followers")} className="text-center hover:opacity-70 transition-opacity">
+              <p className="text-lg font-bold text-[#000305]">{followersCount}</p><p className="text-xs text-[#01386A]/40">Seguidores</p>
+            </button>
           </div>
         </CardContent>
       </Card>
@@ -1155,6 +1192,100 @@ export function ProfileView() {
             <LogOut className="h-4 w-4" /> Sair da conta
           </Button>
       </div>
+
+      {/* ═══════ DIALOG: SEGUINDO ═══════ */}
+      <Dialog open={showFollowingDialog} onOpenChange={setShowFollowingDialog}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UsersIcon className="h-4 w-4 text-[#0A4D5C]" /> Seguindo ({followingCount})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-80 overflow-y-auto custom-scrollbar">
+            {followListLoading ? (
+              <div className="space-y-2 py-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-2.5 animate-pulse">
+                    <div className="h-9 w-9 rounded-full bg-[#0A4D5C]/10" />
+                    <div className="flex-1"><div className="h-3 w-24 rounded bg-[#0A4D5C]/10" /><div className="h-2 w-16 rounded bg-[#0A4D5C]/10 mt-1" /></div>
+                  </div>
+                ))}
+              </div>
+            ) : followList.length === 0 ? (
+              <div className="py-8 text-center">
+                <UsersIcon className="h-8 w-8 text-[#0A4D5C]/20 mx-auto mb-2" />
+                <p className="text-xs text-[#0A4D5C]/40">Não segue ninguém ainda</p>
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                {followList.map((u: any) => (
+                  <button
+                    key={u.id}
+                    onClick={() => {
+                      setShowFollowingDialog(false);
+                      window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: u.id } }));
+                    }}
+                    className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 w-full text-left hover:bg-[#0A4D5C]/[0.04] transition-colors"
+                  >
+                    <UserAvatar user={{ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url }} className="h-9 w-9" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate text-[#000305]">{u.display_name}</div>
+                      <div className="text-[11px] text-[#0A4D5C]/40 truncate">@{u.username}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════ DIALOG: SEGUIDORES ═══════ */}
+      <Dialog open={showFollowersDialog} onOpenChange={setShowFollowersDialog}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UsersIcon className="h-4 w-4 text-[#0A4D5C]" /> Seguidores ({followersCount})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-80 overflow-y-auto custom-scrollbar">
+            {followListLoading ? (
+              <div className="space-y-2 py-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-2.5 animate-pulse">
+                    <div className="h-9 w-9 rounded-full bg-[#0A4D5C]/10" />
+                    <div className="flex-1"><div className="h-3 w-24 rounded bg-[#0A4D5C]/10" /><div className="h-2 w-16 rounded bg-[#0A4D5C]/10 mt-1" /></div>
+                  </div>
+                ))}
+              </div>
+            ) : followList.length === 0 ? (
+              <div className="py-8 text-center">
+                <UsersIcon className="h-8 w-8 text-[#0A4D5C]/20 mx-auto mb-2" />
+                <p className="text-xs text-[#0A4D5C]/40">Nenhum seguidor ainda</p>
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                {followList.map((u: any) => (
+                  <button
+                    key={u.id}
+                    onClick={() => {
+                      setShowFollowersDialog(false);
+                      window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: u.id } }));
+                    }}
+                    className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 w-full text-left hover:bg-[#0A4D5C]/[0.04] transition-colors"
+                  >
+                    <UserAvatar user={{ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url }} className="h-9 w-9" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate text-[#000305]">{u.display_name}</div>
+                      <div className="text-[11px] text-[#0A4D5C]/40 truncate">@{u.username}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
