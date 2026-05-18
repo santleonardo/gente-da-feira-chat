@@ -17,6 +17,7 @@ import {
   ImagePlus,
   Video,
   Mic,
+  MicOff,
   X,
   Clock,
   Loader2,
@@ -30,9 +31,6 @@ import {
   Copy,
   ExternalLink,
   Camera,
-  Plus,
-  Square,
-  Music,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -55,19 +53,19 @@ const MAX_VIDEO_DURATION = 30; // seconds
 const MAX_AUDIO_DURATION = 60; // seconds
 
 const REACTION_EMOJIS = [
-  { type: "like", emoji: "\u2764\uFE0F", label: "Curtir" },
-  { type: "laugh", emoji: "\uD83D\uDE02", label: "Engra\u00E7ado" },
-  { type: "sad", emoji: "\uD83D\uDE14", label: "Triste" },
-  { type: "wow", emoji: "\uD83D\uDE32", label: "Uau" },
-  { type: "angry", emoji: "\uD83D\uDE21", label: "Bravo" },
-  { type: "love", emoji: "\uD83D\uDE0D", label: "Amei" },
+  { type: "like", emoji: "❤️", label: "Curtir" },
+  { type: "laugh", emoji: "😂", label: "Engraçado" },
+  { type: "sad", emoji: "😔", label: "Triste" },
+  { type: "wow", emoji: "😲", label: "Uau" },
+  { type: "angry", emoji: "😡", label: "Bravo" },
+  { type: "love", emoji: "😍", label: "Amei" },
 ] as const;
 
 function buildReactionGroups(reactions: { user_id: string; type: string }[]) {
   const groups: Record<string, { emoji: string; count: number; types: string[] }> = {};
   for (const r of reactions) {
     const match = REACTION_EMOJIS.find((e) => e.type === r.type);
-    const emoji = match?.emoji || "\u2764\uFE0F";
+    const emoji = match?.emoji || "❤️";
     if (!groups[r.type]) groups[r.type] = { emoji, count: 0, types: [r.type] };
     groups[r.type].count++;
   }
@@ -318,7 +316,7 @@ function ShareMenu({
       if (navigator.share) {
         await navigator.share(shareData);
       } else {
-        await navigator.clipboard.writeText(`${shareData.text}\n\n--- GDF Chat`);
+        await navigator.clipboard.writeText(`${shareData.text}\n\n— GDF Chat`);
         toast.success("Texto copiado!");
       }
     } catch { /* cancelled */ }
@@ -378,8 +376,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [uploading, setUploading] = useState(false);
   const [activeMediaCount, setActiveMediaCount] = useState(0);
   const [videoPostsInWindow, setVideoPostsInWindow] = useState(0);
-
-  // Input refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
@@ -395,17 +391,12 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [audioDuration, setAudioDuration] = useState<number>(0);
   const [visibility, setVisibility] = useState<"public" | "followers">("public");
 
-  // Menu state
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Audio recording state (direct in-app recording)
-  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  // Microphone recording state
+  const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // Viewer state
   const [viewerPhotos, setViewerPhotos] = useState<string[]>([]);
@@ -418,28 +409,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   // Repost state
   const [repostingPost, setRepostingPost] = useState<PostWithAuthor | null>(null);
   const [repostContent, setRepostContent] = useState("");
-
-  // Close menu on outside click
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [menuOpen]);
-
-  // Cleanup recording on unmount
-  useEffect(() => {
-    return () => {
-      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-      }
-    };
-  }, []);
 
   useEffect(() => {
     const nb = profile?.neighborhood || "all";
@@ -485,44 +454,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       setPreviewUrls((prev) => [...prev, createPreviewUrl(file)]);
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
-    setMenuOpen(false);
-  };
-
-  const handleCameraPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const error = validateImageFile(file);
-    if (error) { toast.error(error); return; }
-    setSelectedFiles((prev) => [...prev, file]);
-    setPreviewUrls((prev) => [...prev, createPreviewUrl(file)]);
     if (cameraPhotoRef.current) cameraPhotoRef.current.value = "";
-    setMenuOpen(false);
-  };
-
-  const handleCameraVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // Process same as video file select
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error("Vídeo muito grande (máx 50MB)");
-      return;
-    }
-    const video = document.createElement("video");
-    video.preload = "metadata";
-    video.onloadedmetadata = () => {
-      if (video.duration > MAX_VIDEO_DURATION) {
-        toast.error(`Vídeo muito longo (máx ${MAX_VIDEO_DURATION}s)`);
-        URL.revokeObjectURL(video.src);
-        return;
-      }
-      setVideoDuration(video.duration);
-      setSelectedVideo(file);
-      setVideoPreview(URL.createObjectURL(file));
-      URL.revokeObjectURL(video.src);
-    };
-    video.src = URL.createObjectURL(file);
-    if (cameraVideoRef.current) cameraVideoRef.current.value = "";
-    setMenuOpen(false);
   };
 
   const removeSelectedFile = (index: number) => {
@@ -557,12 +489,17 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     };
     video.src = URL.createObjectURL(file);
     if (videoInputRef.current) videoInputRef.current.value = "";
-    setMenuOpen(false);
+    if (cameraVideoRef.current) cameraVideoRef.current.value = "";
   };
 
   const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    processAudioFile(file);
+    if (audioInputRef.current) audioInputRef.current.value = "";
+  };
+
+  const processAudioFile = (file: File) => {
     if (!["audio/mpeg", "audio/mp4", "audio/webm", "audio/ogg", "audio/wav", "audio/x-m4a"].includes(file.type)) {
       toast.error("Tipo não suportado. Use MP3, M4A, WebM, OGG ou WAV.");
       return;
@@ -585,27 +522,15 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       URL.revokeObjectURL(audio.src);
     };
     audio.src = URL.createObjectURL(file);
-    if (audioInputRef.current) audioInputRef.current.value = "";
-    setMenuOpen(false);
   };
 
-  // ═══════ Direct audio recording ═══════
-  const startAudioRecording = async () => {
-    setMenuOpen(false);
+  // ═══════════════════════════════════════════════════════════
+  // GRAVAÇÃO DE ÁUDIO COM MICROFONE
+  // ═══════════════════════════════════════════════════════════
+  const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
-
-      // Choose best supported mimeType
-      let mimeType = "audio/webm";
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = "audio/webm;codecs=opus";
-      }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = "audio/mp4";
-      }
-
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -614,78 +539,53 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: mimeType });
-        const ext = mimeType.includes("mp4") ? "m4a" : "webm";
-        const file = new File([blob], `gravação.${ext}`, { type: mimeType });
-        const url = URL.createObjectURL(file);
-
-        // Get duration
-        const tempAudio = document.createElement("audio");
-        tempAudio.preload = "metadata";
-        tempAudio.onloadedmetadata = () => {
-          const dur = tempAudio.duration;
-          setAudioDuration(dur);
-          setSelectedAudio(file);
-          setAudioPreview(url);
-          URL.revokeObjectURL(tempAudio.src);
-        };
-        tempAudio.src = url;
-
-        // Stop all tracks
-        if (mediaStreamRef.current) {
-          mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-          mediaStreamRef.current = null;
-        }
-        mediaRecorderRef.current = null;
-        setIsRecordingAudio(false);
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const file = new File([blob], `audio_${Date.now()}.webm`, { type: "audio/webm" });
+        processAudioFile(file);
+        stream.getTracks().forEach((t) => t.stop());
       };
 
-      mediaRecorder.start(1000);
-      setIsRecordingAudio(true);
+      mediaRecorder.start();
+      setIsRecording(true);
       setRecordingSeconds(0);
 
-      // Timer
       recordingTimerRef.current = setInterval(() => {
         setRecordingSeconds((prev) => {
-          if (prev + 1 >= MAX_AUDIO_DURATION) {
-            stopAudioRecording();
-            return MAX_AUDIO_DURATION;
+          if (prev >= MAX_AUDIO_DURATION) {
+            stopRecording();
+            return prev;
           }
           return prev + 1;
         });
       }, 1000);
     } catch {
-      toast.error("Não foi possível acessar o microfone. Verifique as permissões.");
+      toast.error("Não foi possível acessar o microfone");
     }
   };
 
-  const stopAudioRecording = () => {
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
     }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
   };
 
-  const cancelAudioRecording = () => {
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
+  const cancelRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
       mediaRecorderRef.current.stop();
     }
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-      mediaStreamRef.current = null;
-    }
-    mediaRecorderRef.current = null;
     audioChunksRef.current = [];
-    setIsRecordingAudio(false);
+    setIsRecording(false);
     setRecordingSeconds(0);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
   };
 
   const clearMedia = () => {
@@ -700,7 +600,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     if (audioPreview) URL.revokeObjectURL(audioPreview);
     setAudioPreview(null);
     setAudioDuration(0);
-    cancelAudioRecording();
   };
 
   const uploadPhotos = async (): Promise<string[]> => {
@@ -879,7 +778,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       <div className="rounded-2xl border bg-card p-4 shadow-sm">
         <div className="flex items-start gap-3">
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-10 w-10 shrink-0" />
-          <div className="flex-1 space-y-2">
+          <div className="flex-1 min-w-0 space-y-2">
             <textarea
               placeholder="O que está acontecendo no seu bairro?"
               value={content}
@@ -930,145 +829,123 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               </div>
             )}
 
-            {/* Audio recording indicator */}
-            {isRecordingAudio && (
-              <div className="relative rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500 text-white animate-pulse">
-                    <Mic className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-red-600 dark:text-red-400">Gravando áudio...</span>
-                      <span className="text-sm font-bold tabular-nums text-red-600 dark:text-red-400">{formatDuration(recordingSeconds)}</span>
-                      <span className="text-[10px] text-muted-foreground">/ {formatDuration(MAX_AUDIO_DURATION)}</span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 bg-red-200 dark:bg-red-900 rounded-full overflow-hidden">
-                      <div className="h-full bg-red-500 rounded-full transition-all" style={{ width: `${(recordingSeconds / MAX_AUDIO_DURATION) * 100}%` }} />
-                    </div>
-                  </div>
-                  <button onClick={stopAudioRecording} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500 text-white shadow-md hover:bg-red-600 transition-colors" title="Parar gravação">
-                    <Square className="h-4 w-4" />
+            {/* Recording indicator */}
+            {isRecording && (
+              <div className="flex items-center justify-between rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-3">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                  </span>
+                  <span className="text-xs font-semibold text-red-600 dark:text-red-400">Gravando {formatDuration(recordingSeconds)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={cancelRecording} className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-destructive hover:text-destructive-foreground transition-colors" title="Cancelar">
+                    <X className="h-3.5 w-3.5" />
                   </button>
-                  <button onClick={cancelAudioRecording} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-destructive hover:text-destructive-foreground transition-colors" title="Cancelar">
-                    <X className="h-4 w-4" />
+                  <button onClick={stopRecording} className="flex h-7 items-center gap-1 rounded-full bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors" title="Parar gravação">
+                    <MicOff className="h-3.5 w-3.5" /> Parar
                   </button>
                 </div>
               </div>
             )}
 
-            {/* ═══════ ACTION BAR ═══════ */}
+            {/* Action bar */}
             <div className="flex items-center justify-between pt-1">
-              {/* Menu button */}
-              <div className="relative" ref={menuRef}>
+              <div className="flex items-center gap-0.5">
+                {/* Câmera — tirar foto */}
                 <button
-                  onClick={() => setMenuOpen(!menuOpen)}
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${menuOpen ? "bg-primary/10 text-primary" : "text-primary hover:bg-primary/10"}`}
+                  onClick={() => canAddPhotos && cameraPhotoRef.current?.click()}
+                  disabled={!canAddPhotos || isRecording}
+                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs transition-colors ${canAddPhotos && !isRecording ? "text-primary hover:bg-primary/10" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                  title="Tirar foto"
                 >
-                  <Plus className="h-4 w-4" />
-                  <span>Menu</span>
-                  <ChevronDown className={`h-3 w-3 transition-transform ${menuOpen ? "rotate-180" : ""}`} />
+                  <Camera className="h-4 w-4" />
+                </button>
+                <input ref={cameraPhotoRef} type="file" accept="image/*" capture="environment" onChange={handleFileSelect} className="hidden" />
+
+                {/* Galeria — adicionar fotos */}
+                <button
+                  onClick={() => canAddPhotos && fileInputRef.current?.click()}
+                  disabled={!canAddPhotos || isRecording}
+                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs transition-colors ${canAddPhotos && !isRecording ? "text-primary hover:bg-primary/10" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                  title="Adicionar fotos da galeria"
+                >
+                  <ImagePlus className="h-4 w-4" />
+                </button>
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
+
+                {/* Câmera de vídeo — filmar */}
+                <button
+                  onClick={() => canAddVideo && cameraVideoRef.current?.click()}
+                  disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H || isRecording}
+                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H && !isRecording ? "text-primary hover:bg-primary/10" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                  title={videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H ? `Limite de ${MAX_VIDEO_POSTS_PER_12H} vídeos/12h atingido` : "Filmar com a câmera (máx 30s)"}
+                >
+                  <Video className="h-4 w-4" />
+                </button>
+                <input ref={cameraVideoRef} type="file" accept="video/*" capture="environment" onChange={handleVideoSelect} className="hidden" />
+
+                {/* Vídeo da galeria */}
+                <button
+                  onClick={() => canAddVideo && videoInputRef.current?.click()}
+                  disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H || isRecording}
+                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H && !isRecording ? "text-emerald-500 hover:bg-emerald-500/10" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                  title={videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H ? `Limite atingido` : "Vídeo da galeria (máx 30s)"}
+                >
+                  <Play className="h-3.5 w-3.5" />
+                </button>
+                <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
+
+                {/* Microfone — gravar áudio */}
+                <button
+                  onClick={() => {
+                    if (isRecording) return;
+                    if (hasAudioInComposer) {
+                      setSelectedAudio(null);
+                      if (audioPreview) URL.revokeObjectURL(audioPreview);
+                      setAudioPreview(null);
+                      setAudioDuration(0);
+                    }
+                    startRecording();
+                  }}
+                  disabled={!canAddAudio || isRecording}
+                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs transition-colors ${isRecording ? "text-red-500 bg-red-500/10" : canAddAudio ? "text-primary hover:bg-primary/10" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                  title="Gravar áudio com microfone (máx 60s)"
+                >
+                  {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                 </button>
 
-                {/* Dropdown menu - opens DOWNWARD */}
-                {menuOpen && (
-                  <div className="absolute left-0 top-full mt-1 w-56 rounded-xl border bg-card p-1.5 shadow-xl z-50 animate-in fade-in-0 zoom-in-95">
-                    {/* Camera photo */}
-                    <button
-                      onClick={() => { if (canAddPhotos) cameraPhotoRef.current?.click(); }}
-                      disabled={!canAddPhotos}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddPhotos ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
-                    >
-                      <Camera className={`h-4 w-4 ${canAddPhotos ? "text-primary" : ""}`} />
-                      <span>Tirar foto</span>
-                    </button>
-
-                    {/* Gallery photos */}
-                    <button
-                      onClick={() => { if (canAddPhotos) fileInputRef.current?.click(); }}
-                      disabled={!canAddPhotos}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddPhotos ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
-                    >
-                      <ImagePlus className={`h-4 w-4 ${canAddPhotos ? "text-primary" : ""}`} />
-                      <span>Escolher fotos</span>
-                    </button>
-
-                    <div className="my-1 h-px bg-border" />
-
-                    {/* Camera video */}
-                    <button
-                      onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) cameraVideoRef.current?.click(); }}
-                      disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
-                    >
-                      <Video className={`h-4 w-4 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-primary" : ""}`} />
-                      <span>Gravar vídeo</span>
-                    </button>
-
-                    {/* Video from file */}
-                    <button
-                      onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) videoInputRef.current?.click(); }}
-                      disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
-                    >
-                      <Video className={`h-4 w-4 ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-muted-foreground" : ""}`} />
-                      <span>Escolher vídeo</span>
-                    </button>
-
-                    <div className="my-1 h-px bg-border" />
-
-                    {/* Record audio (direct) */}
-                    <button
-                      onClick={() => { if (canAddAudio && !isRecordingAudio) startAudioRecording(); }}
-                      disabled={!canAddAudio || isRecordingAudio}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddAudio && !isRecordingAudio ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
-                    >
-                      <Mic className={`h-4 w-4 ${canAddAudio && !isRecordingAudio ? "text-primary" : ""}`} />
-                      <span>Gravar áudio</span>
-                    </button>
-
-                    {/* Audio from file */}
-                    <button
-                      onClick={() => { if (canAddAudio) audioInputRef.current?.click(); }}
-                      disabled={!canAddAudio}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${canAddAudio ? "hover:bg-accent" : "text-muted-foreground/40 cursor-not-allowed"}`}
-                    >
-                      <Music className={`h-4 w-4 ${canAddAudio ? "text-muted-foreground" : ""}`} />
-                      <span>Escolher áudio</span>
-                    </button>
-
-                    <div className="my-1 h-px bg-border" />
-
-                    {/* Visibility toggle */}
-                    <button
-                      onClick={() => setVisibility((v) => v === "public" ? "followers" : "public")}
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-accent"
-                    >
-                      {visibility === "public" ? (
-                        <Globe className="h-4 w-4 text-primary" />
-                      ) : (
-                        <UsersIcon className="h-4 w-4 text-amber-500" />
-                      )}
-                      <span>{visibility === "public" ? "Público" : "Seguidores"}</span>
-                    </button>
-                  </div>
-                )}
-
-                {/* Hidden inputs */}
-                <input ref={cameraPhotoRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhotoSelect} className="hidden" />
-                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
-                <input ref={cameraVideoRef} type="file" accept="video/*" capture="environment" onChange={handleCameraVideoSelect} className="hidden" />
-                <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
+                {/* Áudio do dispositivo */}
+                <button
+                  onClick={() => canAddAudio && audioInputRef.current?.click()}
+                  disabled={!canAddAudio || isRecording}
+                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs transition-colors ${canAddAudio && !isRecording ? "text-primary hover:bg-primary/10" : "text-muted-foreground/40 cursor-not-allowed"}`}
+                  title="Adicionar áudio do dispositivo (máx 60s)"
+                >
+                  <Volume2 className="h-3.5 w-3.5" />
+                </button>
                 <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
+
+                <div className="h-5 w-px bg-border mx-0.5" />
+
+                {/* Visibilidade */}
+                <button
+                  onClick={() => setVisibility(v => v === "public" ? "followers" : "public")}
+                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs transition-colors ${visibility === "public" ? "text-primary hover:bg-primary/10" : "text-amber-500 hover:bg-amber-500/10"}`}
+                  title={visibility === "public" ? "Público — todos verão" : "Somente seguidores mútuos"}
+                >
+                  {visibility === "public" ? <Globe className="h-4 w-4" /> : <UsersIcon className="h-4 w-4" />}
+                </button>
               </div>
 
-              {/* Publish button */}
-              <div className="flex items-center gap-2">
+              {/* Botão publicar — ÍCONE com send + contagem */}
+              <div className="flex items-center gap-2 shrink-0">
                 <span className={`text-[10px] ${content.length > 450 ? "text-destructive" : "text-muted-foreground"}`}>
                   {content.length}/500
                 </span>
-                <Button size="sm" disabled={!content.trim() || uploading} onClick={handlePost} className="rounded-full px-5 shadow-sm">
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Publicar"}
+                <Button size="icon" disabled={!content.trim() || uploading} onClick={handlePost} className="h-9 w-9 rounded-full shadow-sm shrink-0" title="Publicar">
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
@@ -1185,7 +1062,6 @@ function PostThread({
     return () => clearInterval(interval);
   }, [post.expires_at]);
 
-  // Close share menu on outside click
   useEffect(() => {
     if (shareMenuOpen !== post.id) return;
     const handler = (e: MouseEvent) => {
@@ -1287,14 +1163,13 @@ function PostThread({
   const { roots: commentRoots, map: commentMap } = buildCommentTree(comments);
 
   return (
-    <div className={`rounded-2xl border bg-card shadow-sm overflow-hidden transition-shadow hover:shadow-md ${isOwnPost ? "border-primary/10" : ""}`}>
+    <div className={`rounded-2xl border bg-card shadow-sm overflow-hidden transition-shadow hover:shadow-md cursor-pointer ${isOwnPost ? "border-primary/10" : ""}`} onClick={() => window.dispatchEvent(new CustomEvent("openPostDetail", { detail: { post } }))}>
       <div className="p-4">
-        {/* Header */}
         <div className="flex items-start gap-3">
           <button onClick={() => openUserProfile?.(post.author.id)} className="shrink-0 group">
             <UserAvatar user={post.author} className="h-11 w-11 hover:opacity-80 transition-opacity ring-2 ring-background shadow-sm" />
           </button>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 flex-wrap">
               <button onClick={() => openUserProfile?.(post.author.id)} className="text-sm font-bold hover:underline underline-offset-2 transition-all">
                 {post.author.display_name}
@@ -1319,10 +1194,8 @@ function PostThread({
               <span className="text-[10px] text-muted-foreground">{timeAgo(post.created_at)}</span>
             </div>
 
-            {/* Content */}
             <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap">{renderContentWithLinks(post.content)}</p>
 
-            {/* Shared post (repost) */}
             {post.shared_post && (
               <div className="mt-2.5 rounded-xl border bg-muted/20 p-3">
                 <div className="flex items-center gap-2 mb-1.5">
@@ -1354,12 +1227,10 @@ function PostThread({
               </div>
             )}
 
-            {/* Media */}
             {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} />}
             {hasVideo && <VideoPlayer src={post.video_url!} />}
             {hasAudio && <AudioPlayer src={post.audio_url!} />}
 
-            {/* Expiration */}
             {post.expires_at && expirationLabel && (
               <div className="mt-2.5 flex items-center gap-1.5 text-[10px] text-amber-500 bg-amber-500/5 rounded-full px-2.5 py-1 w-fit">
                 <Clock className="h-3 w-3" />
@@ -1367,9 +1238,7 @@ function PostThread({
               </div>
             )}
 
-            {/* ═══════ ACTION BAR ═══════ */}
             <div className="mt-3 flex items-center gap-0.5">
-              {/* Reactions */}
               <div className="relative">
                 <button
                   onClick={() => setShowReactions(!showReactions)}
@@ -1397,7 +1266,6 @@ function PostThread({
                 )}
               </div>
 
-              {/* Reaction summary pills */}
               {reactionGroups.length > 0 && (
                 <div className="flex gap-0.5 ml-0.5">
                   {reactionGroups.slice(0, 3).map((g, i) => (
@@ -1410,13 +1278,11 @@ function PostThread({
 
               <div className="flex-1" />
 
-              {/* Comment */}
               <button onClick={openAndFocus} className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-primary">
                 <MessageCircle className="h-4 w-4" />
                 {commentCount > 0 && commentCount}
               </button>
 
-              {/* Share/Repost */}
               <div className="relative" ref={shareRef}>
                 <button
                   onClick={() => setShareMenuOpen(shareMenuOpen === post.id ? null : post.id)}
@@ -1433,7 +1299,6 @@ function PostThread({
                 )}
               </div>
 
-              {/* Delete (own posts only) */}
               {isOwnPost && (
                 <button onClick={() => onDelete(post.id)} className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5" />
@@ -1444,14 +1309,12 @@ function PostThread({
         </div>
       </div>
 
-      {/* Comments toggle */}
       {(commentCount > 0 || comments.length > 0) && (
         <button onClick={toggleComments} className="flex w-full items-center justify-center gap-1.5 border-t py-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent/50 hover:text-primary">
           {showComments ? <>Ocultar comentários <ChevronUp className="h-3 w-3" /></> : <>{commentCount || comments.length} comentário{(commentCount || comments.length) !== 1 ? "s" : ""} <ChevronDown className="h-3 w-3" /></>}
         </button>
       )}
 
-      {/* Comments section */}
       {showComments && (
         <div className="border-t bg-muted/10">
           <div className="max-h-72 overflow-y-auto px-4 py-3 custom-scrollbar">
@@ -1487,7 +1350,6 @@ function PostThread({
         </div>
       )}
 
-      {/* Quick comment (when comments hidden) */}
       {!showComments && profile && (
         <div className="flex items-center gap-2 border-t px-4 py-2.5">
           <UserAvatar user={{ id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url }} className="h-6 w-6 shrink-0" />
