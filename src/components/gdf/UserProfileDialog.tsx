@@ -414,12 +414,13 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     is_private: boolean;
     hide_following: boolean;
     hide_followers: boolean;
+    hide_neighborhood: boolean;
     approve_followers: boolean;
     isRestricted: boolean;
     isPending: boolean;
     isBlockedByViewer: boolean;
     isBlockedByTarget: boolean;
-  }>({ is_private: false, hide_following: false, hide_followers: false, approve_followers: false, isRestricted: false, isPending: false, isBlockedByViewer: false, isBlockedByTarget: false });
+  }>({ is_private: false, hide_following: false, hide_followers: false, hide_neighborhood: false, approve_followers: false, isRestricted: false, isPending: false, isBlockedByViewer: false, isBlockedByTarget: false });
 
   // Carregar Google Fonts para post_style
   useEffect(() => {
@@ -462,6 +463,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
               ...prev,
               hide_following: followDataResult._privacy.hide_following,
               hide_followers: followDataResult._privacy.hide_followers,
+              hide_neighborhood: followDataResult._privacy.hide_neighborhood,
               approve_followers: followDataResult._privacy.approve_followers,
               isRestricted: followDataResult._privacy.isRestricted ?? prev.isRestricted,
             }));
@@ -564,6 +566,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
   const isRestricted = (privacyInfo.isRestricted && !isOwnProfile) || isBlocked;
   const canSeeFollowing = isOwnProfile || !privacyInfo.hide_following;
   const canSeeFollowers = isOwnProfile || !privacyInfo.hide_followers;
+  const canSeeNeighborhood = isOwnProfile || !privacyInfo.hide_neighborhood;
 
   const visibleTabs: Array<{ id: "posts" | "followers" | "following"; label: string }> = [{ id: "posts", label: "Posts" }];
   if (canSeeFollowers) visibleTabs.push({ id: "followers", label: "Seguidores" });
@@ -663,7 +666,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                 </div>
               ) : (
                 <>
-                  {userData.neighborhood && <Badge variant="secondary" className="mt-2 gap-1"><MapPin className="h-3 w-3" /> {userData.neighborhood}</Badge>}
+                  {userData.neighborhood && canSeeNeighborhood && <Badge variant="secondary" className="mt-2 gap-1"><MapPin className="h-3 w-3" /> {userData.neighborhood}</Badge>}
                   {userData.bio ? <p className="mt-3 text-sm leading-relaxed">{userData.bio}</p> : <p className="mt-3 text-sm text-muted-foreground italic">Sem bio ainda</p>}
                 </>
               )}
