@@ -14,7 +14,6 @@ import {
   Edit3,
   Camera,
   Lock,
-  Loader2,
   Bold,
   Italic,
   AlignLeft,
@@ -33,8 +32,8 @@ import {
   Users as UsersIcon,
   Play,
   Pause,
-  Send,
   FileText,
+  Send,
   PenSquare,
   MessageCircle,
   Maximize2,
@@ -224,7 +223,6 @@ function FormattedText({
 
 export function ProfileView() {
   const { profile, logout, updateProfile } = useStore();
-  const [editing, setEditing] = useState(false);
   const [name, setName] = useState(profile?.display_name || "");
   const [bio, setBio] = useState(profile?.bio || "");
   const [neighborhood, setNeighborhood] = useState(profile?.neighborhood || "");
@@ -237,7 +235,7 @@ export function ProfileView() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   // ═══════ Tab state ═══════
-  const [activeTab, setActiveTab] = useState<"posts" | "postar">("posts");
+  const [activeTab, setActiveTab] = useState<"posts" | "postar" | "config">("posts");
 
   // ═══════ Composer state ═══════
   const [postStyle, setPostStyle] = useState<PostStyle>({
@@ -594,7 +592,7 @@ export function ProfileView() {
         body: JSON.stringify({ name: name.trim().slice(0, 50), bio: bio.trim().slice(0, 300), neighborhood }),
       });
       const data = await res.json();
-      if (data.user) { updateProfile(data.user); setEditing(false); toast.success("Perfil atualizado!"); }
+      if (data.user) { updateProfile(data.user); toast.success("Perfil atualizado!"); }
     } catch { toast.error("Erro ao salvar"); }
   };
 
@@ -735,32 +733,9 @@ export function ProfileView() {
             </div>
           </div>
 
-          {!editing ? (
-            <div className="mt-4">
-              {profile?.bio ? <p className="text-sm text-[#000305]">{profile.bio}</p> : <p className="text-sm text-[#01386A]/40 italic">Sem bio ainda</p>}
-              <div className="flex gap-2 mt-3">
-                <Button variant="outline" size="sm" onClick={() => setEditing(true)} className="gap-1.5 border-[#01386A]/10 text-[#01386A] hover:bg-[#f7f75e]/20">
-                  <Edit3 className="h-3.5 w-3.5" /> Editar perfil
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-4 space-y-3">
-              <div className="space-y-1.5"><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={50} /></div>
-              <div className="space-y-1.5"><Label>Bio</Label><Textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} maxLength={300} /><span className="text-xs text-[#01386A]/40">{bio.length}/300</span></div>
-              <div className="space-y-1.5">
-                <Label>Bairro</Label>
-                <select value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} className="flex h-10 w-full rounded-md border border-[#01386A]/10 bg-[#f7f9fa] px-3 py-2 text-sm">
-                  <option value="">Nenhum</option>
-                  {BAIRROS.map((b) => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleSave} size="sm" className="bg-[#01386A] text-[#f7f9fa] hover:bg-[#01386A]/90 border-0">Salvar</Button>
-                <Button variant="outline" size="sm" onClick={() => setEditing(false)} className="border-[#01386A]/10 text-[#01386A]">Cancelar</Button>
-              </div>
-            </div>
-          )}
+          <div className="mt-4">
+            {profile?.bio ? <p className="text-sm text-[#000305]">{profile.bio}</p> : <p className="text-sm text-[#01386A]/40 italic">Sem bio ainda</p>}
+          </div>
 
           <div className="mt-6 flex gap-6">
             <div className="text-center"><p className="text-lg font-bold text-[#000305]">{postCount}</p><p className="text-xs text-[#01386A]/40">Posts</p></div>
@@ -770,7 +745,7 @@ export function ProfileView() {
         </CardContent>
       </Card>
 
-      {/* ═══════ ABAS: Meus Posts / Postar ═══════ */}
+      {/* ═══════ ABAS: Meus Posts / Postar / ⚙️ ═══════ */}
       <div className="flex rounded-xl bg-[#0A4D5C]/[0.06] p-1">
         <button
           onClick={() => setActiveTab("posts")}
@@ -785,6 +760,12 @@ export function ProfileView() {
         >
           <PenSquare className="h-3.5 w-3.5" />
           Postar
+        </button>
+        <button
+          onClick={() => setActiveTab("config")}
+          className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${activeTab === "config" ? "bg-[#f7f9fa] text-[#0A4D5C] shadow-sm" : "text-[#0A4D5C]/50 hover:text-[#0A4D5C]/70"}`}
+        >
+          ⚙️
         </button>
       </div>
 
@@ -837,12 +818,6 @@ export function ProfileView() {
             </div>
           )}
 
-          {/* Configurações — embutido */}
-          <SettingsView embedded />
-
-          <Button variant="destructive" onClick={handleLogout} className="w-full gap-2">
-            <LogOut className="h-4 w-4" /> Sair da conta
-          </Button>
       </div>
 
       <div style={{ display: activeTab === "postar" ? "block" : "none" }}>
@@ -1145,6 +1120,40 @@ export function ProfileView() {
           </div>
         </div>
       )}
+
+      {/* ═══════ ABA CONFIG — EDITAR PERFIL E CONFIGURAÇÕES ═══════ */}
+      <div style={{ display: activeTab === "config" ? "block" : "none" }}>
+          {/* Editar perfil */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Edit3 className="h-4 w-4 text-[#0A4D5C]" />
+                <h3 className="text-sm font-semibold text-[#000305]">Editar perfil</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="space-y-1.5"><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={50} /></div>
+                <div className="space-y-1.5"><Label>Bio</Label><Textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} maxLength={300} /><span className="text-xs text-[#01386A]/40">{bio.length}/300</span></div>
+                <div className="space-y-1.5">
+                  <Label>Bairro</Label>
+                  <select value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} className="flex h-10 w-full rounded-md border border-[#01386A]/10 bg-[#f7f9fa] px-3 py-2 text-sm">
+                    <option value="">Nenhum</option>
+                    {BAIRROS.map((b) => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleSave} size="sm" className="bg-[#01386A] text-[#f7f9fa] hover:bg-[#01386A]/90 border-0">Salvar</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Configurações */}
+          <SettingsView embedded />
+
+          <Button variant="destructive" onClick={handleLogout} className="w-full gap-2">
+            <LogOut className="h-4 w-4" /> Sair da conta
+          </Button>
+      </div>
     </div>
   );
 }
