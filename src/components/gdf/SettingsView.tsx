@@ -31,7 +31,7 @@ import {
 import { UserAvatar } from "./UserAvatar";
 import { toast } from "sonner";
 
-export function SettingsView() {
+export function SettingsView({ embedded }: { embedded?: boolean }) {
   const { profile, updateProfile, setProfileSubView } = useStore();
 
   const [isPrivate, setIsPrivate] = useState(profile?.is_private || false);
@@ -258,15 +258,17 @@ export function SettingsView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => setProfileSubView("profile")}
-          className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h2 className="text-lg font-bold">Configurações</h2>
-      </div>
+      {!embedded && (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setProfileSubView("profile")}
+            className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-accent transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h2 className="text-lg font-bold">Configurações</h2>
+        </div>
+      )}
 
       {/* PRIVACIDADE */}
       <Card>
