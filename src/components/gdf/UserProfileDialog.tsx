@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, Loader2, Clock, MoreVertical, Ban, ShieldBan, Play, Pause, Video, Mic, X, Repeat2, Users as UsersIcon, Camera } from "lucide-react";
+import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, Loader2, Clock, MoreVertical, Ban, ShieldBan, Play, Pause, Video, Mic, X, Repeat2, Users as UsersIcon } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 import { timeAgo } from "@/lib/constants";
 import { renderContentWithLinks } from "@/lib/link-utils";
@@ -394,13 +394,10 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
   const [postsLoading, setPostsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"posts" | "followers" | "following" | "album">("posts");
+  const [activeTab, setActiveTab] = useState<"posts" | "followers" | "following">("posts");
   const [followList, setFollowList] = useState<any[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
-  const [albumPhotos, setAlbumPhotos] = useState<any[]>([]);
-  const [albumVideos, setAlbumVideos] = useState<any[]>([]);
-  const [albumLoading, setAlbumLoading] = useState(false);
 
   // Photo viewer state
   const [viewerPhotos, setViewerPhotos] = useState<string[]>([]);
@@ -477,19 +474,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
         const postsData = await postsRes.json();
         if (postsData.posts) setUserPosts(postsData.posts);
         setPostsLoading(false);
-        // Fetch album
-        setAlbumLoading(true);
-        try {
-          const [pRes, vRes] = await Promise.all([
-            fetch(`/api/profile-photos?userId=${userId}`),
-            fetch(`/api/profile-videos?userId=${userId}`),
-          ]);
-          const pData = await pRes.json();
-          const vData = await vRes.json();
-          if (pData.photos) setAlbumPhotos(pData.photos);
-          if (vData.videos) setAlbumVideos(vData.videos);
-        } catch { /* silent */ }
-        setAlbumLoading(false);
       } catch { /* silent */ }
       setLoading(false);
     };
@@ -584,13 +568,12 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
   const canSeeFollowers = isOwnProfile || !privacyInfo.hide_followers;
   const canSeeNeighborhood = isOwnProfile || !privacyInfo.hide_neighborhood;
 
-  const visibleTabs: Array<{ id: "posts" | "followers" | "following" | "album"; label: string }> = [{ id: "posts", label: "Posts" }];
+  const visibleTabs: Array<{ id: "posts" | "followers" | "following"; label: string }> = [{ id: "posts", label: "Posts" }];
   if (canSeeFollowers) visibleTabs.push({ id: "followers", label: "Seguidores" });
   if (canSeeFollowing) visibleTabs.push({ id: "following", label: "Seguindo" });
-  visibleTabs.push({ id: "album", label: "Álbum" });
 
   useEffect(() => {
-    if (activeTab !== "posts" && activeTab !== "album" && !visibleTabs.find(t => t.id === activeTab)) setActiveTab("posts");
+    if (activeTab !== "posts" && !visibleTabs.find(t => t.id === activeTab)) setActiveTab("posts");
   }, [canSeeFollowers, canSeeFollowing]);
 
   const renderFollowButton = () => {
@@ -838,34 +821,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                           <div className="flex-1 min-w-0"><div className="text-sm font-medium truncate">{u.display_name}</div><div className="text-[11px] text-muted-foreground truncate">@{u.username}</div></div>
                         </button>
                       ))}
-                    </div>
-                  ))}
-                  {activeTab === "album" && (albumLoading ? <div className="grid grid-cols-3 gap-1.5 py-2">{[1,2,3,4,5,6].map(i=><div key={i} className="aspect-square rounded-lg bg-muted animate-pulse" />)}</div> : (albumPhotos.length === 0 && albumVideos.length === 0) ? <div className="py-8 text-center"><Camera className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" /><p className="text-xs text-muted-foreground">Nenhuma foto ou vídeo no álbum</p></div> : (
-                    <div className="space-y-3 py-1">
-                      {albumPhotos.length > 0 && (
-                        <div>
-                          <p className="text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">Fotos ({albumPhotos.length})</p>
-                          <div className="grid grid-cols-3 gap-1">
-                            {albumPhotos.map((photo: any) => (
-                              <button key={photo.id} className="aspect-square rounded-lg overflow-hidden" onClick={() => openPhotoViewer(albumPhotos.map((p: any) => p.url), albumPhotos.findIndex((p: any) => p.id === photo.id))}>
-                                <img src={photo.url} alt="Foto do álbum" className="w-full h-full object-cover hover:opacity-90 transition-opacity" loading="lazy" />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {albumVideos.length > 0 && (
-                        <div>
-                          <p className="text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">Vídeos ({albumVideos.length})</p>
-                          <div className="space-y-1.5">
-                            {albumVideos.map((video: any) => (
-                              <div key={video.id} className="relative rounded-xl overflow-hidden bg-[#000305]">
-                                <video src={video.url} className="w-full max-h-40 object-contain" playsInline preload="metadata" controls />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>
