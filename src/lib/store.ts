@@ -13,6 +13,7 @@ export interface Profile {
   is_private?: boolean;
   hide_following?: boolean;
   hide_followers?: boolean;
+  hide_neighborhood?: boolean;
   approve_followers?: boolean;
 }
 
