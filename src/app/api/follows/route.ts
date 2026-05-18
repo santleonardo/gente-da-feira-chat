@@ -15,13 +15,14 @@ export async function GET(req: NextRequest) {
     // Buscar configurações de privacidade do perfil
     const { data: targetProfile } = await supabase
       .from("profiles")
-      .select("is_private, hide_following, hide_followers, approve_followers")
+      .select("is_private, hide_following, hide_followers, hide_neighborhood, approve_followers")
       .eq("id", userId)
       .single();
 
     const isPrivate = targetProfile?.is_private || false;
     const hideFollowing = targetProfile?.hide_following || false;
     const hideFollowers = targetProfile?.hide_followers || false;
+    const hideNeighborhood = targetProfile?.hide_neighborhood || false;
     const approveFollowers = targetProfile?.approve_followers || false;
 
     // Buscar quem o usuário segue (só aceitos)
@@ -103,6 +104,7 @@ export async function GET(req: NextRequest) {
       _privacy: {
         hide_following: hideFollowing,
         hide_followers: hideFollowers,
+        hide_neighborhood: hideNeighborhood,
         approve_followers: approveFollowers,
         canSeeFollowing,
         canSeeFollowers,
