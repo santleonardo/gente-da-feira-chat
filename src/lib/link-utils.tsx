@@ -1,171 +1,181 @@
-'use client';
+import React from "react";
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g;
 
-interface MentionUser {
-  id: string;
-  username: string;
-  displayName?: string;
-  avatarUrl?: string;
+// ============================================
+// USERNAME → USER ID RESOLUTION CACHE
+// ============================================
+
+const usernameToUserIdCache = new Map<string, string | null>();
+
+export async function resolveUsernameToUserId(
+  username: string,
+  apiBaseUrl?: string
+): Promise<string | null> {
+  const cleanUsername = username.replace(/^@/, "").toLowerCase();
+  if (usernameToUserIdCache.has(cleanUsername)) {
+    return usernameToUserIdCache.get(cleanUsername) ?? null;
+  }
+  try {
+    const baseUrl = apiBaseUrl || "/api";
+    const response = await fetch(
+      `${baseUrl}/users/resolve?username=${encodeURIComponent(cleanUsername)}`
+    );
+    if (!response.ok) {
+      usernameToUserIdCache.set(cleanUsername, null);
+      return null;
+    }
+    const data = await response.json();
+    const userId = data?.userId || data?.id || null;
+    usernameToUserIdCache.set(cleanUsername, userId);
+    return userId;
+  } catch (error) {
+    console.error("Failed to resolve username:", cleanUsername, error);
+    usernameToUserIdCache.set(cleanUsername, null);
+    return null;
+  }
 }
 
-interface MentionInputProps {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  multiline?: boolean;
-  className?: string;
-  inputRef?: React.RefObject<HTMLInputElement | HTMLTextAreaElement>;
-  onSend?: () => void;
-  minRows?: number;
-  maxRows?: number;
-  disabled?: boolean;
-  autoFocus?: boolean;
-  searchUsers?: (query: string) => Promise<MentionUser[]>;
+export function clearUsernameCache() {
+  usernameToUserIdCache.clear();
 }
 
-const MentionInput: React.FC<MentionInputProps> = ({
-  value, onChange, placeholder = '', multiline = true, className = '',
-  inputRef: externalRef, onSend, minRows = 1, maxRows = 4,
-  disabled = false, autoFocus = false, searchUsers,
-}) => {
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
-  const [suggestions, setSuggestions] = useState<MentionUser[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+const MENTION_REGEX = /(?:^|\s)@(\w+)/g;
 
-  const internalRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
-  const inputRef = (externalRef || internalRef) as React.RefObject<HTMLInputElement | HTMLTextAreaElement>;
+export function hasMentions(text: string): boolean {
+  MENTION_REGEX.lastIndex = 0;
+  return MENTION_REGEX.test(text);
+}
 
-  const searchMentionUsers = useCallback(async (query: string) => {
-    if (!searchUsers || query.length === 0) { setSuggestions([]); return; }
-    setIsLoading(true);
-    try {
-      const results = await searchUsers(query);
-      setSuggestions(results.slice(0, 8));
-      setSelectedIndex(0);
-    } catch { setSuggestions([]); }
-    finally { setIsLoading(false); }
-  }, [searchUsers]);
+export function extractMentions(text: string): string[] {
+  MENTION_REGEX.lastIndex = 0;
+  const mentions: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = MENTION_REGEX.exec(text)) !== null) {
+    mentions.push(match[1]);
+  }
+  return [...new Set(mentions)];
+}
 
-  const detectMention = useCallback((text: string, cursorPos: number) => {
-    const textBeforeCursor = text.substring(0, cursorPos);
-    const match = textBeforeCursor.match(/@(\w*)$/);
-    if (match) {
-      const query = match[1];
-      const startIndex = cursorPos - query.length - 1;
-      const charBeforeAt = startIndex > 0 ? text[startIndex - 1] : '';
-      if (charBeforeAt === '' || charBeforeAt === ' ' || charBeforeAt === '\n') {
-        setMentionQuery(query);
-        setMentionStartIndex(startIndex);
-        return;
+// ============================================
+// ORIGINAL FUNCTION (unchanged)
+// ============================================
+
+export function renderContentWithLinks(text: string, linkClassName?: string): React.ReactNode[] {
+  if (!text) return [text];
+  const parts = text.split(URL_REGEX);
+  if (parts.length <= 1) return [text];
+  return parts.map((part, i) => {
+    if (URL_REGEX.test(part)) {
+      URL_REGEX.lastIndex = 0;
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={linkClassName || "text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors"}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    URL_REGEX.lastIndex = 0;
+    return part;
+  });
+}
+
+// ============================================
+// NEW: RENDER WITH LINKS + @MENTIONS
+// ============================================
+
+interface RenderContentWithMentionsOptions {
+  openUserProfile?: (userId: string) => void;
+  apiBaseUrl?: string;
+  linkClassName?: string;
+  mentionClassName?: string;
+}
+
+export function renderContentWithMentions(
+  text: string,
+  options: RenderContentWithMentionsOptions = {}
+): React.ReactNode[] {
+  const { openUserProfile, apiBaseUrl, linkClassName, mentionClassName } = options;
+  if (!text) return [text];
+
+  const COMBINED_REGEX = /(https?:\/\/[^\s<>"')\]]+|(?:^|\s)@\w+)/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let keyIndex = 0;
+  let match: RegExpExecArray | null;
+  COMBINED_REGEX.lastIndex = 0;
+
+  while ((match = COMBINED_REGEX.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(<span key={`text-${keyIndex++}`}>{text.substring(lastIndex, match.index)}</span>);
+    }
+    const matchedText = match[0];
+
+    if (URL_REGEX.test(matchedText)) {
+      URL_REGEX.lastIndex = 0;
+      parts.push(
+        <a
+          key={`link-${keyIndex++}`}
+          href={matchedText}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={linkClassName || "text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors"}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {matchedText}
+        </a>
+      );
+    } else {
+      const mentionMatch = matchedText.match(/@(\w+)/);
+      if (mentionMatch) {
+        const username = mentionMatch[1];
+        const precedingWhitespace = matchedText.match(/^(\s)/)?.[1] || "";
+        if (precedingWhitespace) {
+          parts.push(<span key={`ws-${keyIndex}`}>{precedingWhitespace}</span>);
+        }
+        parts.push(
+          <button
+            key={`mention-${keyIndex++}`}
+            className={mentionClassName || "gdf-mention text-[#0A4D5C] font-semibold hover:underline cursor-pointer bg-transparent border-none p-0 m-0 inline text-inherit font-inherit"}
+            onClick={async (e) => {
+              e.stopPropagation();
+              if (openUserProfile) {
+                const userId = await resolveUsernameToUserId(username, apiBaseUrl);
+                if (userId) openUserProfile(userId);
+              }
+            }}
+            title={`Ver perfil de @${username}`}
+          >
+            @{username}
+          </button>
+        );
       }
     }
-    setMentionQuery(null);
-    setMentionStartIndex(-1);
-    setSuggestions([]);
-  }, []);
+    lastIndex = match.index + matchedText.length;
+  }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
-    const cursorPos = e.target.selectionStart || newValue.length;
-    onChange(newValue);
-    detectMention(newValue, cursorPos);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    const mentionMatch = newValue.substring(0, cursorPos).match(/@(\w*)$/);
-    if (mentionMatch && searchUsers) {
-      debounceRef.current = setTimeout(() => searchMentionUsers(mentionMatch[1]), 250);
-    }
-  };
+  if (lastIndex < text.length) {
+    parts.push(<span key={`text-${keyIndex++}`}>{text.substring(lastIndex)}</span>);
+  }
 
-  const insertMention = useCallback((user: MentionUser) => {
-    if (mentionStartIndex === -1) return;
-    const before = value.substring(0, mentionStartIndex);
-    const after = value.substring(mentionStartIndex + (mentionQuery ? mentionQuery.length + 1 : 0));
-    onChange(`${before}@${user.username} ${after}`);
-    setMentionQuery(null);
-    setMentionStartIndex(-1);
-    setSuggestions([]);
-    requestAnimationFrame(() => {
-      const pos = before.length + user.username.length + 2;
-      if (inputRef.current) { inputRef.current.focus(); inputRef.current.setSelectionRange(pos, pos); }
-    });
-  }, [value, mentionStartIndex, mentionQuery, onChange, inputRef]);
+  return parts.length > 0 ? parts : [text];
+}
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (suggestions.length > 0 && mentionQuery !== null) {
-      switch (e.key) {
-        case 'ArrowDown': e.preventDefault(); setSelectedIndex(p => (p + 1) % suggestions.length); return;
-        case 'ArrowUp': e.preventDefault(); setSelectedIndex(p => (p - 1 + suggestions.length) % suggestions.length); return;
-        case 'Enter': case 'Tab': e.preventDefault(); insertMention(suggestions[selectedIndex]); return;
-        case 'Escape': e.preventDefault(); setMentionQuery(null); setMentionStartIndex(-1); setSuggestions([]); return;
-      }
-    }
-    if (e.key === 'Enter' && !e.shiftKey && onSend && !multiline) { e.preventDefault(); onSend(); }
-  };
-
-  useEffect(() => {
-    if (dropdownRef.current && suggestions.length > 0) {
-      const el = dropdownRef.current.children[selectedIndex] as HTMLElement;
-      if (el) el.scrollIntoView({ block: 'nearest' });
-    }
-  }, [selectedIndex, suggestions.length]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-          inputRef.current && !inputRef.current.contains(e.target as Node)) {
-        setMentionQuery(null); setMentionStartIndex(-1); setSuggestions([]);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [inputRef]);
-
-  useEffect(() => { return () => { if (debounceRef.current) clearTimeout(debounceRef.current); }; }, []);
-
-  const sharedProps = { value, onChange: handleChange, onKeyDown: handleKeyDown, placeholder, className: `mention-input ${className}`, disabled, autoFocus };
-
-  return (
-    <div className="mention-input-wrapper" style={{ position: 'relative' }}>
-      {multiline ? (
-        <textarea ref={inputRef as React.RefObject<HTMLTextAreaElement>} {...sharedProps} rows={minRows} style={{ resize: 'none', overflow: 'auto', maxHeight: maxRows ? `${maxRows * 24}px` : undefined }} />
-      ) : (
-        <input ref={inputRef as React.RefObject<HTMLInputElement>} {...sharedProps} type="text" />
-      )}
-      {mentionQuery !== null && suggestions.length > 0 && (
-        <div ref={dropdownRef} style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, zIndex: 9999, backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '8px', maxHeight: '240px', overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-          {suggestions.map((user, index) => (
-            <div key={user.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', cursor: 'pointer', backgroundColor: index === selectedIndex ? '#F0FDFA' : 'transparent', transition: 'background-color 0.1s ease' }}
-              onMouseDown={(e) => { e.preventDefault(); insertMention(user); }}
-              onMouseEnter={() => setSelectedIndex(index)}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, backgroundColor: '#0A4D5C' }}>
-                {user.avatarUrl ? <img src={user.avatarUrl} alt={user.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
-                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600, color: '#FFF' }}>
-                    {(user.displayName || user.username).charAt(0).toUpperCase()}
-                  </div>}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: '13px', color: '#0A4D5C' }}>@{user.username}</div>
-                {user.displayName && <div style={{ fontSize: '11px', color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.displayName}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {mentionQuery !== null && isLoading && (
-        <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, zIndex: 9998, backgroundColor: '#FFF', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#6B7280' }}>Buscando usuários...</div>
-      )}
-      <style jsx>{`
-        .mention-input-wrapper .mention-input { width: 100%; }
-        .mention-item:hover { background-color: #F0FDFA !important; }
-      `}</style>
-    </div>
-  );
-};
-
-export default MentionInput;
-export type { MentionInputProps, MentionUser };
+export const mentionStyles = `
+  .gdf-mention {
+    color: #0A4D5C;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  .gdf-mention:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+  }
+`;
