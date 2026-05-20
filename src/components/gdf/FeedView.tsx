@@ -43,6 +43,8 @@ import {
   createPreviewUrl,
   revokePreviewUrl,
 } from "@/lib/image-compression";
+import MentionInput from "./MentionInput";
+import { renderContentWithMentions, resolveUsernameToUserId, mentionStyles, parseInlineFormattingWithMentions } from "@/lib/link-utils";
 
 // ═══════════════════════════════════════════════════════════
 // Constantes
@@ -124,10 +126,9 @@ function sanitizeHTML(html: string): string {
     .replace(/javascript:/gi, '');
 }
 
-function parseInlineFormatting(text: string): React.ReactNode[] {
+function parseInlineFormatting(text: string, onMentionClick?: (username: string) => void): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Combined regex: URLs (highest priority), bold-italic, bold, italic
-  const regex = /(https?:\/\/[^\s<>"')\]]+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
+  const regex = /(https?:\/\/[^\s<>"')\]]+)|(?:^|\s)(@\w+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -137,18 +138,29 @@ function parseInlineFormatting(text: string): React.ReactNode[] {
       parts.push(<Fragment key={`t${key++}`}>{text.slice(lastIndex, match.index)}</Fragment>);
     }
     if (match[1]) {
-      // URL — clickable link
       parts.push(
         <a key={`url${key++}`} href={match[1]} target="_blank" rel="noopener noreferrer" className="text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors" onClick={(e) => e.stopPropagation()}>
           {match[1]}
         </a>
       );
-    } else if (match[3]) {
-      parts.push(<strong key={`bi${key++}`}><em>{match[3]}</em></strong>);
-    } else if (match[5]) {
-      parts.push(<strong key={`b${key++}`}>{match[5]}</strong>);
+    } else if (match[2]) {
+      const mentionText = match[2];
+      const hasLeadingSpace = /^(\s)/.test(mentionText);
+      const username = mentionText.replace(/^\s/, "").replace(/^@/, "");
+      if (hasLeadingSpace) parts.push(<Fragment key={`ws${key++}`}> </Fragment>);
+      parts.push(
+        <button key={`mention${key++}`} className="gdf-mention text-[#0A4D5C] font-semibold hover:underline cursor-pointer bg-transparent border-none p-0 m-0 inline text-inherit font-inherit"
+          onClick={async (e) => { e.stopPropagation(); if (onMentionClick) onMentionClick(username); }}
+          title={`Ver perfil de @${username}`}>
+          @{username}
+        </button>
+      );
+    } else if (match[4]) {
+      parts.push(<strong key={`bi${key++}`}><em>{match[4]}</em></strong>);
     } else if (match[6]) {
-      parts.push(<em key={`i${key++}`}>{match[6]}</em>);
+      parts.push(<strong key={`b${key++}`}>{match[6]}</strong>);
+    } else if (match[7]) {
+      parts.push(<em key={`i${key++}`}>{match[7]}</em>);
     }
     lastIndex = match.index + match[0].length;
   }
@@ -156,7 +168,6 @@ function parseInlineFormatting(text: string): React.ReactNode[] {
   if (lastIndex < text.length) {
     parts.push(<Fragment key={`r${key++}`}>{text.slice(lastIndex)}</Fragment>);
   }
-
   return parts.length > 0 ? parts : [<Fragment key="empty">{text}</Fragment>];
 }
 
@@ -164,10 +175,12 @@ function FormattedText({
   content,
   className,
   style,
+  onMentionClick,
 }: {
   content: string;
   className?: string;
   style?: React.CSSProperties;
+  onMentionClick?: (username: string) => void;
 }) {
   // Se o conteúdo é HTML (posts criados com o editor WYSIWYG), renderizar como HTML
   if (isHTMLContent(content)) {
@@ -176,6 +189,14 @@ function FormattedText({
         className={`post-content ${className || ""}`}
         style={style}
         dangerouslySetInnerHTML={{ __html: sanitizeHTML(content) }}
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.classList.contains("gdf-mention") || target.closest(".gdf-mention")) {
+            const mentionEl = target.classList.contains("gdf-mention") ? target : target.closest(".gdf-mention");
+            const username = mentionEl?.textContent?.replace("@", "") || "";
+            if (username && onMentionClick) onMentionClick(username);
+          }
+        }}
       />
     );
   }
@@ -206,7 +227,7 @@ function FormattedText({
         return (
           <Fragment key={i}>
             {i > 0 && <br />}
-            <span style={headingStyle}>{parseInlineFormatting(text)}</span>
+            <span style={headingStyle}>{parseInlineFormatting(text, onMentionClick)}</span>
           </Fragment>
         );
       })}
@@ -569,6 +590,25 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const navigateToProfile = (uid: string) => {
     if (openUserProfile) openUserProfile(uid);
     else window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
+  };
+
+  const searchUsers = async (query: string) => {
+    try {
+      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.users || []).map((u: any) => ({
+        id: u.id,
+        username: u.username,
+        display_name: u.display_name,
+        avatar_url: u.avatar_url,
+      }));
+    } catch { return []; }
+  };
+
+  const handleMentionClick = async (username: string) => {
+    const userId = await resolveUsernameToUserId(username);
+    if (userId) navigateToProfile(userId);
   };
 
   // Carregar Google Fonts para post_style
@@ -1141,12 +1181,16 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         <div className="flex items-start gap-3.5">
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-12 w-12 shrink-0" />
           <div className="flex-1 space-y-2">
-            <textarea
+            <MentionInput
               placeholder="O que está acontecendo no seu bairro?"
               value={content}
-              onChange={(e) => setContent(e.target.value.slice(0, 500))}
-              className="w-full min-h-[72px] resize-none border-0 bg-transparent p-0 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
-              rows={2}
+              onChange={(v) => setContent(v.slice(0, 500))}
+              multiline={true}
+              minRows={3}
+              maxRows={6}
+              searchUsers={searchUsers}
+              className="w-full bg-transparent border-0 text-sm resize-none focus:outline-none placeholder:text-muted-foreground/60"
+              maxLength={500}
             />
 
             {/* Photo previews */}
@@ -1340,14 +1384,18 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                 <span className="text-xs font-semibold text-[#000305]">{repostingPost.author?.display_name || "Usuário"}</span>
                 <span className="text-[10px] text-[#0A4D5C]/40">@{repostingPost.author?.username || "usuario"}</span>
               </div>
-              <FormattedText className="text-xs text-[#0A4D5C]/60 line-clamp-3" content={repostingPost.content} />
+              <FormattedText className="text-xs text-[#0A4D5C]/60 line-clamp-3" content={repostingPost.content} onMentionClick={handleMentionClick} />
             </div>
-            <textarea
+            <MentionInput
               placeholder="Adicione um comentário (opcional)..."
               value={repostContent}
-              onChange={(e) => setRepostContent(e.target.value.slice(0, 200))}
-              className="w-full min-h-[60px] resize-none border-0 bg-transparent p-3 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
-              rows={2}
+              onChange={(v) => setRepostContent(v.slice(0, 200))}
+              multiline={true}
+              minRows={2}
+              maxRows={4}
+              searchUsers={searchUsers}
+              className="w-full bg-transparent border-0 text-sm resize-none focus:outline-none placeholder:text-muted-foreground/60"
+              maxLength={200}
             />
             <div className="flex items-center gap-2 mt-3">
               <Button variant="outline" size="sm" onClick={() => { setRepostingPost(null); setRepostContent(""); }} className="rounded-full border-[#0A4D5C]/10 text-[#0A4D5C]">Cancelar</Button>
@@ -1383,6 +1431,8 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               onRepost={(p) => { setRepostingPost(p); setRepostContent(""); }}
               shareMenuOpen={shareMenuOpen}
               setShareMenuOpen={setShareMenuOpen}
+              onMentionClick={handleMentionClick}
+              searchUsers={searchUsers}
             />
           </div>
         ))}
@@ -1418,6 +1468,10 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       )}
 
       {viewerOpen && <PhotoViewer photos={viewerPhotos} initialIndex={viewerIndex} onClose={() => setViewerOpen(false)} />}
+      <style>{`
+  .gdf-mention { color: #0A4D5C; font-weight: 600; cursor: pointer; transition: opacity 0.15s ease; }
+  .gdf-mention:hover { opacity: 0.8; text-decoration: underline; }
+`}</style>
     </div>
   );
 }
@@ -1426,7 +1480,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 // PostThread
 // ═══════════════════════════════════════════════════════════
 function PostThread({
-  post, profile, onReaction, onDelete, onUpdateCommentCount, openUserProfile, onPhotoClick, onRepost, shareMenuOpen, setShareMenuOpen,
+  post, profile, onReaction, onDelete, onUpdateCommentCount, openUserProfile, onPhotoClick, onRepost, shareMenuOpen, setShareMenuOpen, onMentionClick, searchUsers,
 }: {
   post: PostWithAuthor;
   profile: Profile | null;
@@ -1438,6 +1492,8 @@ function PostThread({
   onRepost: (post: PostWithAuthor) => void;
   shareMenuOpen: string | null;
   setShareMenuOpen: (id: string | null) => void;
+  onMentionClick?: (username: string) => void;
+  searchUsers?: (query: string) => Promise<{ id: string; username: string; display_name?: string; avatar_url?: string | null }[]>;
 }) {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -1446,7 +1502,7 @@ function PostThread({
   const [submitting, setSubmitting] = useState(false);
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
   const [showReactions, setShowReactions] = useState(false);
-  const commentInputRef = useRef<HTMLInputElement>(null);
+  const commentInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const shareRef = useRef<HTMLDivElement>(null);
 
   const reactionGroups = buildReactionGroups(post.reactions || []);
@@ -1631,6 +1687,7 @@ function PostThread({
               <FormattedText
                 className={`mt-1.5 text-base sm:text-lg leading-snug whitespace-pre-wrap ${useInlineStyle ? "" : (postItColor?.text || "text-[#000305]")}`}
                 content={post.content}
+                onMentionClick={onMentionClick}
                 style={{
                   fontFamily: hasPostStyle && post.post_style!.font ? `'${post.post_style!.font}', sans-serif` : "serif",
                   fontWeight: hasPostStyle && post.post_style!.bold ? 700 : undefined,
@@ -1643,6 +1700,7 @@ function PostThread({
               <FormattedText
                 className="mt-1.5 text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]"
                 content={post.content}
+                onMentionClick={onMentionClick}
               />
             )}
 
@@ -1662,7 +1720,7 @@ function PostThread({
                   </button>
 
                 </div>
-                <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-4" content={post.shared_post.content} />
+                <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-4" content={post.shared_post.content} onMentionClick={onMentionClick} />
                 {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
                   <div className="mt-1.5 flex gap-1 overflow-x-auto">
                     {post.shared_post.image_urls.slice(0, 2).map((url, i) => (
@@ -1789,6 +1847,7 @@ function PostThread({
                         onDelete={deleteComment}
                         onReaction={handleCommentReaction}
                         openUserProfile={openUserProfile}
+                        onMentionClick={onMentionClick}
                       />
                     ))}
                     {comments.length === 0 && (
@@ -1809,13 +1868,15 @@ function PostThread({
                       </div>
                     )}
                     <div className="flex items-center gap-1">
-                      <input
-                        ref={commentInputRef}
-                        placeholder="Comentar..."
+                      <MentionInput
                         value={commentInput}
-                        onChange={(e) => setCommentInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && submitComment()}
-                        className="flex-1 min-w-0 rounded-full border border-[#0A4D5C]/10 bg-[#f7f9fa] px-2.5 py-1 text-[11px] sm:text-xs text-[#000305] focus:outline-none focus:border-[#2EC4B6] placeholder:text-[#0A4D5C]/30"
+                        onChange={setCommentInput}
+                        placeholder="Comentar..."
+                        multiline={false}
+                        searchUsers={searchUsers}
+                        onSend={() => submitComment()}
+                        inputRef={commentInputRef}
+                        className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground/60"
                       />
                       <button
                         onClick={submitComment}
@@ -1840,7 +1901,7 @@ function PostThread({
 // CommentItem
 // ═══════════════════════════════════════════════════════════
 function CommentItem({
-  comment, replies, profile, onReply, onDelete, onReaction, openUserProfile,
+  comment, replies, profile, onReply, onDelete, onReaction, openUserProfile, onMentionClick,
 }: {
   comment: Comment;
   replies: Comment[];
@@ -1849,6 +1910,7 @@ function CommentItem({
   onDelete: (commentId: string) => void;
   onReaction: (commentId: string, type: string) => void;
   openUserProfile?: (userId: string) => void;
+  onMentionClick?: (username: string) => void;
 }) {
   const isOwn = comment.author_id === profile?.id;
   const [showCommentReactions, setShowCommentReactions] = useState(false);
@@ -1866,7 +1928,7 @@ function CommentItem({
             </button>
             <span className="text-[9px] sm:text-[10px] text-[#0A4D5C]/30">{timeAgo(comment.created_at)}</span>
           </div>
-          <FormattedText className="text-[11px] sm:text-xs text-[#000305]/80 leading-relaxed" content={comment.content} />
+          <FormattedText className="text-[11px] sm:text-xs text-[#000305]/80 leading-relaxed" content={comment.content} onMentionClick={onMentionClick} />
           <div className="flex items-center gap-1.5 mt-0.5">
             <div className="relative">
               <button
@@ -1896,7 +1958,7 @@ function CommentItem({
       {replies.length > 0 && (
         <div className="ml-6 mt-1 space-y-1 border-l-2 border-[#0A4D5C]/8 pl-2">
           {replies.map((reply) => (
-            <CommentItem key={reply.id} comment={reply} replies={[]} profile={profile} onReply={onReply} onDelete={onDelete} onReaction={onReaction} openUserProfile={openUserProfile} />
+            <CommentItem key={reply.id} comment={reply} replies={[]} profile={profile} onReply={onReply} onDelete={onDelete} onReaction={onReaction} openUserProfile={openUserProfile} onMentionClick={onMentionClick} />
           ))}
         </div>
       )}

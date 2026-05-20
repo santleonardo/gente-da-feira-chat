@@ -22,6 +22,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import MentionInput from "./MentionInput";
+import { renderContentWithMentions, resolveUsernameToUserId } from "@/lib/link-utils";
 
 const MAX_AUDIO_DURATION = 60;
 const MAX_VIDEO_DURATION = 30;
@@ -365,6 +367,33 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
 
   const other = conversation.initiator_id === profile?.id ? conversation.receiver : conversation.initiator;
+
+  const navigateToProfile = (uid: string) => {
+    if (openUserProfile) {
+      openUserProfile(uid);
+    } else {
+      window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
+    }
+  };
+
+  const searchUsers = async (query: string) => {
+    try {
+      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.users || []).map((u: any) => ({
+        id: u.id,
+        username: u.username,
+        display_name: u.display_name,
+        avatar_url: u.avatar_url,
+      }));
+    } catch { return []; }
+  };
+
+  const handleMentionClick = async (username: string) => {
+    const userId = await resolveUsernameToUserId(username);
+    if (userId) navigateToProfile(userId);
+  };
 
   // Fechar menu ao clicar fora
   useEffect(() => {
@@ -852,7 +881,7 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
                   {hasAudio && (
                     <ChatAudioPlayer src={msg.media_url} isMine={isMine} />
                   )}
-                  {msg.content?.trim() && <span>{msg.content}</span>}
+                  {msg.content?.trim() && <span>{renderContentWithMentions(msg.content, { openUserProfile: navigateToProfile })}</span>}
                 </div>
                 {!isMine && (
                   <span className="text-[9px] text-muted-foreground/50 mb-1 shrink-0">{timeAgo(msg.created_at)}</span>
@@ -946,12 +975,15 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
 
             {/* Input de texto */}
             <div className="flex-1 relative">
-              <Input
-                placeholder="Escreva uma mensagem..."
+              <MentionInput
                 value={input}
-                onChange={(e) => setInput(e.target.value.slice(0, 2000))}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+                onChange={(v) => setInput(v.slice(0, 2000))}
+                placeholder="Escreva uma mensagem..."
+                multiline={false}
+                searchUsers={searchUsers}
+                onSend={() => sendMessage()}
                 className="h-11 rounded-full pl-4 pr-4 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
+                maxLength={2000}
               />
             </div>
 
@@ -1029,6 +1061,10 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
           </div>
         </div>
       )}
+      <style>{`
+  .gdf-mention { color: #0A4D5C; font-weight: 600; cursor: pointer; transition: opacity 0.15s ease; }
+  .gdf-mention:hover { opacity: 0.8; text-decoration: underline; }
+`}</style>
     </div>
   );
 }

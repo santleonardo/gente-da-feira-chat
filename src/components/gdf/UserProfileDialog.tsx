@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, Loader2, Clock, MoreVertical, Ban, ShieldBan, Play, Pause, Video, Mic, X, Repeat2, Users as UsersIcon, Camera } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 import { timeAgo } from "@/lib/constants";
-import { renderContentWithLinks } from "@/lib/link-utils";
+import { renderContentWithLinks, resolveUsernameToUserId } from "@/lib/link-utils";
 import { toast } from "sonner";
 
 // ═══════════════════════════════════════════════════════════
@@ -280,9 +280,9 @@ function sanitizeHTML(html: string): string {
     .replace(/javascript:/gi, '');
 }
 
-function parseInlineFormatting(text: string): React.ReactNode[] {
+function parseInlineFormatting(text: string, onMentionClick?: (username: string) => void): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  const regex = /(https?:\/\/[^\s<>"')\]]+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
+  const regex = /(https?:\/\/[^\s<>"')\]]+)|(?:^|\s)(@\w+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -297,12 +297,24 @@ function parseInlineFormatting(text: string): React.ReactNode[] {
           {match[1]}
         </a>
       );
+    } else if (match[2]) {
+      const mentionText = match[2];
+      const hasLeadingSpace = /^(\s)/.test(mentionText);
+      const username = mentionText.replace(/^\s/, "").replace(/^@/, "");
+      if (hasLeadingSpace) parts.push(<Fragment key={`ws${key++}`}> </Fragment>);
+      parts.push(
+        <button key={`mention${key++}`} className="gdf-mention text-[#0A4D5C] font-semibold hover:underline cursor-pointer bg-transparent border-none p-0 m-0 inline text-inherit font-inherit"
+          onClick={async (e) => { e.stopPropagation(); if (onMentionClick) onMentionClick(username); }}
+          title={`Ver perfil de @${username}`}>
+          @{username}
+        </button>
+      );
     } else if (match[3]) {
-      parts.push(<strong key={`bi${key++}`}><em>{match[3]}</em></strong>);
+      parts.push(<strong key={`bi${key++}`}><em>{match[4]}</em></strong>);
     } else if (match[5]) {
-      parts.push(<strong key={`b${key++}`}>{match[5]}</strong>);
-    } else if (match[6]) {
-      parts.push(<em key={`i${key++}`}>{match[6]}</em>);
+      parts.push(<strong key={`b${key++}`}>{match[6]}</strong>);
+    } else if (match[7]) {
+      parts.push(<em key={`i${key++}`}>{match[7]}</em>);
     }
     lastIndex = match.index + match[0].length;
   }
@@ -318,10 +330,12 @@ function FormattedText({
   content,
   className,
   style,
+  onMentionClick,
 }: {
   content: string;
   className?: string;
   style?: React.CSSProperties;
+  onMentionClick?: (username: string) => void;
 }) {
   if (isHTMLContent(content)) {
     return (
@@ -329,6 +343,14 @@ function FormattedText({
         className={`post-content ${className || ""}`}
         style={style}
         dangerouslySetInnerHTML={{ __html: sanitizeHTML(content) }}
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.classList.contains("gdf-mention") || target.closest(".gdf-mention")) {
+            const mentionEl = target.classList.contains("gdf-mention") ? target : target.closest(".gdf-mention");
+            const username = mentionEl?.textContent?.replace("@", "") || "";
+            if (username && onMentionClick) onMentionClick(username);
+          }
+        }}
       />
     );
   }
@@ -358,7 +380,7 @@ function FormattedText({
         return (
           <Fragment key={i}>
             {i > 0 && <br />}
-            <span style={headingStyle}>{parseInlineFormatting(text)}</span>
+            <span style={headingStyle}>{parseInlineFormatting(text, onMentionClick)}</span>
           </Fragment>
         );
       })}
@@ -577,6 +599,16 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     } catch { toast.error("Erro ao iniciar conversa"); }
   };
 
+  const handleMentionClick = async (username: string) => {
+    const userId = await resolveUsernameToUserId(username);
+    if (userId) {
+      onOpenChange(false);
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId } }));
+      }, 200);
+    }
+  };
+
   const isOwnProfile = profile?.id === userId;
   const isBlocked = privacyInfo.isBlockedByViewer || privacyInfo.isBlockedByTarget;
   const isRestricted = (privacyInfo.isRestricted && !isOwnProfile) || isBlocked;
@@ -779,11 +811,13 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                                     textAlign: hasPostStyle && post.post_style!.alignment ? post.post_style!.alignment : undefined,
                                     color: useInlineStyle && postItColorHex ? postItColorHex.text : undefined,
                                   }}
+                                  onMentionClick={handleMentionClick}
                                 />
                               ) : (
                                 <FormattedText
                                   className="mt-1 text-sm leading-relaxed whitespace-pre-wrap text-[#000305]"
                                   content={post.content}
+                                  onMentionClick={handleMentionClick}
                                 />
                               )}
 
@@ -800,7 +834,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                                     )}
                                     <span className="text-xs font-semibold">{post.shared_post.author?.display_name || "Usuário"}</span>
                                   </div>
-                                  <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-3" content={post.shared_post.content} />
+                                  <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-3" content={post.shared_post.content} onMentionClick={handleMentionClick} />
                                   {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
                                     <div className="mt-1.5 flex gap-1 overflow-x-auto">
                                       {post.shared_post.image_urls.slice(0, 2).map((url: string, i: number) => (
@@ -881,6 +915,10 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
       {viewerOpen && viewerPhotos.length > 0 && (
         <PhotoViewer photos={viewerPhotos} initialIndex={viewerIndex} onClose={() => setViewerOpen(false)} />
       )}
+      <style>{`
+  .gdf-mention { color: #0A4D5C; font-weight: 600; cursor: pointer; transition: opacity 0.15s ease; }
+  .gdf-mention:hover { opacity: 0.8; text-decoration: underline; }
+`}</style>
     </Dialog>
   );
 }
