@@ -5,7 +5,7 @@ import { useStore } from "@/lib/store";
 import { Heart, Clock, X } from "lucide-react";
 import { timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
-import { renderContentWithMentions } from "@/lib/link-utils";
+import { renderContentWithLinks } from "@/lib/link-utils";
 
 interface PostCardProps {
   post: {
@@ -70,7 +70,7 @@ export function PostCard({ post }: PostCardProps) {
             <p className="text-xs text-muted-foreground">@{post.author.username} · {timeAgo(post.created_at)}</p>
           </div>
         </div>
-        <p className="text-sm leading-relaxed whitespace-pre-wrap mb-3">{renderContentWithMentions(post.content)}</p>
+        <p className="text-sm leading-relaxed whitespace-pre-wrap mb-3">{renderContentWithLinks(post.content)}</p>
 
         {hasPhotos && (
           <div className="mb-3">

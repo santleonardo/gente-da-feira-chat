@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
+import { MentionInput } from "./MentionInput";
 import { toast } from "sonner";
 import {
   compressImage,
@@ -43,8 +44,6 @@ import {
   createPreviewUrl,
   revokePreviewUrl,
 } from "@/lib/image-compression";
-import { MentionInput } from "./MentionInput";
-import { renderContentWithMentions, extractMentions, resolveMentionUsernames } from "@/lib/link-utils";
 
 // ═══════════════════════════════════════════════════════════
 // Constantes
@@ -128,8 +127,8 @@ function sanitizeHTML(html: string): string {
 
 function parseInlineFormatting(text: string, openUserProfile?: (userId: string) => void): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Combined regex: URLs (highest priority), bold-italic, bold, italic, @mentions
-  const regex = /(https?:\/\/[^\s<>"')\]]+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_|@(\w[\w.-]{0,29})/g;
+  // Combined regex: URLs (highest priority), @mentions, bold-italic, bold, italic
+  const regex = /(https?:\/\/[^\s<>"')\]]+)|@(\w+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -145,24 +144,33 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
           {match[1]}
         </a>
       );
-    } else if (match[3]) {
-      parts.push(<strong key={`bi${key++}`}><em>{match[3]}</em></strong>);
-    } else if (match[5]) {
-      parts.push(<strong key={`b${key++}`}>{match[5]}</strong>);
+    } else if (match[2]) {
+      // @mention — clickable
+      const username = match[2];
+      parts.push(
+        <button
+          key={`mention${key++}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            resolveUsernameToUserId(username).then((userId) => {
+              if (userId) {
+                if (openUserProfile) openUserProfile(userId);
+                else window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId } }));
+              }
+            });
+          }}
+          className="text-[#0A4D5C] font-semibold hover:underline underline-offset-2 transition-colors cursor-pointer bg-transparent border-0 p-0 m-0 inline"
+          style={{ font: "inherit", lineHeight: "inherit" }}
+        >
+          @{username}
+        </button>
+      );
+    } else if (match[4]) {
+      parts.push(<strong key={`bi${key++}`}><em>{match[4]}</em></strong>);
     } else if (match[6]) {
-      parts.push(<em key={`i${key++}`}>{match[6]}</em>);
-    } else if (match[7]) {
-      // @mention
-      const username = match[7];
-      if (openUserProfile) {
-        parts.push(
-          <a key={`mention${key++}`} href="#" className="text-[#0A4D5C] font-semibold hover:underline underline-offset-2 transition-colors" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openUserProfile(username); }}>
-            @{username}
-          </a>
-        );
-      } else {
-        parts.push(<span key={`mention${key++}`} className="text-[#0A4D5C] font-semibold">@{username}</span>);
-      }
+      parts.push(<strong key={`b${key++}`}>{match[6]}</strong>);
+    } else if (match[8]) {
+      parts.push(<em key={`i${key++}`}>{match[8]}</em>);
     }
     lastIndex = match.index + match[0].length;
   }
@@ -172,6 +180,31 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
   }
 
   return parts.length > 0 ? parts : [<Fragment key="empty">{text}</Fragment>];
+}
+
+// ═══════════════════════════════════════════════════════════
+// Resolve @mention username → userId (with cache)
+// ═══════════════════════════════════════════════════════════
+const _mentionUsernameCache = new Map<string, string | null>();
+
+async function resolveUsernameToUserId(username: string): Promise<string | null> {
+  if (_mentionUsernameCache.has(username)) {
+    return _mentionUsernameCache.get(username) || null;
+  }
+  try {
+    const res = await fetch(`/api/users?q=${encodeURIComponent(username)}`);
+    const data = await res.json();
+    const users = data.users || [];
+    const exactMatch = users.find(
+      (u: { username: string }) => u.username.toLowerCase() === username.toLowerCase()
+    );
+    const userId = exactMatch?.id || null;
+    _mentionUsernameCache.set(username, userId);
+    return userId;
+  } catch {
+    _mentionUsernameCache.set(username, null);
+    return null;
+  }
 }
 
 function FormattedText({
@@ -187,11 +220,32 @@ function FormattedText({
 }) {
   // Se o conteúdo é HTML (posts criados com o editor WYSIWYG), renderizar como HTML
   if (isHTMLContent(content)) {
+    // Convert @mentions in HTML to clickable spans
+    const htmlWithMentions = sanitizeHTML(content).replace(
+      /@(\w+)/g,
+      '<span class="gdf-mention" data-username="$1">@$1</span>'
+    );
     return (
       <div
         className={`post-content ${className || ""}`}
         style={style}
-        dangerouslySetInnerHTML={{ __html: sanitizeHTML(content) }}
+        dangerouslySetInnerHTML={{ __html: htmlWithMentions }}
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          const mentionEl = target.closest('.gdf-mention') as HTMLElement | null;
+          if (mentionEl) {
+            e.stopPropagation();
+            const username = mentionEl.getAttribute('data-username');
+            if (username) {
+              resolveUsernameToUserId(username).then((userId) => {
+                if (userId) {
+                  if (openUserProfile) openUserProfile(userId);
+                  else window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId } }));
+                }
+              });
+            }
+          }
+        }}
       />
     );
   }
@@ -585,15 +639,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const navigateToProfile = (uid: string) => {
     if (openUserProfile) openUserProfile(uid);
     else window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
-  };
-
-  const searchUsers = async (query: string) => {
-    try {
-      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.users || []).map((u: any) => ({ id: u.id, display_name: u.display_name, username: u.username, avatar: u.avatar || u.avatar_url || null, neighborhood: u.neighborhood || null }));
-    } catch { return []; }
   };
 
   // Carregar Google Fonts para post_style
@@ -1160,6 +1205,8 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         .post-content i, .post-content em { font-style: italic; }
         .post-content a { color: #0A4D5C; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: #0A4D5C66; }
         .post-content a:hover { color: #2EC4B6; }
+        .gdf-mention { color: #0A4D5C; font-weight: 600; cursor: pointer; }
+        .gdf-mention:hover { text-decoration: underline; text-underline-offset: 2px; }
       `}</style>
       {/* ═══════ COMPOSER ═══════ */}
       <div className="relative z-10 rounded-3xl bg-[#eef1f3] p-5 shadow-lg border border-[#0A4D5C]/8">
@@ -1169,12 +1216,11 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
             <MentionInput
               placeholder="O que está acontecendo no seu bairro?"
               value={content}
-              onChange={setContent}
-              searchUsers={searchUsers}
+              onChange={(val) => setContent(val.slice(0, 500))}
+              maxLength={500}
               className="w-full min-h-[72px] resize-none border-0 bg-transparent p-0 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
               rows={2}
-              multiline={true}
-              maxLength={500}
+              onOpenUserProfile={navigateToProfile}
             />
 
             {/* Photo previews */}
@@ -1368,17 +1414,16 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                 <span className="text-xs font-semibold text-[#000305]">{repostingPost.author?.display_name || "Usuário"}</span>
                 <span className="text-[10px] text-[#0A4D5C]/40">@{repostingPost.author?.username || "usuario"}</span>
               </div>
-              <FormattedText className="text-xs text-[#0A4D5C]/60 line-clamp-3" content={repostingPost.content} openUserProfile={navigateToProfile} />
+              <FormattedText className="text-xs text-[#0A4D5C]/60 line-clamp-3" content={repostingPost.content} />
             </div>
             <MentionInput
               placeholder="Adicione um comentário (opcional)..."
               value={repostContent}
-              onChange={setRepostContent}
-              searchUsers={searchUsers}
+              onChange={(val) => setRepostContent(val.slice(0, 200))}
+              maxLength={200}
               className="w-full min-h-[60px] resize-none border-0 bg-transparent p-3 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
               rows={2}
-              multiline={true}
-              maxLength={200}
+              onOpenUserProfile={navigateToProfile}
             />
             <div className="flex items-center gap-2 mt-3">
               <Button variant="outline" size="sm" onClick={() => { setRepostingPost(null); setRepostContent(""); }} className="rounded-full border-[#0A4D5C]/10 text-[#0A4D5C]">Cancelar</Button>
@@ -1477,7 +1522,7 @@ function PostThread({
   const [submitting, setSubmitting] = useState(false);
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
   const [showReactions, setShowReactions] = useState(false);
-  const commentInputRef = useRef<HTMLInputElement>(null);
+  const commentInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const shareRef = useRef<HTMLDivElement>(null);
 
   const reactionGroups = buildReactionGroups(post.reactions || []);
@@ -1842,13 +1887,21 @@ function PostThread({
                       </div>
                     )}
                     <div className="flex items-center gap-1">
-                      <input
-                        ref={commentInputRef}
-                        placeholder="Comentar..."
+                      <MentionInput
                         value={commentInput}
-                        onChange={(e) => setCommentInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && submitComment()}
+                        onChange={setCommentInput}
+                        placeholder="Comentar..."
+                        multiline={false}
+                        maxLength={500}
+                        inputRef={commentInputRef as React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            submitComment();
+                          }
+                        }}
                         className="flex-1 min-w-0 rounded-full border border-[#0A4D5C]/10 bg-[#f7f9fa] px-2.5 py-1 text-[11px] sm:text-xs text-[#000305] focus:outline-none focus:border-[#2EC4B6] placeholder:text-[#0A4D5C]/30"
+                        onOpenUserProfile={openUserProfile}
                       />
                       <button
                         onClick={submitComment}
