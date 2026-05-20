@@ -6,37 +6,27 @@ export async function GET(req: NextRequest) {
     const supabase = await createClient();
     const { searchParams } = new URL(req.url);
     const q = searchParams.get("q");
-    const usernames = searchParams.get("usernames");
+    const username = searchParams.get("username");
 
-    // ─── Resolve usernames to IDs (for @mention rendering) ───
-    if (usernames) {
-      const usernameList = usernames
-        .split(",")
-        .map((u) => u.trim().replace("@", "").replace(/[^\w.-]/g, ""))
-        .filter(Boolean)
-        .slice(0, 20);
-
-      if (usernameList.length === 0) {
-        return NextResponse.json({ users: {} });
+    // Exact username lookup (used for @mention resolution)
+    if (username) {
+      const sanitized = username.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 30);
+      if (!sanitized) {
+        return NextResponse.json({ error: "Username inválido" }, { status: 400 });
       }
-
-      const { data: profiles, error } = await supabase
+      const { data: user, error } = await supabase
         .from("profiles")
-        .select("id, username, avatar")
-        .in("username", usernameList);
-
+        .select("id, display_name, username, avatar_url, neighborhood, bio")
+        .eq("username", sanitized)
+        .maybeSingle();
       if (error) throw error;
-
-      const usersMap: Record<string, { id: string; avatar: string | null }> = {};
-      for (const p of profiles || []) {
-        usersMap[p.username] = { id: p.id, avatar: p.avatar };
+      if (!user) {
+        return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
       }
-
-      return NextResponse.json({ users: usersMap });
+      return NextResponse.json({ user });
     }
 
-    // ─── Search users by name/username ───
-    let query = supabase.from("profiles").select("id, display_name, username, avatar, avatar_url, neighborhood, bio").limit(15);
+    let query = supabase.from("profiles").select("id, display_name, username, avatar_url, neighborhood, bio").limit(15);
 
     if (q) {
       const sanitized = q.replace(/[^\w\s@.-]/g, "").slice(0, 50);
