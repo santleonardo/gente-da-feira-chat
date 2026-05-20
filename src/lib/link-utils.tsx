@@ -49,7 +49,7 @@ export async function resolveMentionUsernames(usernames: string[]): Promise<Reco
   const uncached = usernames.filter((u) => !usernameCache.has(u));
   if (uncached.length > 0) {
     try {
-      const res = await fetch(`/api/users/resolve?usernames=${uncached.join(",")}`);
+      const res = await fetch(`/api/users?usernames=${uncached.join(",")}`);
       if (res.ok) {
         const data = await res.json();
         for (const [username, info] of Object.entries(data.users || {})) {
