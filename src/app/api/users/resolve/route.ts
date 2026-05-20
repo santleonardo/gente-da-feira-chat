@@ -5,25 +5,37 @@ export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
     const { searchParams } = new URL(req.url);
-    const username = searchParams.get("username");
+    const usernames = searchParams.get("usernames");
 
-    if (!username) {
-      return NextResponse.json({ userId: null });
+    if (!usernames) {
+      return NextResponse.json({ users: {} });
     }
 
-    const sanitized = username.replace(/[^\w]/g, "").slice(0, 50);
+    const usernameList = usernames
+      .split(",")
+      .map((u) => u.trim().replace("@", "").replace(/[^\w.-]/g, ""))
+      .filter(Boolean)
+      .slice(0, 20); // limit
 
-    const { data, error } = await supabase
+    if (usernameList.length === 0) {
+      return NextResponse.json({ users: {} });
+    }
+
+    const { data: profiles, error } = await supabase
       .from("profiles")
-      .select("id")
-      .ilike("username", sanitized)
-      .limit(1)
-      .maybeSingle();
+      .select("id, username, avatar")
+      .in("username", usernameList);
 
     if (error) throw error;
 
-    return NextResponse.json({ userId: data?.id || null });
+    // Return as { username: { id, avatar } } map
+    const usersMap: Record<string, { id: string; avatar: string | null }> = {};
+    for (const p of profiles || []) {
+      usersMap[p.username] = { id: p.id, avatar: p.avatar };
+    }
+
+    return NextResponse.json({ users: usersMap });
   } catch (error: any) {
-    return NextResponse.json({ userId: null });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
