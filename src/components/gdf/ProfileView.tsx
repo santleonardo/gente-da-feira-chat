@@ -53,7 +53,8 @@ import { UserAvatar } from "./UserAvatar";
 import { SettingsView } from "./SettingsView";
 import { AlbumView } from "./AlbumView";
 import { createClient } from "@/lib/supabase/client";
-import { renderContentWithLinks, resolveUsernameToUserId } from "@/lib/link-utils";
+import { renderContentWithLinks, renderContentWithMentions } from "@/lib/link-utils";
+import { MentionInput } from "./MentionInput";
 import { toast } from "sonner";
 import {
   compressImage,
@@ -343,10 +344,10 @@ function sanitizeHTML(html: string): string {
 // ═══════════════════════════════════════════════════════════
 // FormattedText — renderiza HTML ou parseia markdown
 // ═══════════════════════════════════════════════════════════
-function parseInlineFormatting(text: string, onMentionClick?: (username: string) => void): React.ReactNode[] {
+function parseInlineFormatting(text: string, openUserProfile?: (userId: string) => void): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Match URLs, @mentions, ***bold+italic***, **bold**, _italic_ (URLs first, then mentions, then formatting)
-  const regex = /(https?:\/\/[^\s<>"')\]]+)|(?:^|\s)(@\w+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
+  // Combined regex: URLs (highest priority), @mentions, bold-italic, bold, italic
+  const regex = /(https?:\/\/[^\s<>"')\]]+)|@(\w[\w.-]{0,29})|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -355,31 +356,29 @@ function parseInlineFormatting(text: string, onMentionClick?: (username: string)
     if (match.index > lastIndex) {
       parts.push(<Fragment key={`t${key++}`}>{text.slice(lastIndex, match.index)}</Fragment>);
     }
-    const matchedText = match[0];
-    if (matchedText.startsWith('http')) {
-      // URL — render as clickable link
+    if (match[1]) {
+      // URL — clickable link
       parts.push(
-        <a key={`url${key++}`} href={matchedText} target="_blank" rel="noopener noreferrer" className="text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors" onClick={(e) => e.stopPropagation()}>
-          {matchedText}
+        <a key={`url${key++}`} href={match[1]} target="_blank" rel="noopener noreferrer" className="text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors" onClick={(e) => e.stopPropagation()}>
+          {match[1]}
         </a>
       );
     } else if (match[2]) {
       // @mention
-      const mentionText = match[2];
-      const hasLeadingSpace = /^(\s)/.test(mentionText);
-      const username = mentionText.replace(/^\s/, "").replace(/^@/, "");
-      if (hasLeadingSpace) parts.push(<Fragment key={`ws${key++}`}> </Fragment>);
-      parts.push(
-        <button key={`mention${key++}`} className="gdf-mention text-[#0A4D5C] font-semibold hover:underline cursor-pointer bg-transparent border-none p-0 m-0 inline text-inherit font-inherit"
-          onClick={async (e) => { e.stopPropagation(); if (onMentionClick) onMentionClick(username); }}
-          title={`Ver perfil de @${username}`}>
-          @{username}
-        </button>
-      );
-    } else if (match[3]) {
+      const username = match[2];
+      if (openUserProfile) {
+        parts.push(
+          <a key={`mention${key++}`} href="#" className="text-[#0A4D5C] font-semibold hover:underline underline-offset-2 transition-colors" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openUserProfile(username); }}>
+            @{username}
+          </a>
+        );
+      } else {
+        parts.push(<span key={`mention${key++}`} className="text-[#0A4D5C] font-semibold">@{username}</span>);
+      }
+    } else if (match[4]) {
       // ***bold+italic***
       parts.push(<strong key={`bi${key++}`}><em>{match[4]}</em></strong>);
-    } else if (match[5]) {
+    } else if (match[6]) {
       // **bold**
       parts.push(<strong key={`b${key++}`}>{match[6]}</strong>);
     } else if (match[7]) {
@@ -400,12 +399,12 @@ function FormattedText({
   content,
   className,
   style,
-  onMentionClick,
+  openUserProfile,
 }: {
   content: string;
   className?: string;
   style?: React.CSSProperties;
-  onMentionClick?: (username: string) => void;
+  openUserProfile?: (userId: string) => void;
 }) {
   // Se o conteúdo é HTML (posts criados com o editor WYSIWYG), renderizar como HTML
   if (isHTMLContent(content)) {
@@ -414,14 +413,6 @@ function FormattedText({
         className={`post-content ${className || ""}`}
         style={style}
         dangerouslySetInnerHTML={{ __html: sanitizeHTML(content) }}
-        onClick={(e) => {
-          const target = e.target as HTMLElement;
-          if (target.classList.contains("gdf-mention") || target.closest(".gdf-mention")) {
-            const mentionEl = target.classList.contains("gdf-mention") ? target : target.closest(".gdf-mention");
-            const username = mentionEl?.textContent?.replace("@", "") || "";
-            if (username && onMentionClick) onMentionClick(username);
-          }
-        }}
       />
     );
   }
@@ -461,7 +452,7 @@ function FormattedText({
         return (
           <Fragment key={i}>
             {i > 0 && <br />}
-            <span style={headingStyle}>{parseInlineFormatting(text, onMentionClick)}</span>
+            <span style={headingStyle}>{parseInlineFormatting(text, openUserProfile)}</span>
           </Fragment>
         );
       })}
@@ -507,14 +498,6 @@ export function ProfileView() {
   const [textContent, setTextContent] = useState("");
   const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false });
 
-  // Mention state (WYSIWYG editor)
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [mentionSuggestions, setMentionSuggestions] = useState<any[]>([]);
-  const [mentionSelectedIndex, setMentionSelectedIndex] = useState(0);
-  const [isMentionLoading, setIsMentionLoading] = useState(false);
-  const [mentionDropdownPos, setMentionDropdownPos] = useState<{ top: number; left: number } | null>(null);
-  const mentionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   // Media state
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -559,26 +542,26 @@ export function ProfileView() {
   const canAddVideo = !hasPhotosInComposer && !hasAudioInComposer && !hasVideoInComposer;
   const canAddAudio = !hasPhotosInComposer && !hasVideoInComposer && !hasAudioInComposer;
 
-  // ═══════ Mention support ═══════
+  // ═══════ @Mention search ═══════
   const searchUsers = async (query: string) => {
     try {
-      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
       if (!res.ok) return [];
       const data = await res.json();
       return (data.users || []).map((u: any) => ({
         id: u.id,
-        username: u.username,
         display_name: u.display_name,
-        avatar_url: u.avatar_url,
+        username: u.username,
+        avatar: u.avatar || u.avatar_url || null,
+        neighborhood: u.neighborhood || null,
       }));
-    } catch { return []; }
+    } catch {
+      return [];
+    }
   };
 
-  const handleMentionClick = async (username: string) => {
-    const userId = await resolveUsernameToUserId(username);
-    if (userId) {
-      window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId } }));
-    }
+  const navigateToProfile = (uid: string) => {
+    window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
   };
 
   // ═══════ Rich text formatting helpers (WYSIWYG) ═══════
@@ -608,127 +591,6 @@ export function ProfileView() {
     const el = editorRef.current;
     if (el) {
       setTextContent(el.textContent || "");
-
-      // Detect @mention in editor
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount > 0) {
-        const range = sel.getRangeAt(0);
-        const node = range.startContainer;
-        if (node.nodeType === Node.TEXT_NODE) {
-          const textBefore = node.textContent?.substring(0, range.startOffset) || "";
-          const mentionMatch = textBefore.match(/@(\w*)$/);
-          if (mentionMatch) {
-            const query = mentionMatch[1];
-            setMentionQuery(query);
-            setMentionSelectedIndex(0);
-            // Calculate dropdown position
-            const rect = range.getBoundingClientRect();
-            const editorRect = el.getBoundingClientRect();
-            setMentionDropdownPos({
-              top: rect.bottom - editorRect.top + 4,
-              left: rect.left - editorRect.left,
-            });
-            // Debounced search
-            if (mentionDebounceRef.current) clearTimeout(mentionDebounceRef.current);
-            mentionDebounceRef.current = setTimeout(async () => {
-              if (query.length > 0) {
-                setIsMentionLoading(true);
-                const results = await searchUsers(query);
-                setMentionSuggestions(results.slice(0, 5));
-                setIsMentionLoading(false);
-              } else {
-                // Show initial suggestions when just @ is typed
-                setIsMentionLoading(true);
-                const results = await searchUsers("");
-                setMentionSuggestions(results.slice(0, 5));
-                setIsMentionLoading(false);
-              }
-            }, 200);
-          } else {
-            setMentionQuery(null);
-            setMentionSuggestions([]);
-            setMentionDropdownPos(null);
-          }
-        }
-      }
-    }
-  };
-
-  const insertMentionInEditor = (username: string) => {
-    const el = editorRef.current;
-    if (!el) return;
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return;
-
-    const range = sel.getRangeAt(0);
-    const node = range.startContainer;
-    if (node.nodeType === Node.TEXT_NODE) {
-      const textBefore = node.textContent?.substring(0, range.startOffset) || "";
-      const mentionMatch = textBefore.match(/@(\w*)$/);
-      if (mentionMatch) {
-        // Replace @query with @username
-        const beforeMention = textBefore.substring(0, textBefore.lastIndexOf("@"));
-        const afterCursor = node.textContent?.substring(range.startOffset) || "";
-        const mentionNode = document.createElement("span");
-        mentionNode.className = "gdf-mention";
-        mentionNode.contentEditable = "false";
-        mentionNode.textContent = `@${username}`;
-        mentionNode.setAttribute("data-username", username);
-
-        const textBeforeNode = document.createTextNode(beforeMention);
-        const textAfterNode = document.createTextNode(`\u00A0${afterCursor}`);
-
-        const parent = node.parentNode;
-        if (parent) {
-          parent.insertBefore(textBeforeNode, node);
-          parent.insertBefore(mentionNode, node);
-          parent.insertBefore(textAfterNode, node);
-          parent.removeChild(node);
-        }
-
-        // Move cursor after the mention
-        const newRange = document.createRange();
-        newRange.setStart(textAfterNode, 1);
-        newRange.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(newRange);
-      }
-    }
-
-    setMentionQuery(null);
-    setMentionSuggestions([]);
-    setMentionDropdownPos(null);
-    setTextContent(el.textContent || "");
-    el.focus();
-  };
-
-  const handleEditorKeyDown = (e: React.KeyboardEvent) => {
-    if (mentionQuery !== null && mentionSuggestions.length > 0) {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setMentionSelectedIndex((i) => (i + 1) % mentionSuggestions.length);
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setMentionSelectedIndex((i) => (i - 1 + mentionSuggestions.length) % mentionSuggestions.length);
-        return;
-      }
-      if (e.key === "Enter" || e.key === "Tab") {
-        e.preventDefault();
-        const selected = mentionSuggestions[mentionSelectedIndex];
-        if (selected) {
-          insertMentionInEditor(selected.username);
-        }
-        return;
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setMentionQuery(null);
-        setMentionSuggestions([]);
-        setMentionDropdownPos(null);
-        return;
-      }
     }
   };
 
@@ -1256,7 +1118,7 @@ export function ProfileView() {
                     <FormattedText
                       className={`whitespace-pre-wrap ${isTextOnly ? "text-sm sm:text-base leading-snug" : "text-[13px] sm:text-sm leading-relaxed text-[#000305]"}`}
                       content={post.content}
-                      onMentionClick={handleMentionClick}
+                      openUserProfile={navigateToProfile}
                       style={{
                         fontFamily: postStyleData?.font ? `'${postStyleData.font}', sans-serif` : isTextOnly ? "serif" : undefined,
                         fontWeight: postStyleData?.bold ? 700 : undefined,
@@ -1278,7 +1140,7 @@ export function ProfileView() {
                           )}
                           <span className="text-xs font-semibold text-[#000305]">{post.shared_post.author?.display_name}</span>
                         </div>
-                        <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-3" content={post.shared_post.content} onMentionClick={handleMentionClick} />
+                        <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-3" content={post.shared_post.content} openUserProfile={navigateToProfile} />
                         {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
                           <div className="mt-1.5 flex gap-1 overflow-x-auto">
                             {post.shared_post.image_urls.slice(0, 2).map((url: string, i: number) => (
@@ -1362,7 +1224,6 @@ export function ProfileView() {
                   role="textbox"
                   aria-multiline="true"
                   onInput={handleEditorInput}
-                  onKeyDown={handleEditorKeyDown}
                   className={`editor-content w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:outline-none transition-all overflow-y-auto ${editorExpanded ? "min-h-[220px] max-h-[60vh]" : "min-h-[100px]"}`}
                   style={{
                     color: selectedColor.text,
@@ -1371,37 +1232,6 @@ export function ProfileView() {
                   }}
                   suppressContentEditableWarning
                 />
-                {/* Mention suggestions dropdown */}
-                {mentionQuery !== null && mentionDropdownPos && (mentionSuggestions.length > 0 || isMentionLoading) && (
-                  <div
-                    className="absolute z-50 bg-[#f7f9fa] rounded-xl shadow-lg border border-[#0A4D5C]/10 py-1 min-w-[180px] max-h-[180px] overflow-y-auto"
-                    style={{ top: mentionDropdownPos.top, left: mentionDropdownPos.left }}
-                  >
-                    {isMentionLoading ? (
-                      <div className="px-3 py-2 text-xs text-[#0A4D5C]/40 flex items-center gap-1.5">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Buscando...
-                      </div>
-                    ) : (
-                      mentionSuggestions.map((user, i) => (
-                        <button
-                          key={user.id}
-                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors ${i === mentionSelectedIndex ? "bg-[#0A4D5C]/10" : "hover:bg-[#0A4D5C]/[0.04]"}`}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            insertMentionInEditor(user.username);
-                          }}
-                        >
-                          <UserAvatar user={{ id: user.id, display_name: user.display_name, avatar_url: user.avatar_url }} className="h-6 w-6" />
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs font-medium truncate text-[#000305]">{user.display_name}</div>
-                            <div className="text-[10px] text-[#0A4D5C]/40 truncate">@{user.username}</div>
-                          </div>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
                 <button
                   onClick={() => setEditorExpanded(!editorExpanded)}
                   className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-md bg-[#0A4D5C]/[0.08] text-[#0A4D5C]/50 hover:bg-[#0A4D5C]/15 hover:text-[#0A4D5C] transition-colors"
@@ -1810,12 +1640,6 @@ export function ProfileView() {
 
       {/* Photo viewer (Meus Posts) */}
       {viewerOpen && <PhotoViewer photos={viewerPhotos} initialIndex={viewerIndex} onClose={() => setViewerOpen(false)} />}
-
-      {/* Mention styles */}
-      <style>{`
-        .gdf-mention { color: #0A4D5C; font-weight: 600; cursor: pointer; transition: opacity 0.15s ease; }
-        .gdf-mention:hover { opacity: 0.8; text-decoration: underline; }
-      `}</style>
     </div>
   );
 }

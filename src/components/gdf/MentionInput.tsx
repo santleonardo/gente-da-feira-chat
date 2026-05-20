@@ -1,344 +1,324 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { UserAvatar } from "./UserAvatar";
+
+// ═══════════════════════════════════════════════════════════
+// MentionInput — textarea/input com autocomplete de @menções
+// O dropdown aparece ABAIXO do cursor (apontando para baixo)
+// ═══════════════════════════════════════════════════════════
 
 interface MentionUser {
   id: string;
+  display_name: string;
   username: string;
-  display_name?: string;
-  avatar_url?: string | null;
+  avatar: string | null;
+  neighborhood?: string | null;
 }
 
 interface MentionInputProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  multiline?: boolean;
   className?: string;
-  inputRef?: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
-  onSend?: () => void;
-  minRows?: number;
-  maxRows?: number;
-  disabled?: boolean;
-  autoFocus?: boolean;
-  searchUsers?: (query: string) => Promise<MentionUser[]>;
   maxLength?: number;
+  rows?: number;
+  multiline?: boolean;
+  /** Function to search users — should call /api/users/search */
+  searchUsers: (query: string) => Promise<MentionUser[]>;
+  /** Called when Enter is pressed (without shift) — for single-line or submit */
+  onSubmit?: () => void;
+  /** Ref to the underlying textarea/input */
+  inputRef?: React.RefObject<HTMLTextAreaElement | HTMLInputElement | null>;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
 }
 
-const MentionInput: React.FC<MentionInputProps> = ({
+export function MentionInput({
   value,
   onChange,
   placeholder = "",
-  multiline = true,
   className = "",
-  inputRef: externalRef,
-  onSend,
-  minRows = 1,
-  maxRows = 4,
-  disabled = false,
-  autoFocus = false,
+  maxLength = 500,
+  rows = 2,
+  multiline = true,
   searchUsers,
-  maxLength,
-}) => {
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
-  const [suggestions, setSuggestions] = useState<MentionUser[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  onSubmit,
+  inputRef: externalRef,
+  onKeyDown,
+}: MentionInputProps) {
+  const internalRef = useRef<HTMLTextAreaElement>(null);
+  const inputInternalRef = useRef<HTMLInputElement>(null);
+  const textareaEl = internalRef;
+  const inputEl = inputInternalRef;
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const internalRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [users, setUsers] = useState<MentionUser[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionStart, setMentionStart] = useState(-1); // cursor position where @ was typed
+  const [loading, setLoading] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const inputRef = (externalRef || internalRef) as React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
+  // ─── Calculate dropdown position ───
+  const updateDropdownPosition = useCallback(() => {
+    const el = multiline ? textareaEl.current : inputEl.current;
+    if (!el) return;
 
-  const searchMentionUsers = useCallback(async (query: string) => {
-    if (!searchUsers || query.length === 0) {
-      setSuggestions([]);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const results = await searchUsers(query);
-      setSuggestions(results.slice(0, 8));
-      setSelectedIndex(0);
-    } catch {
-      setSuggestions([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [searchUsers]);
+    const rect = el.getBoundingClientRect();
+    const containerRect = containerRef.current?.getBoundingClientRect();
 
-  const detectMention = useCallback((text: string, cursorPos: number) => {
-    const textBeforeCursor = text.substring(0, cursorPos);
-    const match = textBeforeCursor.match(/@(\w*)$/);
-
-    if (match) {
-      const query = match[1];
-      const startIndex = cursorPos - query.length - 1; // -1 for @
-      const charBeforeAt = startIndex > 0 ? text[startIndex - 1] : "";
-      if (charBeforeAt === "" || charBeforeAt === " " || charBeforeAt === "\n") {
-        setMentionQuery(query);
-        setMentionStartIndex(startIndex);
-        return;
-      }
-    }
-
-    setMentionQuery(null);
-    setMentionStartIndex(-1);
-    setSuggestions([]);
-  }, []);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const newValue = maxLength ? e.target.value.slice(0, maxLength) : e.target.value;
-    const cursorPos = e.target.selectionStart || newValue.length;
-
-    onChange(newValue);
-    detectMention(newValue, cursorPos);
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    const textBeforeCursor = newValue.substring(0, cursorPos);
-    const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
-    if (mentionMatch && searchUsers) {
-      debounceRef.current = setTimeout(() => {
-        searchMentionUsers(mentionMatch[1]);
-      }, 250);
-    }
-  };
-
-  const insertMention = useCallback((user: MentionUser) => {
-    if (mentionStartIndex === -1) return;
-
-    const before = value.substring(0, mentionStartIndex);
-    const after = value.substring(mentionStartIndex + (mentionQuery ? mentionQuery.length + 1 : 0));
-    const newValue = `${before}@${user.username} ${after}`;
-
-    onChange(newValue);
-    setMentionQuery(null);
-    setMentionStartIndex(-1);
-    setSuggestions([]);
-
-    requestAnimationFrame(() => {
-      const pos = before.length + user.username.length + 2;
-      if (inputRef.current) {
-        inputRef.current.focus();
-        inputRef.current.setSelectionRange(pos, pos);
-      }
+    // Position dropdown BELOW the input
+    setDropdownPos({
+      top: rect.bottom - (containerRect?.top || 0) + 4,
+      left: rect.left - (containerRect?.left || 0),
     });
-  }, [value, mentionStartIndex, mentionQuery, onChange, inputRef]);
+  }, [multiline]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (suggestions.length > 0 && mentionQuery !== null) {
-      switch (e.key) {
-        case "ArrowDown":
-          e.preventDefault();
-          setSelectedIndex((prev) => (prev + 1) % suggestions.length);
-          return;
-        case "ArrowUp":
-          e.preventDefault();
-          setSelectedIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length);
-          return;
-        case "Enter":
-        case "Tab":
-          e.preventDefault();
-          insertMention(suggestions[selectedIndex]);
-          return;
-        case "Escape":
-          e.preventDefault();
-          setMentionQuery(null);
-          setMentionStartIndex(-1);
-          setSuggestions([]);
-          return;
+  // ─── Detect @mention trigger ───
+  const handleTextChange = useCallback(
+    (newValue: string) => {
+      onChange(newValue.slice(0, maxLength));
+
+      const el = multiline ? textareaEl.current : inputEl.current;
+      if (!el) return;
+
+      const cursorPos = el.selectionStart ?? 0;
+      const textBeforeCursor = newValue.slice(0, cursorPos);
+
+      // Find the last @ that isn't preceded by a non-space character
+      const atMatch = textBeforeCursor.match(/(?:^|\s)@(\w[\w.-]*)$/);
+
+      if (atMatch) {
+        const query = atMatch[1];
+        const atPos = cursorPos - query.length - 1; // position of @
+        setMentionStart(atPos);
+        setMentionQuery(query);
+        setShowDropdown(true);
+        setSelectedIndex(0);
+        updateDropdownPosition();
+
+        // Debounced search
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        if (query.length >= 1) {
+          setLoading(true);
+          debounceRef.current = setTimeout(async () => {
+            try {
+              const results = await searchUsers(query);
+              setUsers(results);
+            } catch {
+              setUsers([]);
+            }
+            setLoading(false);
+          }, 200);
+        } else {
+          setUsers([]);
+        }
+      } else {
+        setShowDropdown(false);
+        setUsers([]);
+        setMentionStart(-1);
       }
-    }
+    },
+    [onChange, maxLength, searchUsers, multiline, updateDropdownPosition]
+  );
 
-    if (e.key === "Enter" && !e.shiftKey && onSend && !multiline) {
-      e.preventDefault();
-      onSend();
-    }
-  };
+  // ─── Insert mention ───
+  const insertMention = useCallback(
+    (user: MentionUser) => {
+      if (mentionStart < 0) return;
 
+      const before = value.slice(0, mentionStart);
+      const after = value.slice(
+        (multiline ? textareaEl.current?.selectionStart : inputEl.current?.selectionStart) || value.length
+      );
+
+      const newValue = `${before}@${user.username} ${after}`;
+      onChange(newValue.slice(0, maxLength));
+
+      setShowDropdown(false);
+      setUsers([]);
+      setMentionStart(-1);
+
+      // Focus and set cursor position after the inserted mention
+      requestAnimationFrame(() => {
+        const el = multiline ? textareaEl.current : inputEl.current;
+        if (el) {
+          el.focus();
+          const newCursorPos = before.length + user.username.length + 2; // @username + space
+          el.setSelectionRange(newCursorPos, newCursorPos);
+        }
+      });
+    },
+    [value, onChange, maxLength, mentionStart, multiline]
+  );
+
+  // ─── Keyboard navigation ───
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (showDropdown && users.length > 0) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setSelectedIndex((i) => (i < users.length - 1 ? i + 1 : 0));
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setSelectedIndex((i) => (i > 0 ? i - 1 : users.length - 1));
+          return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
+          insertMention(users[selectedIndex]);
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setShowDropdown(false);
+          setUsers([]);
+          return;
+        }
+      }
+
+      // Pass Enter for submit (when no dropdown is open, or for single line)
+      if (e.key === "Enter" && !e.shiftKey && !showDropdown) {
+        if (!multiline || onSubmit) {
+          e.preventDefault();
+          onSubmit?.();
+          return;
+        }
+      }
+
+      onKeyDown?.(e);
+    },
+    [showDropdown, users, selectedIndex, insertMention, multiline, onSubmit, onKeyDown]
+  );
+
+  // ─── Close dropdown on outside click ───
   useEffect(() => {
-    if (dropdownRef.current && suggestions.length > 0) {
-      const el = dropdownRef.current.children[selectedIndex] as HTMLElement;
-      if (el) el.scrollIntoView({ block: "nearest" });
-    }
-  }, [selectedIndex, suggestions.length]);
-
-  useEffect(() => {
+    if (!showDropdown) return;
     const handler = (e: MouseEvent) => {
-      if (
-        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-        inputRef.current && !inputRef.current.contains(e.target as Node)
-      ) {
-        setMentionQuery(null);
-        setMentionStartIndex(-1);
-        setSuggestions([]);
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+        setUsers([]);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [inputRef]);
+  }, [showDropdown]);
 
+  // ─── Scroll selected item into view ───
   useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
+    if (!showDropdown) return;
+    const dropdown = containerRef.current?.querySelector(`[data-mention-index="${selectedIndex}"]`);
+    dropdown?.scrollIntoView({ block: "nearest" });
+  }, [selectedIndex, showDropdown]);
 
-  const sharedProps: any = {
-    value,
-    onChange: handleChange,
-    onKeyDown: handleKeyDown,
-    placeholder,
-    className: `mention-input ${className}`,
-    disabled,
-    autoFocus,
-  };
+  // ─── Combine refs ───
+  const setTextareaRef = useCallback(
+    (el: HTMLTextAreaElement | null) => {
+      (internalRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+      if (externalRef && typeof externalRef === "object") {
+        (externalRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+      }
+    },
+    [externalRef]
+  );
+
+  const setInputRef = useCallback(
+    (el: HTMLInputElement | null) => {
+      (inputInternalRef as React.MutableRefObject<HTMLInputElement | null>).current = el;
+      if (externalRef && typeof externalRef === "object") {
+        (externalRef as React.MutableRefObject<HTMLInputElement | null>).current = el;
+      }
+    },
+    [externalRef]
+  );
 
   return (
-    <div className="mention-input-wrapper" style={{ position: "relative" }}>
+    <div ref={containerRef} className="relative">
+      {/* Input element */}
       {multiline ? (
         <textarea
-          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-          {...sharedProps}
-          rows={minRows}
-          style={{ resize: "none", overflow: "auto", maxHeight: maxRows ? `${maxRows * 24}px` : undefined }}
+          ref={setTextareaRef}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => handleTextChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className={className}
+          rows={rows}
         />
       ) : (
         <input
-          ref={inputRef as React.RefObject<HTMLInputElement>}
-          {...sharedProps}
+          ref={setInputRef}
           type="text"
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => handleTextChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className={className}
         />
       )}
 
-      {/* Mention suggestions dropdown */}
-      {mentionQuery !== null && suggestions.length > 0 && (
+      {/* Dropdown — appears BELOW the input (apontando para baixo) */}
+      {showDropdown && (users.length > 0 || loading) && (
         <div
-          ref={dropdownRef}
-          className="mention-dropdown"
+          className="absolute z-50 min-w-[220px] max-w-[300px] rounded-2xl bg-white shadow-xl border border-[#0A4D5C]/10 overflow-hidden"
           style={{
-            position: "absolute",
-            bottom: "100%",
+            top: dropdownPos.top,
             left: 0,
-            right: 0,
-            zIndex: 9999,
-            backgroundColor: "#FFFFFF",
-            border: "1px solid #E5E7EB",
-            borderRadius: "8px",
-            maxHeight: "240px",
-            overflowY: "auto",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
           }}
         >
-          {suggestions.map((user, index) => (
-            <div
-              key={user.id}
-              className={`mention-item ${index === selectedIndex ? "selected" : ""}`}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "8px 12px",
-                cursor: "pointer",
-                backgroundColor: index === selectedIndex ? "#F0FDFA" : "transparent",
-                transition: "background-color 0.1s ease",
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                insertMention(user);
-              }}
-              onMouseEnter={() => setSelectedIndex(index)}
-            >
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: "50%",
-                  overflow: "hidden",
-                  flexShrink: 0,
-                  backgroundColor: "#0A4D5C",
-                }}
-              >
-                {user.avatar_url ? (
-                  <img
-                    src={user.avatar_url}
-                    alt={user.username}
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          {/* Small arrow pointing up (indicating it comes from the input above) */}
+          <div className="absolute -top-2 left-4 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[6px] border-b-white drop-shadow-sm" />
+
+          <div className="py-1.5 max-h-[200px] overflow-y-auto">
+            {loading && users.length === 0 ? (
+              <div className="px-3 py-2.5 text-xs text-[#0A4D5C]/40 flex items-center gap-2">
+                <span className="inline-block h-3 w-3 border-2 border-[#0A4D5C]/20 border-t-[#0A4D5C] rounded-full animate-spin" />
+                Buscando...
+              </div>
+            ) : (
+              users.map((user, index) => (
+                <button
+                  key={user.id}
+                  data-mention-index={index}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${
+                    index === selectedIndex
+                      ? "bg-[#0A4D5C]/[0.06]"
+                      : "hover:bg-[#0A4D5C]/[0.03]"
+                  }`}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    insertMention(user);
+                  }}
+                >
+                  <UserAvatar
+                    user={{
+                      id: user.id,
+                      display_name: user.display_name,
+                      avatar_url: user.avatar,
+                    }}
+                    className="h-7 w-7 shrink-0"
                   />
-                ) : (
-                  <div
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#FFFFFF",
-                    }}
-                  >
-                    {(user.display_name || user.username).charAt(0).toUpperCase()}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-[#000305] truncate">
+                      {user.display_name}
+                    </div>
+                    <div className="text-[10px] text-[#0A4D5C]/50 truncate">
+                      @{user.username}
+                      {user.neighborhood && ` · ${user.neighborhood}`}
+                    </div>
                   </div>
-                )}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: "13px", color: "#0A4D5C" }}>
-                  @{user.username}
-                </div>
-                {user.display_name && (
-                  <div
-                    style={{
-                      fontSize: "11px",
-                      color: "#6B7280",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {user.display_name}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+                </button>
+              ))
+            )}
+          </div>
         </div>
       )}
-
-      {/* Loading indicator */}
-      {mentionQuery !== null && isLoading && suggestions.length === 0 && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "100%",
-            left: 0,
-            right: 0,
-            zIndex: 9998,
-            backgroundColor: "#FFFFFF",
-            border: "1px solid #E5E7EB",
-            borderRadius: "8px",
-            padding: "8px 12px",
-            fontSize: "12px",
-            color: "#6B7280",
-            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-          }}
-        >
-          Buscando usuários...
-        </div>
-      )}
-
-      <style>{`
-        .mention-input-wrapper .mention-input { width: 100%; }
-        .mention-item:hover { background-color: #F0FDFA !important; }
-        .gdf-mention { color: #0A4D5C; font-weight: 600; cursor: pointer; transition: opacity 0.15s ease; }
-        .gdf-mention:hover { opacity: 0.8; text-decoration: underline; }
-      `}</style>
     </div>
   );
-};
-
-export default MentionInput;
-export type { MentionInputProps, MentionUser };
+}

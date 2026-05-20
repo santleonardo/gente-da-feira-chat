@@ -30,8 +30,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import MentionInput from "./MentionInput";
-import { renderContentWithMentions, resolveUsernameToUserId } from "@/lib/link-utils";
+import { MentionInput } from "./MentionInput";
+import { renderContentWithMentions } from "@/lib/link-utils";
 
 const ROOM_ICONS = [
   "💬", "🏠", "🎮", "⚽", "🎵", "📸", "🎬", "📚",
@@ -57,26 +57,6 @@ export function RoomsView({ openUserProfile }: { openUserProfile?: (userId: stri
       window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
     }
   };
-
-  const searchUsers = async (query: string) => {
-    try {
-      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.users || []).map((u: any) => ({
-        id: u.id,
-        username: u.username,
-        display_name: u.display_name,
-        avatar_url: u.avatar_url,
-      }));
-    } catch { return []; }
-  };
-
-  const handleMentionClick = async (username: string) => {
-    const userId = await resolveUsernameToUserId(username);
-    if (userId) navigateToProfile(userId);
-  };
-
   const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -428,24 +408,22 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
   const [membersLoading, setMembersLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // ── @Mention support ──
-  const navigateToProfile = (uid: string) => {
-    if (openUserProfile) openUserProfile(uid);
-    else window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
-  };
-
+  // ═══════ @Mention search ═══════
   const searchUsers = async (query: string) => {
     try {
-      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
       if (!res.ok) return [];
       const data = await res.json();
       return (data.users || []).map((u: any) => ({
         id: u.id,
-        username: u.username,
         display_name: u.display_name,
-        avatar_url: u.avatar_url,
+        username: u.username,
+        avatar: u.avatar || u.avatar_url || null,
+        neighborhood: u.neighborhood || null,
       }));
-    } catch { return []; }
+    } catch {
+      return [];
+    }
   };
 
   // ── Mídia no chat ──
@@ -1239,7 +1217,7 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
                       {hasAudio && (
                         <ChatAudioPlayer src={msg.media_url} isMine={isMine} />
                       )}
-                      {msg.content?.trim() && msg.content !== "📷" && <span>{renderContentWithMentions(msg.content, { openUserProfile: navigateToProfile })}</span>}
+                      {msg.content?.trim() && msg.content !== "📷" && <span>{renderContentWithMentions(msg.content)}</span>}
                     </div>
                     {!isMine && (
                       <span className="text-[9px] text-muted-foreground/50 mb-1 shrink-0">{timeAgo(msg.created_at)}</span>
@@ -1335,17 +1313,17 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
                   <input ref={audioFileRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioFileSelect} className="hidden" />
                 </div>
 
-                {/* Input de texto com @mention support */}
+                {/* Input de texto */}
                 <div className="flex-1 relative">
                   <MentionInput
+                    placeholder="Escreva uma mensagem..."
                     value={input}
                     onChange={(v) => setInput(v.slice(0, 2000))}
-                    placeholder="Escreva uma mensagem..."
-                    multiline={false}
+                    onSubmit={sendMessage}
                     searchUsers={searchUsers}
-                    onSend={() => sendMessage()}
-                    className="h-11 rounded-full pl-4 pr-4 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
+                    multiline={false}
                     maxLength={2000}
+                    className="h-11 rounded-full pl-4 pr-4 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
                   />
                 </div>
 
@@ -1429,11 +1407,6 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
           </div>
         </div>
       )}
-
-      <style>{`
-  .gdf-mention { color: #0A4D5C; font-weight: 600; cursor: pointer; transition: opacity 0.15s ease; }
-  .gdf-mention:hover { opacity: 0.8; text-decoration: underline; }
-`}</style>
     </div>
   );
 }

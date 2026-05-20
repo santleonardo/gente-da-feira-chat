@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { Heart, Clock, X } from "lucide-react";
+import { renderContentWithMentions } from "@/lib/link-utils";
 import { timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
-import { renderContentWithMentions, resolveUsernameToUserId } from "@/lib/link-utils";
 
 interface PostCardProps {
   post: {
@@ -32,13 +32,6 @@ export function PostCard({ post }: PostCardProps) {
   const [loading, setLoading] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
-
-  const handleMentionClick = async (username: string) => {
-    const userId = await resolveUsernameToUserId(username);
-    if (userId) {
-      window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId } }));
-    }
-  };
 
   const handleLike = async () => {
     if (loading || !profile) return;
@@ -77,7 +70,7 @@ export function PostCard({ post }: PostCardProps) {
             <p className="text-xs text-muted-foreground">@{post.author.username} · {timeAgo(post.created_at)}</p>
           </div>
         </div>
-        <p className="text-sm leading-relaxed whitespace-pre-wrap mb-3">{renderContentWithMentions(post.content, { openUserProfile: handleMentionClick })}</p>
+        <p className="text-sm leading-relaxed whitespace-pre-wrap mb-3">{renderContentWithMentions(post.content)}</p>
 
         {hasPhotos && (
           <div className="mb-3">
@@ -119,10 +112,6 @@ export function PostCard({ post }: PostCardProps) {
           <img src={post.image_urls![viewerIndex]} alt={`Foto ${viewerIndex + 1}`} className="max-h-[90vh] max-w-[95vw] object-contain" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
-      <style>{`
-  .gdf-mention { color: #0A4D5C; font-weight: 600; cursor: pointer; transition: opacity 0.15s ease; }
-  .gdf-mention:hover { opacity: 0.8; text-decoration: underline; }
-`}</style>
     </>
   );
 }

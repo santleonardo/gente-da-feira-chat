@@ -27,8 +27,8 @@ import {
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
 import { toast } from "sonner";
-import { renderContentWithLinks, renderContentWithMentions, resolveUsernameToUserId } from "@/lib/link-utils";
-import MentionInput from "./MentionInput";
+import { renderContentWithLinks, renderContentWithMentions } from "@/lib/link-utils";
+import { MentionInput } from "./MentionInput";
 
 // ═══════════════════════════════════════════════════════════
 // Constants (duplicated from FeedView for self-containment)
@@ -375,7 +375,7 @@ function CommentItem({
             </button>
             <span className="text-[9px] sm:text-[10px] text-[#0A4D5C]/30">{timeAgo(comment.created_at)}</span>
           </div>
-          <p className="text-[11px] sm:text-xs text-[#000305]/80 leading-relaxed">{comment.content}</p>
+          <p className="text-[11px] sm:text-xs text-[#000305]/80 leading-relaxed">{renderContentWithMentions(comment.content, openUserProfile)}</p>
           <div className="flex items-center gap-1.5 mt-0.5">
             <div className="relative">
               <button onClick={() => setShowCommentReactions(!showCommentReactions)} className="text-[10px] text-[#0A4D5C]/30 hover:text-[#0A4D5C] transition-colors">
@@ -438,6 +438,24 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
   const commentInputRef = useRef<HTMLInputElement>(null);
   const shareRef = useRef<HTMLDivElement>(null);
 
+  // ═══════ @Mention search ═══════
+  const searchUsers = async (query: string) => {
+    try {
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.users || []).map((u: any) => ({
+        id: u.id,
+        display_name: u.display_name,
+        username: u.username,
+        avatar: u.avatar || u.avatar_url || null,
+        neighborhood: u.neighborhood || null,
+      }));
+    } catch {
+      return [];
+    }
+  };
+
   // Sync post prop to local state
   useEffect(() => {
     if (post) setLocalPost({ ...post });
@@ -490,25 +508,6 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
     }, 200);
-  };
-
-  const searchUsers = async (query: string) => {
-    try {
-      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.users || []).map((u: any) => ({
-        id: u.id,
-        username: u.username,
-        display_name: u.display_name,
-        avatar_url: u.avatar_url,
-      }));
-    } catch { return []; }
-  };
-
-  const handleMentionClick = async (username: string) => {
-    const userId = await resolveUsernameToUserId(username);
-    if (userId) navigateToProfile(userId);
   };
 
   const fetchComments = async () => {
@@ -694,11 +693,11 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
                   {/* Content with clickable links */}
                   {isTextOnly ? (
                     <p className={`mt-1.5 font-serif text-base sm:text-lg leading-snug whitespace-pre-wrap ${postItColor?.text || "text-[#000305]"}`}>
-                      {renderContentWithMentions(localPost.content, { openUserProfile: navigateToProfile })}
+                      {renderContentWithMentions(localPost.content, navigateToProfile, { linkClassName: linkClass })}
                     </p>
                   ) : (
                     <p className="mt-1.5 text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]">
-                      {renderContentWithMentions(localPost.content, { openUserProfile: navigateToProfile })}
+                      {renderContentWithMentions(localPost.content, navigateToProfile, { linkClassName: linkClass })}
                     </p>
                   )}
 
@@ -717,7 +716,7 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
                           {localPost.shared_post?.author?.display_name || "Usuário"}
                         </button>
                       </div>
-                      <p className="text-xs text-[#0A4D5C]/60 leading-relaxed">{renderContentWithMentions(localPost.shared_post.content, { openUserProfile: navigateToProfile })}</p>
+                      <p className="text-xs text-[#0A4D5C]/60 leading-relaxed">{renderContentWithMentions(localPost.shared_post.content, navigateToProfile, { linkClassName: linkClass })}</p>
                       {localPost.shared_post.image_urls && localPost.shared_post.image_urls.length > 0 && (
                         <div className="mt-1.5 flex gap-1 overflow-x-auto">
                           {localPost.shared_post.image_urls.slice(0, 2).map((url, i) => (
@@ -866,14 +865,15 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
                     )}
                     <div className="flex items-center gap-1">
                       <MentionInput
+                        inputRef={commentInputRef}
+                        placeholder="Comentar..."
                         value={commentInput}
                         onChange={setCommentInput}
-                        placeholder="Comentar..."
-                        multiline={false}
+                        onSubmit={submitComment}
                         searchUsers={searchUsers}
-                        onSend={() => submitComment()}
-                        inputRef={commentInputRef}
-                        className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground/60"
+                        multiline={false}
+                        maxLength={500}
+                        className="flex-1 min-w-0 rounded-full border border-[#0A4D5C]/10 bg-[#f7f9fa] px-2.5 py-1 text-[11px] sm:text-xs text-[#000305] focus:outline-none focus:border-[#2EC4B6] placeholder:text-[#0A4D5C]/30"
                       />
                       <button
                         onClick={submitComment}
@@ -902,17 +902,16 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
                 <span className="text-xs font-semibold text-[#000305]">{repostingPost.author?.display_name || "Usuário"}</span>
                 <span className="text-[10px] text-[#0A4D5C]/40">@{repostingPost.author?.username || "usuario"}</span>
               </div>
-              <p className="text-xs text-[#0A4D5C]/60 line-clamp-3">{renderContentWithMentions(repostingPost.content, { openUserProfile: navigateToProfile })}</p>
+              <p className="text-xs text-[#0A4D5C]/60 line-clamp-3">{repostingPost.content}</p>
             </div>
             <MentionInput
               placeholder="Adicione um comentário (opcional)..."
               value={repostContent}
-              onChange={(v) => setRepostContent(v.slice(0, 200))}
-              multiline={true}
-              minRows={2}
-              maxRows={4}
+              onChange={setRepostContent}
               searchUsers={searchUsers}
-              className="w-full bg-transparent border-0 text-sm resize-none focus:outline-none placeholder:text-muted-foreground/60"
+              className="w-full min-h-[60px] resize-none border-0 bg-transparent p-3 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
+              rows={2}
+              multiline={true}
               maxLength={200}
             />
             <div className="flex items-center gap-2 mt-3">
@@ -927,10 +926,6 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
 
       {/* Photo viewer */}
       {viewerOpen && <PhotoViewer photos={viewerPhotos} initialIndex={viewerIndex} onClose={() => setViewerOpen(false)} />}
-      <style>{`
-        .gdf-mention { color: #0A4D5C; font-weight: 600; cursor: pointer; transition: opacity 0.15s ease; }
-        .gdf-mention:hover { opacity: 0.8; text-decoration: underline; }
-      `}</style>
     </>
   );
 }
