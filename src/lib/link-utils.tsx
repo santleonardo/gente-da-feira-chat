@@ -1,124 +1,128 @@
 import React from "react";
 
 const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g;
-const MENTION_REGEX = /@(\w+)/g;
 
-/**
- * Renders text content with URLs and @mentions converted to clickable links.
- * - URLs become external links (open in new tab).
- * - @username mentions become clickable links that dispatch openUserProfile event
- *   (resolves username → userId automatically).
- * Returns an array of React elements (text spans, anchor tags, and mention buttons).
- */
-export function renderContentWithLinks(
+export function renderContentWithLinks(text: string, linkClassName?: string): React.ReactNode[] {
+  if (!text) return [text];
+  const parts = text.split(URL_REGEX);
+  if (parts.length <= 1) return [text];
+  return parts.map((part, i) => {
+    if (URL_REGEX.test(part)) {
+      URL_REGEX.lastIndex = 0;
+      return (
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+          className={linkClassName || "text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors"}
+          onClick={(e) => e.stopPropagation()}>
+          {part}
+        </a>
+      );
+    }
+    URL_REGEX.lastIndex = 0;
+    return part;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// @MENTION SUPPORT
+// ═══════════════════════════════════════════════════════════
+
+const MENTION_REGEX = /@(\w[\w.-]{0,29})/g;
+export const usernameCache = new Map<string, { id: string; avatar: string | null }>();
+
+export async function resolveMentionUsernames(usernames: string[]): Promise<Record<string, { id: string; avatar: string | null }>> {
+  const uncached = usernames.filter((u) => !usernameCache.has(u));
+  if (uncached.length > 0) {
+    try {
+      const res = await fetch(`/api/users?usernames=${uncached.join(",")}`);
+      if (res.ok) {
+        const data = await res.json();
+        for (const [username, info] of Object.entries(data.users || {})) {
+          usernameCache.set(username, info as { id: string; avatar: string | null });
+        }
+      }
+    } catch { /* silent */ }
+  }
+  const result: Record<string, { id: string; avatar: string | null }> = {};
+  for (const u of usernames) { const cached = usernameCache.get(u); if (cached) result[u] = cached; }
+  return result;
+}
+
+export function hasMentions(text: string): boolean {
+  MENTION_REGEX.lastIndex = 0;
+  return MENTION_REGEX.test(text);
+}
+
+export function extractMentions(text: string): string[] {
+  MENTION_REGEX.lastIndex = 0;
+  const set = new Set<string>();
+  for (const m of text.matchAll(MENTION_REGEX)) set.add(m[1]);
+  return Array.from(set);
+}
+
+export async function openProfileFromMention(
+  username: string,
+  openUserProfile: (userId: string) => void
+) {
+  const cached = usernameCache.get(username);
+  if (cached?.id) {
+    openUserProfile(cached.id);
+    return;
+  }
+  try {
+    const res = await fetch(`/api/users?usernames=${encodeURIComponent(username)}`);
+    if (res.ok) {
+      const data = await res.json();
+      const info = data.users?.[username];
+      if (info?.id) {
+        usernameCache.set(username, info);
+        openUserProfile(info.id);
+        return;
+      }
+    }
+  } catch { /* silent */ }
+}
+
+export function renderContentWithMentions(
   text: string,
-  linkClassName?: string,
-  onOpenUserProfile?: (userId: string) => void
+  openUserProfile?: (userId: string) => void,
+  options?: { linkClassName?: string }
 ): React.ReactNode[] {
   if (!text) return [text];
-
-  // Combined regex: URLs (highest priority), then @mentions, then plain text
-  const combinedRegex = /(https?:\/\/[^\s<>"')\]]+)|@(\w+)/g;
-
+  const combinedRegex = /(https?:\/\/[^\s<>"')\]]+)|@(\w[\w.-]{0,29})/g;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
 
   while ((match = combinedRegex.exec(text)) !== null) {
-    // Text before the match
     if (match.index > lastIndex) {
-      parts.push(
-        <span key={`t${key++}`}>{text.slice(lastIndex, match.index)}</span>
-      );
+      parts.push(<React.Fragment key={`t${key++}`}>{text.slice(lastIndex, match.index)}</React.Fragment>);
     }
-
     if (match[1]) {
-      // URL — clickable external link
       parts.push(
-        <a
-          key={`url${key++}`}
-          href={match[1]}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={
-            linkClassName ||
-            "text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors"
-          }
-          onClick={(e) => e.stopPropagation()}
-        >
+        <a key={`url${key++}`} href={match[1]} target="_blank" rel="noopener noreferrer"
+          className={options?.linkClassName || "text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors"}
+          onClick={(e) => e.stopPropagation()}>
           {match[1]}
         </a>
       );
     } else if (match[2]) {
-      // @mention — clickable user mention
       const username = match[2];
-      parts.push(
-        <button
-          key={`mention${key++}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            // Resolve username → userId, then open profile
-            if (onOpenUserProfile) {
-              resolveUsernameToUserId(username).then((userId) => {
-                if (userId) onOpenUserProfile(userId);
-              });
-            } else {
-              resolveUsernameToUserId(username).then((userId) => {
-                if (userId) {
-                  window.dispatchEvent(
-                    new CustomEvent("openUserProfile", {
-                      detail: { userId },
-                    })
-                  );
-                }
-              });
-            }
-          }}
-          className="text-[#0A4D5C] font-semibold hover:underline underline-offset-2 transition-colors cursor-pointer bg-transparent border-0 p-0 m-0 inline"
-          style={{ font: "inherit", lineHeight: "inherit" }}
-        >
-          @{username}
-        </button>
-      );
+      if (openUserProfile) {
+        parts.push(
+          <a key={`mention${key++}`} href="#" className="text-[#0A4D5C] font-semibold hover:underline underline-offset-2 transition-colors"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openProfileFromMention(username, openUserProfile); }}>
+            @{username}
+          </a>
+        );
+      } else {
+        parts.push(<span key={`mention${key++}`} className="text-[#0A4D5C] font-semibold">@{username}</span>);
+      }
     }
-
     lastIndex = match.index + match[0].length;
   }
-
-  // Remaining text after last match
   if (lastIndex < text.length) {
-    parts.push(<span key={`r${key++}`}>{text.slice(lastIndex)}</span>);
+    parts.push(<React.Fragment key={`r${key++}`}>{text.slice(lastIndex)}</React.Fragment>);
   }
-
   return parts.length > 0 ? parts : [text];
-}
-
-/**
- * Resolves a username to a userId by fetching from the API.
- * Uses a simple cache to avoid repeated lookups.
- */
-const usernameCache = new Map<string, string | null>();
-
-async function resolveUsernameToUserId(username: string): Promise<string | null> {
-  // Check cache first
-  if (usernameCache.has(username)) {
-    return usernameCache.get(username) || null;
-  }
-
-  try {
-    const res = await fetch(`/api/users?q=${encodeURIComponent(username)}`);
-    const data = await res.json();
-    const users = data.users || [];
-    // Find exact match by username (case-insensitive)
-    const exactMatch = users.find(
-      (u: { username: string }) => u.username.toLowerCase() === username.toLowerCase()
-    );
-    const userId = exactMatch?.id || null;
-    usernameCache.set(username, userId);
-    return userId;
-  } catch {
-    usernameCache.set(username, null);
-    return null;
-  }
 }
