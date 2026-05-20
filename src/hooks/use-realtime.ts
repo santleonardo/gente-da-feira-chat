@@ -17,6 +17,14 @@ export function useRealtimeMessages({
   table, filter, onInsert, onDelete, onUpdate, enabled = true,
 }: UseRealtimeMessagesOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const onInsertRef = useRef(onInsert);
+  const onDeleteRef = useRef(onDelete);
+  const onUpdateRef = useRef(onUpdate);
+
+  // Keep refs up to date without causing re-subscriptions
+  onInsertRef.current = onInsert;
+  onDeleteRef.current = onDelete;
+  onUpdateRef.current = onUpdate;
 
   useEffect(() => {
     if (!enabled) return;
@@ -27,19 +35,19 @@ export function useRealtimeMessages({
     const channel = supabase.channel(channelName).on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table, filter: filter || undefined },
-      (payload) => { onInsert?.(payload.new); }
+      (payload) => { onInsertRef.current?.(payload.new); }
     );
 
-    if (onDelete) {
+    if (onDeleteRef.current) {
       channel.on("postgres_changes",
         { event: "DELETE", schema: "public", table, filter: filter || undefined },
-        (payload) => { onDelete?.(payload.old); }
+        (payload) => { onDeleteRef.current?.(payload.old); }
       );
     }
-    if (onUpdate) {
+    if (onUpdateRef.current) {
       channel.on("postgres_changes",
         { event: "UPDATE", schema: "public", table, filter: filter || undefined },
-        (payload) => { onUpdate?.(payload.new); }
+        (payload) => { onUpdateRef.current?.(payload.new); }
       );
     }
 
@@ -52,7 +60,7 @@ export function useRealtimeMessages({
         channelRef.current = null;
       }
     };
-  }, [table, filter, enabled, onInsert, onDelete, onUpdate]);
+  }, [table, filter, enabled]);
 
   return channelRef;
 }
