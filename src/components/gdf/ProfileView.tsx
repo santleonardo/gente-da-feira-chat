@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef, Fragment, useCallback } from "react";
 import { useStore } from "@/lib/store";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -47,14 +46,15 @@ import {
   Loader2,
   Clock,
   Repeat2,
+  AtSign,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo, BAIRROS } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
-import { MentionInput } from "./MentionInput";
 import { SettingsView } from "./SettingsView";
 import { AlbumView } from "./AlbumView";
 import { createClient } from "@/lib/supabase/client";
-import { renderContentWithLinks } from "@/lib/link-utils";
+import { renderContentWithLinks, renderContentWithMentions, openProfileFromMention } from "@/lib/link-utils";
+import { BioEditor } from "./BioEditor";
 import { toast } from "sonner";
 import {
   compressImage,
@@ -344,10 +344,10 @@ function sanitizeHTML(html: string): string {
 // ═══════════════════════════════════════════════════════════
 // FormattedText — renderiza HTML ou parseia markdown
 // ═══════════════════════════════════════════════════════════
-function parseInlineFormatting(text: string): React.ReactNode[] {
+function parseInlineFormatting(text: string, openUserProfile?: (userId: string) => void): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Match URLs, ***bold+italic***, **bold**, _italic_ (URLs first, then formatting)
-  const regex = /(https?:\/\/[^\s<>"')\]]+|\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|_(.+?)_)/g;
+  // Match URLs, @mentions, ***bold+italic***, **bold**, _italic_ (URLs first, then @mentions, then formatting)
+  const regex = /(https?:\/\/[^\s<>"')\]]+)|@(\w[\w.-]{0,29})|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -365,14 +365,26 @@ function parseInlineFormatting(text: string): React.ReactNode[] {
         </a>
       );
     } else if (match[2]) {
-      // ***bold+italic***
-      parts.push(<strong key={`bi${key++}`}><em>{match[2]}</em></strong>);
+      // @mention — resolve username to userId before opening profile
+      const username = match[2];
+      if (openUserProfile) {
+        parts.push(
+          <a key={`mention${key++}`} href="#" className="text-[#0A4D5C] font-semibold hover:underline underline-offset-2 transition-colors" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openProfileFromMention(username, openUserProfile); }}>
+            @{username}
+          </a>
+        );
+      } else {
+        parts.push(<span key={`mention${key++}`} className="text-[#0A4D5C] font-semibold">@{username}</span>);
+      }
     } else if (match[3]) {
+      // ***bold+italic***
+      parts.push(<strong key={`bi${key++}`}><em>{match[4]}</em></strong>);
+    } else if (match[5]) {
       // **bold**
-      parts.push(<strong key={`b${key++}`}>{match[3]}</strong>);
-    } else if (match[4]) {
+      parts.push(<strong key={`b${key++}`}>{match[6]}</strong>);
+    } else if (match[7]) {
       // _italic_
-      parts.push(<em key={`i${key++}`}>{match[4]}</em>);
+      parts.push(<em key={`i${key++}`}>{match[7]}</em>);
     }
     lastIndex = match.index + match[0].length;
   }
@@ -388,10 +400,12 @@ function FormattedText({
   content,
   className,
   style,
+  openUserProfile,
 }: {
   content: string;
   className?: string;
   style?: React.CSSProperties;
+  openUserProfile?: (userId: string) => void;
 }) {
   // Se o conteúdo é HTML (posts criados com o editor WYSIWYG), renderizar como HTML
   if (isHTMLContent(content)) {
@@ -439,7 +453,7 @@ function FormattedText({
         return (
           <Fragment key={i}>
             {i > 0 && <br />}
-            <span style={headingStyle}>{parseInlineFormatting(text)}</span>
+            <span style={headingStyle}>{parseInlineFormatting(text, openUserProfile)}</span>
           </Fragment>
         );
       })}
@@ -485,14 +499,13 @@ export function ProfileView() {
   const [textContent, setTextContent] = useState("");
   const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false });
 
-  // Mention state for WYSIWYG editor
-  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState("");
-  const [mentionUsers, setMentionUsers] = useState<{ id: string; display_name: string; username: string; avatar_url?: string | null; neighborhood?: string | null }[]>([]);
-  const [mentionSelectedIndex, setMentionSelectedIndex] = useState(0);
-  const [mentionRange, setMentionRange] = useState<Range | null>(null);
-  const mentionDropdownRef = useRef<HTMLDivElement>(null);
-  const mentionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // @Mention state for WYSIWYG editor
+  const [showEditorMention, setShowEditorMention] = useState(false);
+  const [editorMentionUsers, setEditorMentionUsers] = useState<any[]>([]);
+  const [editorMentionIndex, setEditorMentionIndex] = useState(0);
+  const [editorMentionLoading, setEditorMentionLoading] = useState(false);
+  const editorMentionDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
 
   // Media state
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -538,6 +551,28 @@ export function ProfileView() {
   const canAddVideo = !hasPhotosInComposer && !hasAudioInComposer && !hasVideoInComposer;
   const canAddAudio = !hasPhotosInComposer && !hasVideoInComposer && !hasAudioInComposer;
 
+  // ═══════ @Mention search ═══════
+  const searchUsers = async (query: string) => {
+    try {
+      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.users || []).map((u: any) => ({
+        id: u.id,
+        display_name: u.display_name,
+        username: u.username,
+        avatar: u.avatar || u.avatar_url || null,
+        neighborhood: u.neighborhood || null,
+      }));
+    } catch {
+      return [];
+    }
+  };
+
+  const navigateToProfile = (uid: string) => {
+    window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
+  };
+
   // ═══════ Rich text formatting helpers (WYSIWYG) ═══════
   const handleBold = () => {
     document.execCommand('bold');
@@ -566,138 +601,79 @@ export function ProfileView() {
     if (el) {
       setTextContent(el.textContent || "");
     }
+    detectEditorMention();
+  };
 
-    // Detect @mention in contentEditable
-    const selection = window.getSelection();
-    if (!selection || !selection.rangeCount) {
-      setShowMentionDropdown(false);
-      return;
-    }
-    const range = selection.getRangeAt(0);
-    const textNode = range.startContainer;
-    if (textNode.nodeType !== Node.TEXT_NODE) {
-      setShowMentionDropdown(false);
-      return;
-    }
-    const textBeforeCursor = (textNode.textContent || "").slice(0, range.startOffset);
-    const atMatch = textBeforeCursor.match(/@(\w*)$/);
+  // ─── @Mention detection in WYSIWYG editor ───
+  const detectEditorMention = useCallback(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) { setShowEditorMention(false); return; }
+    const text = node.textContent || "";
+    const offset = range.startOffset;
+    const textBefore = text.slice(0, offset);
+    const atMatch = textBefore.match(/(?:^|\s)@(\w[\w.-]*)$/);
     if (atMatch) {
       const query = atMatch[1];
-      setMentionQuery(query);
-      setMentionRange(range.cloneRange());
-
-      // Fetch users with debounce
-      if (mentionDebounceRef.current) clearTimeout(mentionDebounceRef.current);
-      if (query.length === 0) {
-        // Show initial suggestions
-        mentionDebounceRef.current = setTimeout(async () => {
-          try {
-            const res = await fetch(`/api/users?q=`);
-            const data = await res.json();
-            const results = (data.users || []).slice(0, 6);
-            setMentionUsers(results);
-            setShowMentionDropdown(results.length > 0);
-            setMentionSelectedIndex(0);
-          } catch {
-            setShowMentionDropdown(false);
-          }
-        }, 300);
-      } else {
-        mentionDebounceRef.current = setTimeout(async () => {
-          try {
-            const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
-            const data = await res.json();
-            const results = (data.users || []).slice(0, 6);
-            setMentionUsers(results);
-            setShowMentionDropdown(results.length > 0);
-            setMentionSelectedIndex(0);
-          } catch {
-            setShowMentionDropdown(false);
-          }
+      setShowEditorMention(true);
+      setEditorMentionIndex(0);
+      if (editorMentionDebounce.current) clearTimeout(editorMentionDebounce.current);
+      if (query.length >= 1) {
+        setEditorMentionLoading(true);
+        editorMentionDebounce.current = setTimeout(async () => {
+          try { const results = await searchUsers(query); setEditorMentionUsers(results); }
+          catch { setEditorMentionUsers([]); }
+          setEditorMentionLoading(false);
         }, 200);
-      }
+      } else { setEditorMentionUsers([]); }
     } else {
-      setShowMentionDropdown(false);
-      setMentionQuery("");
+      setShowEditorMention(false);
+      setEditorMentionUsers([]);
     }
-  };
+  }, [searchUsers]);
 
-  const insertMentionInEditor = (user: { username: string }) => {
-    const selection = window.getSelection();
-    if (!selection || !mentionRange) return;
-
-    // Find the @mention text and replace it
-    const range = mentionRange;
-    const textNode = range.startContainer;
-    if (textNode.nodeType !== Node.TEXT_NODE) return;
-
-    const textContent = textNode.textContent || "";
-    const textBeforeCursor = textContent.slice(0, range.startOffset);
-    const atMatch = textBeforeCursor.match(/@(\w*)$/);
-    if (!atMatch) return;
-
-    const atStartIndex = textBeforeCursor.length - atMatch[0].length;
-    const before = textContent.slice(0, atStartIndex);
-    const after = textContent.slice(range.startOffset);
-
-    // Insert the mention text
-    const mentionText = `@${user.username} `;
-    textNode.textContent = before + mentionText + after;
-
-    // Set cursor after the mention
-    const newOffset = before.length + mentionText.length;
-    const newRange = document.createRange();
-    newRange.setStart(textNode, newOffset);
-    newRange.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(newRange);
-
-    // Update text content state
-    if (editorRef.current) {
-      setTextContent(editorRef.current.textContent || "");
-    }
-
-    setShowMentionDropdown(false);
-    setMentionQuery("");
-    setMentionRange(null);
-  };
-
-  const handleEditorKeyDown = (e: React.KeyboardEvent) => {
-    if (showMentionDropdown && mentionUsers.length > 0) {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setMentionSelectedIndex((prev) => (prev < mentionUsers.length - 1 ? prev + 1 : 0));
-        return;
+  const insertEditorMention = useCallback(
+    (user: any) => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || !editorRef.current) return;
+      const range = sel.getRangeAt(0);
+      const node = range.startContainer;
+      if (node.nodeType !== Node.TEXT_NODE) return;
+      const text = node.textContent || "";
+      const offset = range.startOffset;
+      const textBefore = text.slice(0, offset);
+      const atMatch = textBefore.match(/(?:^|\s)@(\w[\w.-]*)$/);
+      if (!atMatch) return;
+      const atPos = offset - atMatch[0].length;
+      const textAfter = text.slice(offset);
+      const beforeNode = document.createTextNode(text.slice(0, atPos));
+      const mentionSpan = document.createElement("span");
+      mentionSpan.textContent = `@${user.username}`;
+      mentionSpan.className = "text-[#0A4D5C] font-semibold";
+      mentionSpan.setAttribute("data-mention", user.username);
+      const afterNode = document.createTextNode(` ${textAfter}`);
+      const parent = node.parentNode;
+      if (parent) {
+        parent.insertBefore(beforeNode, node);
+        parent.insertBefore(mentionSpan, node);
+        parent.insertBefore(afterNode, node);
+        parent.removeChild(node);
       }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setMentionSelectedIndex((prev) => (prev > 0 ? prev - 1 : mentionUsers.length - 1));
-        return;
-      }
-      if (e.key === "Enter" || e.key === "Tab") {
-        e.preventDefault();
-        insertMentionInEditor(mentionUsers[mentionSelectedIndex]);
-        return;
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setShowMentionDropdown(false);
-        return;
-      }
-    }
-  };
-
-  // Close mention dropdown on outside click
-  useEffect(() => {
-    if (!showMentionDropdown) return;
-    const handler = (e: MouseEvent) => {
-      if (mentionDropdownRef.current && !mentionDropdownRef.current.contains(e.target as Node)) {
-        setShowMentionDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showMentionDropdown]);
+      const newRange = document.createRange();
+      newRange.setStartAfter(mentionSpan);
+      newRange.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+      setShowEditorMention(false);
+      setEditorMentionUsers([]);
+      // Update textContent state
+      const plainText = editorRef.current?.textContent || "";
+      setTextContent(plainText);
+    },
+    []
+  );
 
   // Carregar Google Fonts
   useEffect(() => {
@@ -1134,7 +1110,7 @@ export function ProfileView() {
           </div>
 
           <div className="mt-4">
-            {profile?.bio ? <p className="text-sm text-[#000305]">{renderContentWithLinks(profile.bio)}</p> : <p className="text-sm text-[#01386A]/40 italic">Sem bio ainda</p>}
+            {profile?.bio ? <p className="text-sm text-[#000305]">{renderContentWithMentions(profile.bio, navigateToProfile)}</p> : <p className="text-sm text-[#01386A]/40 italic">Sem bio ainda</p>}
           </div>
 
           <div className="mt-6 flex gap-6">
@@ -1229,6 +1205,7 @@ export function ProfileView() {
                         fontStyle: postStyleData?.italic ? "italic" : undefined,
                         textAlign: postStyleData?.alignment || undefined,
                       }}
+                      openUserProfile={navigateToProfile}
                     />
 
                     {/* Shared/reposted post */}
@@ -1244,7 +1221,7 @@ export function ProfileView() {
                           )}
                           <span className="text-xs font-semibold text-[#000305]">{post.shared_post.author?.display_name}</span>
                         </div>
-                        <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-3" content={post.shared_post.content} />
+                        <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-3" content={post.shared_post.content} openUserProfile={navigateToProfile} />
                         {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
                           <div className="mt-1.5 flex gap-1 overflow-x-auto">
                             {post.shared_post.image_urls.slice(0, 2).map((url: string, i: number) => (
@@ -1316,7 +1293,7 @@ export function ProfileView() {
               className="rounded-xl border border-[#0A4D5C]/8 overflow-hidden transition-all"
               style={{ backgroundColor: selectedColor.bg }}
             >
-              <div className="relative">
+              <div className="relative" ref={editorContainerRef}>
                 {!textContent.trim() && (
                   <div className="absolute top-0 left-0 right-0 px-3 py-2.5 text-sm pointer-events-none select-none" style={{ color: selectedColor.text, opacity: 0.4 }}>
                     Escreva algo bonito... Selecione texto e use B/I para formatar
@@ -1328,7 +1305,14 @@ export function ProfileView() {
                   role="textbox"
                   aria-multiline="true"
                   onInput={handleEditorInput}
-                  onKeyDown={handleEditorKeyDown}
+                  onKeyDown={(e) => {
+                    if (showEditorMention && editorMentionUsers.length > 0) {
+                      if (e.key === "ArrowDown") { e.preventDefault(); setEditorMentionIndex((i) => (i < editorMentionUsers.length - 1 ? i + 1 : 0)); return; }
+                      if (e.key === "ArrowUp") { e.preventDefault(); setEditorMentionIndex((i) => (i > 0 ? i - 1 : editorMentionUsers.length - 1)); return; }
+                      if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); insertEditorMention(editorMentionUsers[editorMentionIndex]); return; }
+                      if (e.key === "Escape") { e.preventDefault(); setShowEditorMention(false); setEditorMentionUsers([]); return; }
+                    }
+                  }}
                   className={`editor-content w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:outline-none transition-all overflow-y-auto ${editorExpanded ? "min-h-[220px] max-h-[60vh]" : "min-h-[100px]"}`}
                   style={{
                     color: selectedColor.text,
@@ -1337,56 +1321,6 @@ export function ProfileView() {
                   }}
                   suppressContentEditableWarning
                 />
-                {/* Mention dropdown for WYSIWYG editor */}
-                {showMentionDropdown && mentionUsers.length > 0 && (
-                  <div
-                    ref={mentionDropdownRef}
-                    className="absolute left-3 bottom-full mb-1 w-64 max-h-52 overflow-y-auto rounded-2xl bg-[#f7f9fa] shadow-xl border border-[#0A4D5C]/10 z-50 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2"
-                  >
-                    <div className="p-1.5">
-                      <div className="px-2.5 py-1.5 text-[10px] font-semibold text-[#0A4D5C]/40 uppercase tracking-wider">
-                        Menções
-                      </div>
-                      {mentionUsers.map((user, i) => (
-                        <button
-                          key={user.id}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            insertMentionInEditor(user);
-                          }}
-                          className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors ${
-                            i === mentionSelectedIndex
-                              ? "bg-[#0A4D5C]/10 ring-1 ring-[#0A4D5C]/20"
-                              : "hover:bg-[#0A4D5C]/[0.04]"
-                          }`}
-                        >
-                          <UserAvatar
-                            user={{
-                              id: user.id,
-                              display_name: user.display_name,
-                              username: user.username,
-                              avatar_url: user.avatar_url,
-                            }}
-                            className="h-8 w-8 shrink-0"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold text-[#000305] truncate">
-                              {user.display_name}
-                            </div>
-                            <div className="text-[11px] text-[#0A4D5C]/50 truncate">
-                              @{user.username}
-                              {user.neighborhood && (
-                                <span className="ml-1 text-[10px] text-[#0A4D5C]/30">
-                                  · {user.neighborhood}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 <button
                   onClick={() => setEditorExpanded(!editorExpanded)}
                   className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-md bg-[#0A4D5C]/[0.08] text-[#0A4D5C]/50 hover:bg-[#0A4D5C]/15 hover:text-[#0A4D5C] transition-colors"
@@ -1394,6 +1328,36 @@ export function ProfileView() {
                 >
                   {editorExpanded ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
                 </button>
+                {/* @Mention dropdown for WYSIWYG editor */}
+                {showEditorMention && (editorMentionUsers.length > 0 || editorMentionLoading) && (
+                  <div className="absolute z-50 min-w-[220px] max-w-[300px] rounded-2xl bg-white shadow-xl border border-[#0A4D5C]/10 overflow-hidden" style={{ top: "100%", left: 0, marginTop: "4px" }}>
+                    <div className="absolute -top-2 left-4 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[6px] border-b-white drop-shadow-sm" />
+                    <div className="py-1.5 max-h-[200px] overflow-y-auto">
+                      {editorMentionLoading && editorMentionUsers.length === 0 ? (
+                        <div className="px-3 py-2.5 text-xs text-[#0A4D5C]/40 flex items-center gap-2">
+                          <span className="inline-block h-3 w-3 border-2 border-[#0A4D5C]/20 border-t-[#0A4D5C] rounded-full animate-spin" />
+                          Buscando...
+                        </div>
+                      ) : (
+                        editorMentionUsers.map((user: any, index: number) => (
+                          <button
+                            key={user.id}
+                            data-editor-mention-index={index}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${index === editorMentionIndex ? "bg-[#0A4D5C]/[0.06]" : "hover:bg-[#0A4D5C]/[0.03]"}`}
+                            onMouseEnter={() => setEditorMentionIndex(index)}
+                            onMouseDown={(e) => { e.preventDefault(); insertEditorMention(user); }}
+                          >
+                            <UserAvatar user={{ id: user.id, display_name: user.display_name, avatar_url: user.avatar }} className="h-7 w-7 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-semibold text-[#000305] truncate">{user.display_name}</div>
+                              <div className="text-[10px] text-[#0A4D5C]/50 truncate">@{user.username}{user.neighborhood && ` · ${user.neighborhood}`}</div>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1458,6 +1422,18 @@ export function ProfileView() {
                 title="Itálico"
               >
                 <Italic className="h-3.5 w-3.5" />
+              </button>
+              {/* @Mention */}
+              <button
+                onClick={() => {
+                  editorRef.current?.focus();
+                  document.execCommand("insertText", false, "@");
+                  setTimeout(() => detectEditorMention(), 50);
+                }}
+                className="flex items-center justify-center rounded-md h-7 w-7 shrink-0 bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10 transition-colors"
+                title="Mencionar @"
+              >
+                <AtSign className="h-3.5 w-3.5" />
               </button>
 
               <div className="w-px h-4 bg-[#0A4D5C]/10 shrink-0" />
@@ -1678,16 +1654,13 @@ export function ProfileView() {
                 <div className="space-y-1.5"><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={50} /></div>
                 <div className="space-y-1.5">
                   <Label>Bio</Label>
-                  <MentionInput
+                  <BioEditor
                     value={bio}
                     onChange={setBio}
-                    placeholder="Escreva algo sobre você..."
                     maxLength={300}
-                    multiline
-                    rows={3}
-                    className="flex min-h-[80px] w-full rounded-md border border-[#01386A]/10 bg-[#f7f9fa] px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    placeholder="Escreva algo sobre você..."
+                    searchUsers={searchUsers}
                   />
-                  <span className="text-xs text-[#01386A]/40">{bio.length}/300</span>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Bairro</Label>

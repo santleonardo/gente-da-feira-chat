@@ -5,7 +5,7 @@ import { useStore } from "@/lib/store";
 import { Heart, Clock, X } from "lucide-react";
 import { timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
-import { renderContentWithLinks } from "@/lib/link-utils";
+import { renderContentWithMentions, openProfileFromMention } from "@/lib/link-utils";
 
 interface PostCardProps {
   post: {
@@ -32,6 +32,10 @@ export function PostCard({ post }: PostCardProps) {
   const [loading, setLoading] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
+
+  const openUserProfile = (userId: string) => {
+    window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId } }));
+  };
 
   const handleLike = async () => {
     if (loading || !profile) return;
@@ -70,7 +74,7 @@ export function PostCard({ post }: PostCardProps) {
             <p className="text-xs text-muted-foreground">@{post.author.username} · {timeAgo(post.created_at)}</p>
           </div>
         </div>
-        <p className="text-sm leading-relaxed whitespace-pre-wrap mb-3">{renderContentWithLinks(post.content)}</p>
+        <p className="text-sm leading-relaxed whitespace-pre-wrap mb-3">{renderContentWithMentions(post.content, openUserProfile)}</p>
 
         {hasPhotos && (
           <div className="mb-3">

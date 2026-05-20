@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, Loader2, Clock, MoreVertical, Ban, ShieldBan, Play, Pause, Video, Mic, X, Repeat2, Users as UsersIcon, Camera } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 import { timeAgo } from "@/lib/constants";
-import { renderContentWithLinks } from "@/lib/link-utils";
+import { renderContentWithLinks, renderContentWithMentions, openProfileFromMention } from "@/lib/link-utils";
 import { toast } from "sonner";
 
 // ═══════════════════════════════════════════════════════════
@@ -282,8 +282,7 @@ function sanitizeHTML(html: string): string {
 
 function parseInlineFormatting(text: string, openUserProfile?: (userId: string) => void): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Combined regex: URLs, @mentions, bold-italic, bold, italic
-  const regex = /(https?:\/\/[^\s<>"')\]]+)|@(\w+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
+  const regex = /(https?:\/\/[^\s<>"')\]]+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_|@(\w[\w.-]{0,29})/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -298,33 +297,24 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
           {match[1]}
         </a>
       );
-    } else if (match[2]) {
-      // @mention
-      const username = match[2];
-      parts.push(
-        <button
-          key={`mention${key++}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            resolveUsernameToUserId(username).then((userId) => {
-              if (userId) {
-                if (openUserProfile) openUserProfile(userId);
-                else window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId } }));
-              }
-            });
-          }}
-          className="text-[#0A4D5C] font-semibold hover:underline underline-offset-2 transition-colors cursor-pointer bg-transparent border-0 p-0 m-0 inline"
-          style={{ font: "inherit", lineHeight: "inherit" }}
-        >
-          @{username}
-        </button>
-      );
-    } else if (match[4]) {
-      parts.push(<strong key={`bi${key++}`}><em>{match[4]}</em></strong>);
+    } else if (match[3]) {
+      parts.push(<strong key={`bi${key++}`}><em>{match[3]}</em></strong>);
+    } else if (match[5]) {
+      parts.push(<strong key={`b${key++}`}>{match[5]}</strong>);
     } else if (match[6]) {
-      parts.push(<strong key={`b${key++}`}>{match[6]}</strong>);
-    } else if (match[8]) {
-      parts.push(<em key={`i${key++}`}>{match[8]}</em>);
+      parts.push(<em key={`i${key++}`}>{match[6]}</em>);
+    } else if (match[7]) {
+      // @mention — resolve username to userId before opening profile
+      const username = match[7];
+      if (openUserProfile) {
+        parts.push(
+          <a key={`mention${key++}`} href="#" className="text-[#0A4D5C] font-semibold hover:underline underline-offset-2 transition-colors" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openProfileFromMention(username, openUserProfile); }}>
+            @{username}
+          </a>
+        );
+      } else {
+        parts.push(<span key={`mention${key++}`} className="text-[#0A4D5C] font-semibold">@{username}</span>);
+      }
     }
     lastIndex = match.index + match[0].length;
   }
@@ -334,29 +324,6 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
   }
 
   return parts.length > 0 ? parts : [<Fragment key="empty">{text}</Fragment>];
-}
-
-// Resolve @mention username → userId (with cache)
-const _mentionUsernameCacheUPD = new Map<string, string | null>();
-
-async function resolveUsernameToUserId(username: string): Promise<string | null> {
-  if (_mentionUsernameCacheUPD.has(username)) {
-    return _mentionUsernameCacheUPD.get(username) || null;
-  }
-  try {
-    const res = await fetch(`/api/users?q=${encodeURIComponent(username)}`);
-    const data = await res.json();
-    const users = data.users || [];
-    const exactMatch = users.find(
-      (u: { username: string }) => u.username.toLowerCase() === username.toLowerCase()
-    );
-    const userId = exactMatch?.id || null;
-    _mentionUsernameCacheUPD.set(username, userId);
-    return userId;
-  } catch {
-    _mentionUsernameCacheUPD.set(username, null);
-    return null;
-  }
 }
 
 function FormattedText({
@@ -371,32 +338,11 @@ function FormattedText({
   openUserProfile?: (userId: string) => void;
 }) {
   if (isHTMLContent(content)) {
-    // Convert @mentions in HTML to clickable spans
-    const htmlWithMentions = sanitizeHTML(content).replace(
-      /@(\w+)/g,
-      '<span class="gdf-mention" data-username="$1">@$1</span>'
-    );
     return (
       <div
         className={`post-content ${className || ""}`}
         style={style}
-        dangerouslySetInnerHTML={{ __html: htmlWithMentions }}
-        onClick={(e) => {
-          const target = e.target as HTMLElement;
-          const mentionEl = target.closest('.gdf-mention') as HTMLElement | null;
-          if (mentionEl) {
-            e.stopPropagation();
-            const username = mentionEl.getAttribute('data-username');
-            if (username) {
-              resolveUsernameToUserId(username).then((userId) => {
-                if (userId) {
-                  if (openUserProfile) openUserProfile(userId);
-                  else window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId } }));
-                }
-              });
-            }
-          }
-        }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHTML(content) }}
       />
     );
   }
@@ -450,11 +396,9 @@ interface UserProfileDialogProps {
 
 export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDialogProps) {
   const { profile } = useStore();
-  const navigateToProfile = (uid: string) => {
-    onOpenChange(false);
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
-    }, 200);
+
+  const handleOpenUserProfile = (uid: string) => {
+    window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
   };
   const [userData, setUserData] = useState<any>(null);
   const [followData, setFollowData] = useState<{
@@ -689,15 +633,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden">
         <DialogTitle className="sr-only">Perfil do usuário</DialogTitle>
-        <DialogDescription className="sr-only">Visualização do perfil de usuário</DialogDescription>
-        <style>{`
-          .post-content b, .post-content strong { font-weight: 700; }
-          .post-content i, .post-content em { font-style: italic; }
-          .post-content a { color: #0A4D5C; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: #0A4D5C66; }
-          .post-content a:hover { color: #2EC4B6; }
-          .gdf-mention { color: #0A4D5C; font-weight: 600; cursor: pointer; }
-          .gdf-mention:hover { text-decoration: underline; text-underline-offset: 2px; }
-        `}</style>
+        <DialogDescription className="sr-only">Visualizar perfil e posts do usuário</DialogDescription>
         {loading ? (
           <div className="p-6 space-y-4">
             <div className="flex items-center gap-4">
@@ -768,7 +704,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
               ) : (
                 <>
                   {userData.neighborhood && canSeeNeighborhood && <Badge variant="secondary" className="mt-2 gap-1"><MapPin className="h-3 w-3" /> {userData.neighborhood}</Badge>}
-                  {userData.bio ? <p className="mt-3 text-sm leading-relaxed">{renderContentWithLinks(userData.bio, undefined, navigateToProfile)}</p> : <p className="mt-3 text-sm text-muted-foreground italic">Sem bio ainda</p>}
+                  {userData.bio ? <p className="mt-3 text-sm leading-relaxed">{userData.bio}</p> : <p className="mt-3 text-sm text-muted-foreground italic">Sem bio ainda</p>}
                 </>
               )}
 
@@ -856,7 +792,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                                 <FormattedText
                                   className={`mt-1 text-sm leading-snug whitespace-pre-wrap ${useInlineStyle ? "" : (postItColor?.text || "text-[#000305]")}`}
                                   content={post.content}
-                                  openUserProfile={navigateToProfile}
+                                  openUserProfile={handleOpenUserProfile}
                                   style={{
                                     fontFamily: hasPostStyle && post.post_style!.font ? `'${post.post_style!.font}', sans-serif` : "serif",
                                     fontWeight: hasPostStyle && post.post_style!.bold ? 700 : undefined,
@@ -869,7 +805,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                                 <FormattedText
                                   className="mt-1 text-sm leading-relaxed whitespace-pre-wrap text-[#000305]"
                                   content={post.content}
-                                  openUserProfile={navigateToProfile}
+                                  openUserProfile={handleOpenUserProfile}
                                 />
                               )}
 
@@ -886,7 +822,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                                     )}
                                     <span className="text-xs font-semibold">{post.shared_post.author?.display_name || "Usuário"}</span>
                                   </div>
-                                  <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-3" content={post.shared_post.content} openUserProfile={navigateToProfile} />
+                                  <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-3" content={post.shared_post.content} openUserProfile={handleOpenUserProfile} />
                                   {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
                                     <div className="mt-1.5 flex gap-1 overflow-x-auto">
                                       {post.shared_post.image_urls.slice(0, 2).map((url: string, i: number) => (
