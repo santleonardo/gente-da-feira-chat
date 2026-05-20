@@ -74,7 +74,6 @@ export function renderContentWithLinks(text: string, linkClassName?: string): Re
 
   return parts.map((part, i) => {
     if (URL_REGEX.test(part)) {
-      // Reset regex lastIndex since we're re-testing
       URL_REGEX.lastIndex = 0;
       return (
         <a
@@ -89,7 +88,6 @@ export function renderContentWithLinks(text: string, linkClassName?: string): Re
         </a>
       );
     }
-    // Reset regex lastIndex
     URL_REGEX.lastIndex = 0;
     return part;
   });
@@ -113,7 +111,6 @@ export function renderContentWithMentions(
 
   const { mentionClassName, linkClassName, isMine } = options || {};
 
-  // First, split by URLs, then process mentions within each non-URL part
   const urlParts = text.split(URL_REGEX);
 
   const result: React.ReactNode[] = [];
@@ -122,7 +119,6 @@ export function renderContentWithMentions(
   for (const part of urlParts) {
     URL_REGEX.lastIndex = 0;
     if (URL_REGEX.test(part)) {
-      // This is a URL — render as link
       result.push(
         <a
           key={`url-${keyIdx++}`}
@@ -138,24 +134,19 @@ export function renderContentWithMentions(
       continue;
     }
 
-    // Not a URL — split by mentions
     MENTION_REGEX.lastIndex = 0;
     const mentionParts = part.split(MENTION_REGEX);
 
     if (mentionParts.length <= 1) {
-      // No mentions in this part
       result.push(part);
       continue;
     }
 
-    // mentionParts alternates: [text, username, text, username, ...]
     for (let i = 0; i < mentionParts.length; i++) {
       const segment = mentionParts[i];
       if (i % 2 === 0) {
-        // Regular text
         if (segment) result.push(segment);
       } else {
-        // This is a captured username (from the regex group)
         const defaultMentionClass = isMine
           ? "text-primary-foreground/90 font-semibold underline decoration-primary-foreground/30 underline-offset-2 hover:decoration-primary-foreground/60 cursor-pointer transition-colors"
           : "text-[#0A4D5C] font-semibold underline decoration-[#0A4D5C]/30 underline-offset-2 hover:decoration-[#0A4D5C]/60 cursor-pointer transition-colors";
