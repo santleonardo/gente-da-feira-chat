@@ -438,24 +438,6 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
   const commentInputRef = useRef<HTMLInputElement>(null);
   const shareRef = useRef<HTMLDivElement>(null);
 
-  // ═══════ @Mention search ═══════
-  const searchUsers = async (query: string) => {
-    try {
-      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.users || []).map((u: any) => ({
-        id: u.id,
-        display_name: u.display_name,
-        username: u.username,
-        avatar: u.avatar || u.avatar_url || null,
-        neighborhood: u.neighborhood || null,
-      }));
-    } catch {
-      return [];
-    }
-  };
-
   // Sync post prop to local state
   useEffect(() => {
     if (post) setLocalPost({ ...post });
@@ -508,6 +490,15 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
     }, 200);
+  };
+
+  const searchUsers = async (query: string) => {
+    try {
+      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.users || []).map((u: any) => ({ id: u.id, display_name: u.display_name, username: u.username, avatar: u.avatar || u.avatar_url || null, neighborhood: u.neighborhood || null }));
+    } catch { return []; }
   };
 
   const fetchComments = async () => {
@@ -865,14 +856,13 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
                     )}
                     <div className="flex items-center gap-1">
                       <MentionInput
-                        inputRef={commentInputRef}
                         placeholder="Comentar..."
                         value={commentInput}
                         onChange={setCommentInput}
-                        onSubmit={submitComment}
                         searchUsers={searchUsers}
                         multiline={false}
-                        maxLength={500}
+                        onSubmit={submitComment}
+                        inputRef={commentInputRef as any}
                         className="flex-1 min-w-0 rounded-full border border-[#0A4D5C]/10 bg-[#f7f9fa] px-2.5 py-1 text-[11px] sm:text-xs text-[#000305] focus:outline-none focus:border-[#2EC4B6] placeholder:text-[#0A4D5C]/30"
                       />
                       <button

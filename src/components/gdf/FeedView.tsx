@@ -128,8 +128,8 @@ function sanitizeHTML(html: string): string {
 
 function parseInlineFormatting(text: string, openUserProfile?: (userId: string) => void): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Combined regex: URLs (highest priority), @mentions, bold-italic, bold, italic
-  const regex = /(https?:\/\/[^\s<>"')\]]+)|@(\w[\w.-]{0,29})|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
+  // Combined regex: URLs (highest priority), bold-italic, bold, italic, @mentions
+  const regex = /(https?:\/\/[^\s<>"')\]]+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_|@(\w[\w.-]{0,29})/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -145,9 +145,15 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
           {match[1]}
         </a>
       );
-    } else if (match[2]) {
+    } else if (match[3]) {
+      parts.push(<strong key={`bi${key++}`}><em>{match[3]}</em></strong>);
+    } else if (match[5]) {
+      parts.push(<strong key={`b${key++}`}>{match[5]}</strong>);
+    } else if (match[6]) {
+      parts.push(<em key={`i${key++}`}>{match[6]}</em>);
+    } else if (match[7]) {
       // @mention
-      const username = match[2];
+      const username = match[7];
       if (openUserProfile) {
         parts.push(
           <a key={`mention${key++}`} href="#" className="text-[#0A4D5C] font-semibold hover:underline underline-offset-2 transition-colors" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openUserProfile(username); }}>
@@ -157,12 +163,6 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
       } else {
         parts.push(<span key={`mention${key++}`} className="text-[#0A4D5C] font-semibold">@{username}</span>);
       }
-    } else if (match[4]) {
-      parts.push(<strong key={`bi${key++}`}><em>{match[4]}</em></strong>);
-    } else if (match[6]) {
-      parts.push(<strong key={`b${key++}`}>{match[6]}</strong>);
-    } else if (match[7]) {
-      parts.push(<em key={`i${key++}`}>{match[7]}</em>);
     }
     lastIndex = match.index + match[0].length;
   }
@@ -587,6 +587,15 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     else window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
   };
 
+  const searchUsers = async (query: string) => {
+    try {
+      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.users || []).map((u: any) => ({ id: u.id, display_name: u.display_name, username: u.username, avatar: u.avatar || u.avatar_url || null, neighborhood: u.neighborhood || null }));
+    } catch { return []; }
+  };
+
   // Carregar Google Fonts para post_style
   useEffect(() => {
     const fontsParam = EDITOR_FONTS.map(
@@ -647,24 +656,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   // Repost state
   const [repostingPost, setRepostingPost] = useState<PostWithAuthor | null>(null);
   const [repostContent, setRepostContent] = useState("");
-
-  // ═══════ @Mention search ═══════
-  const searchUsers = async (query: string) => {
-    try {
-      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.users || []).map((u: any) => ({
-        id: u.id,
-        display_name: u.display_name,
-        username: u.username,
-        avatar: u.avatar || u.avatar_url || null,
-        neighborhood: u.neighborhood || null,
-      }));
-    } catch {
-      return [];
-    }
-  };
 
   // ═══════ Can post check ═══════
   const hasMediaInComposer = selectedFiles.length > 0 || selectedVideo || selectedAudio;
@@ -1169,7 +1160,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         .post-content i, .post-content em { font-style: italic; }
         .post-content a { color: #0A4D5C; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: #0A4D5C66; }
         .post-content a:hover { color: #2EC4B6; }
-        .post-content .mention { color: #0A4D5C; font-weight: 600; }
       `}</style>
       {/* ═══════ COMPOSER ═══════ */}
       <div className="relative z-10 rounded-3xl bg-[#eef1f3] p-5 shadow-lg border border-[#0A4D5C]/8">
@@ -1378,7 +1368,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                 <span className="text-xs font-semibold text-[#000305]">{repostingPost.author?.display_name || "Usuário"}</span>
                 <span className="text-[10px] text-[#0A4D5C]/40">@{repostingPost.author?.username || "usuario"}</span>
               </div>
-              <FormattedText className="text-xs text-[#0A4D5C]/60 line-clamp-3" content={repostingPost.content} openUserProfile={openUserProfile} />
+              <FormattedText className="text-xs text-[#0A4D5C]/60 line-clamp-3" content={repostingPost.content} openUserProfile={navigateToProfile} />
             </div>
             <MentionInput
               placeholder="Adicione um comentário (opcional)..."

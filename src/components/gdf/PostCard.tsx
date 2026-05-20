@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { Heart, Clock, X } from "lucide-react";
-import { renderContentWithMentions } from "@/lib/link-utils";
 import { timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
+import { renderContentWithMentions } from "@/lib/link-utils";
 
 interface PostCardProps {
   post: {

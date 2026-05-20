@@ -16,14 +16,14 @@ import { UserAvatar } from "./UserAvatar";
 import { useRealtimeMessages } from "@/hooks/use-realtime";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { MentionInput } from "./MentionInput";
+import { renderContentWithMentions } from "@/lib/link-utils";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MentionInput } from "./MentionInput";
-import { renderContentWithMentions } from "@/lib/link-utils";
 
 const MAX_AUDIO_DURATION = 60;
 const MAX_VIDEO_DURATION = 30;
@@ -336,22 +336,13 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // ═══════ @Mention search ═══════
   const searchUsers = async (query: string) => {
     try {
       const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
       if (!res.ok) return [];
       const data = await res.json();
-      return (data.users || []).map((u: any) => ({
-        id: u.id,
-        display_name: u.display_name,
-        username: u.username,
-        avatar: u.avatar || u.avatar_url || null,
-        neighborhood: u.neighborhood || null,
-      }));
-    } catch {
-      return [];
-    }
+      return (data.users || []).map((u: any) => ({ id: u.id, display_name: u.display_name, username: u.username, avatar: u.avatar || u.avatar_url || null, neighborhood: u.neighborhood || null }));
+    } catch { return []; }
   };
 
   // ── Mídia ──
@@ -872,7 +863,7 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
                   {hasAudio && (
                     <ChatAudioPlayer src={msg.media_url} isMine={isMine} />
                   )}
-                  {msg.content?.trim() && <span>{renderContentWithMentions(msg.content)}</span>}
+                  {msg.content?.trim() && <span>{renderContentWithMentions(msg.content, openUserProfile)}</span>}
                 </div>
                 {!isMine && (
                   <span className="text-[9px] text-muted-foreground/50 mb-1 shrink-0">{timeAgo(msg.created_at)}</span>
@@ -969,10 +960,10 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
               <MentionInput
                 placeholder="Escreva uma mensagem..."
                 value={input}
-                onChange={(v) => setInput(v.slice(0, 2000))}
-                onSubmit={sendMessage}
+                onChange={setInput}
                 searchUsers={searchUsers}
                 multiline={false}
+                onSubmit={sendMessage}
                 maxLength={2000}
                 className="h-11 rounded-full pl-4 pr-4 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
               />

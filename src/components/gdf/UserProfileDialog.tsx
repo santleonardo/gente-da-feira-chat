@@ -282,7 +282,7 @@ function sanitizeHTML(html: string): string {
 
 function parseInlineFormatting(text: string, openUserProfile?: (userId: string) => void): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  const regex = /(https?:\/\/[^\s<>"')\]]+)|@(\w[\w.-]{0,29})|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
+  const regex = /(https?:\/\/[^\s<>"')\]]+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_|@(\w[\w.-]{0,29})/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -297,9 +297,15 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
           {match[1]}
         </a>
       );
-    } else if (match[2]) {
+    } else if (match[3]) {
+      parts.push(<strong key={`bi${key++}`}><em>{match[3]}</em></strong>);
+    } else if (match[5]) {
+      parts.push(<strong key={`b${key++}`}>{match[5]}</strong>);
+    } else if (match[6]) {
+      parts.push(<em key={`i${key++}`}>{match[6]}</em>);
+    } else if (match[7]) {
       // @mention
-      const username = match[2];
+      const username = match[7];
       if (openUserProfile) {
         parts.push(
           <a key={`mention${key++}`} href="#" className="text-[#0A4D5C] font-semibold hover:underline underline-offset-2 transition-colors" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openUserProfile(username); }}>
@@ -309,12 +315,6 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
       } else {
         parts.push(<span key={`mention${key++}`} className="text-[#0A4D5C] font-semibold">@{username}</span>);
       }
-    } else if (match[3]) {
-      parts.push(<strong key={`bi${key++}`}><em>{match[3]}</em></strong>);
-    } else if (match[5]) {
-      parts.push(<strong key={`b${key++}`}>{match[5]}</strong>);
-    } else if (match[6]) {
-      parts.push(<em key={`i${key++}`}>{match[6]}</em>);
     }
     lastIndex = match.index + match[0].length;
   }
@@ -396,6 +396,10 @@ interface UserProfileDialogProps {
 
 export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDialogProps) {
   const { profile } = useStore();
+
+  const handleOpenUserProfile = (uid: string) => {
+    window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
+  };
   const [userData, setUserData] = useState<any>(null);
   const [followData, setFollowData] = useState<{
     followingCount: number;
@@ -408,11 +412,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
   const [postsLoading, setPostsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
-
-  const handleOpenUserProfile = (uid: string) => {
-    // Close current dialog and open the new profile
-    window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
-  };
   const [activeTab, setActiveTab] = useState<"posts" | "followers" | "following" | "album">("posts");
   const [followList, setFollowList] = useState<any[]>([]);
   const [listLoading, setListLoading] = useState(false);
@@ -791,6 +790,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                                 <FormattedText
                                   className={`mt-1 text-sm leading-snug whitespace-pre-wrap ${useInlineStyle ? "" : (postItColor?.text || "text-[#000305]")}`}
                                   content={post.content}
+                                  openUserProfile={handleOpenUserProfile}
                                   style={{
                                     fontFamily: hasPostStyle && post.post_style!.font ? `'${post.post_style!.font}', sans-serif` : "serif",
                                     fontWeight: hasPostStyle && post.post_style!.bold ? 700 : undefined,
@@ -798,7 +798,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                                     textAlign: hasPostStyle && post.post_style!.alignment ? post.post_style!.alignment : undefined,
                                     color: useInlineStyle && postItColorHex ? postItColorHex.text : undefined,
                                   }}
-                                  openUserProfile={handleOpenUserProfile}
                                 />
                               ) : (
                                 <FormattedText

@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef, Fragment, useCallback } from "react";
 import { useStore } from "@/lib/store";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -47,6 +46,7 @@ import {
   Loader2,
   Clock,
   Repeat2,
+  AtSign,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo, BAIRROS } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -54,7 +54,7 @@ import { SettingsView } from "./SettingsView";
 import { AlbumView } from "./AlbumView";
 import { createClient } from "@/lib/supabase/client";
 import { renderContentWithLinks, renderContentWithMentions } from "@/lib/link-utils";
-import { MentionInput } from "./MentionInput";
+import { BioEditor } from "./BioEditor";
 import { toast } from "sonner";
 import {
   compressImage,
@@ -346,7 +346,7 @@ function sanitizeHTML(html: string): string {
 // ═══════════════════════════════════════════════════════════
 function parseInlineFormatting(text: string, openUserProfile?: (userId: string) => void): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Match URLs, @mentions, ***bold+italic***, **bold**, _italic_ (URLs and mentions first, then formatting)
+  // Match URLs, @mentions, ***bold+italic***, **bold**, _italic_ (URLs first, then @mentions, then formatting)
   const regex = /(https?:\/\/[^\s<>"')\]]+)|@(\w[\w.-]{0,29})|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -378,13 +378,13 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
       }
     } else if (match[3]) {
       // ***bold+italic***
-      parts.push(<strong key={`bi${key++}`}><em>{match[3]}</em></strong>);
+      parts.push(<strong key={`bi${key++}`}><em>{match[4]}</em></strong>);
     } else if (match[5]) {
       // **bold**
-      parts.push(<strong key={`b${key++}`}>{match[5]}</strong>);
-    } else if (match[6]) {
+      parts.push(<strong key={`b${key++}`}>{match[6]}</strong>);
+    } else if (match[7]) {
       // _italic_
-      parts.push(<em key={`i${key++}`}>{match[6]}</em>);
+      parts.push(<em key={`i${key++}`}>{match[7]}</em>);
     }
     lastIndex = match.index + match[0].length;
   }
@@ -474,28 +474,6 @@ export function ProfileView() {
   const [myPosts, setMyPosts] = useState<any[]>([]);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
-  // ═══════ @Mention search ═══════
-  const searchUsers = async (query: string) => {
-    try {
-      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.users || []).map((u: any) => ({
-        id: u.id,
-        display_name: u.display_name,
-        username: u.username,
-        avatar: u.avatar || u.avatar_url || null,
-        neighborhood: u.neighborhood || null,
-      }));
-    } catch {
-      return [];
-    }
-  };
-
-  const navigateToProfile = (uid: string) => {
-    window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
-  };
-
   // ═══════ Follow list dialog state ═══════
   const [showFollowingDialog, setShowFollowingDialog] = useState(false);
   const [showFollowersDialog, setShowFollowersDialog] = useState(false);
@@ -520,6 +498,14 @@ export function ProfileView() {
   const [editorExpanded, setEditorExpanded] = useState(false);
   const [textContent, setTextContent] = useState("");
   const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false });
+
+  // @Mention state for WYSIWYG editor
+  const [showEditorMention, setShowEditorMention] = useState(false);
+  const [editorMentionUsers, setEditorMentionUsers] = useState<any[]>([]);
+  const [editorMentionIndex, setEditorMentionIndex] = useState(0);
+  const [editorMentionLoading, setEditorMentionLoading] = useState(false);
+  const editorMentionDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
 
   // Media state
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -565,6 +551,28 @@ export function ProfileView() {
   const canAddVideo = !hasPhotosInComposer && !hasAudioInComposer && !hasVideoInComposer;
   const canAddAudio = !hasPhotosInComposer && !hasVideoInComposer && !hasAudioInComposer;
 
+  // ═══════ @Mention search ═══════
+  const searchUsers = async (query: string) => {
+    try {
+      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.users || []).map((u: any) => ({
+        id: u.id,
+        display_name: u.display_name,
+        username: u.username,
+        avatar: u.avatar || u.avatar_url || null,
+        neighborhood: u.neighborhood || null,
+      }));
+    } catch {
+      return [];
+    }
+  };
+
+  const navigateToProfile = (uid: string) => {
+    window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
+  };
+
   // ═══════ Rich text formatting helpers (WYSIWYG) ═══════
   const handleBold = () => {
     document.execCommand('bold');
@@ -593,7 +601,79 @@ export function ProfileView() {
     if (el) {
       setTextContent(el.textContent || "");
     }
+    detectEditorMention();
   };
+
+  // ─── @Mention detection in WYSIWYG editor ───
+  const detectEditorMention = useCallback(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) { setShowEditorMention(false); return; }
+    const text = node.textContent || "";
+    const offset = range.startOffset;
+    const textBefore = text.slice(0, offset);
+    const atMatch = textBefore.match(/(?:^|\s)@(\w[\w.-]*)$/);
+    if (atMatch) {
+      const query = atMatch[1];
+      setShowEditorMention(true);
+      setEditorMentionIndex(0);
+      if (editorMentionDebounce.current) clearTimeout(editorMentionDebounce.current);
+      if (query.length >= 1) {
+        setEditorMentionLoading(true);
+        editorMentionDebounce.current = setTimeout(async () => {
+          try { const results = await searchUsers(query); setEditorMentionUsers(results); }
+          catch { setEditorMentionUsers([]); }
+          setEditorMentionLoading(false);
+        }, 200);
+      } else { setEditorMentionUsers([]); }
+    } else {
+      setShowEditorMention(false);
+      setEditorMentionUsers([]);
+    }
+  }, [searchUsers]);
+
+  const insertEditorMention = useCallback(
+    (user: any) => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || !editorRef.current) return;
+      const range = sel.getRangeAt(0);
+      const node = range.startContainer;
+      if (node.nodeType !== Node.TEXT_NODE) return;
+      const text = node.textContent || "";
+      const offset = range.startOffset;
+      const textBefore = text.slice(0, offset);
+      const atMatch = textBefore.match(/(?:^|\s)@(\w[\w.-]*)$/);
+      if (!atMatch) return;
+      const atPos = offset - atMatch[0].length;
+      const textAfter = text.slice(offset);
+      const beforeNode = document.createTextNode(text.slice(0, atPos));
+      const mentionSpan = document.createElement("span");
+      mentionSpan.textContent = `@${user.username}`;
+      mentionSpan.className = "text-[#0A4D5C] font-semibold";
+      mentionSpan.setAttribute("data-mention", user.username);
+      const afterNode = document.createTextNode(` ${textAfter}`);
+      const parent = node.parentNode;
+      if (parent) {
+        parent.insertBefore(beforeNode, node);
+        parent.insertBefore(mentionSpan, node);
+        parent.insertBefore(afterNode, node);
+        parent.removeChild(node);
+      }
+      const newRange = document.createRange();
+      newRange.setStartAfter(mentionSpan);
+      newRange.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+      setShowEditorMention(false);
+      setEditorMentionUsers([]);
+      // Update textContent state
+      const plainText = editorRef.current?.textContent || "";
+      setTextContent(plainText);
+    },
+    []
+  );
 
   // Carregar Google Fonts
   useEffect(() => {
@@ -1030,7 +1110,7 @@ export function ProfileView() {
           </div>
 
           <div className="mt-4">
-            {profile?.bio ? <p className="text-sm text-[#000305]">{profile.bio}</p> : <p className="text-sm text-[#01386A]/40 italic">Sem bio ainda</p>}
+            {profile?.bio ? <p className="text-sm text-[#000305]">{renderContentWithMentions(profile.bio, navigateToProfile)}</p> : <p className="text-sm text-[#01386A]/40 italic">Sem bio ainda</p>}
           </div>
 
           <div className="mt-6 flex gap-6">
@@ -1213,7 +1293,7 @@ export function ProfileView() {
               className="rounded-xl border border-[#0A4D5C]/8 overflow-hidden transition-all"
               style={{ backgroundColor: selectedColor.bg }}
             >
-              <div className="relative">
+              <div className="relative" ref={editorContainerRef}>
                 {!textContent.trim() && (
                   <div className="absolute top-0 left-0 right-0 px-3 py-2.5 text-sm pointer-events-none select-none" style={{ color: selectedColor.text, opacity: 0.4 }}>
                     Escreva algo bonito... Selecione texto e use B/I para formatar
@@ -1225,6 +1305,14 @@ export function ProfileView() {
                   role="textbox"
                   aria-multiline="true"
                   onInput={handleEditorInput}
+                  onKeyDown={(e) => {
+                    if (showEditorMention && editorMentionUsers.length > 0) {
+                      if (e.key === "ArrowDown") { e.preventDefault(); setEditorMentionIndex((i) => (i < editorMentionUsers.length - 1 ? i + 1 : 0)); return; }
+                      if (e.key === "ArrowUp") { e.preventDefault(); setEditorMentionIndex((i) => (i > 0 ? i - 1 : editorMentionUsers.length - 1)); return; }
+                      if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); insertEditorMention(editorMentionUsers[editorMentionIndex]); return; }
+                      if (e.key === "Escape") { e.preventDefault(); setShowEditorMention(false); setEditorMentionUsers([]); return; }
+                    }
+                  }}
                   className={`editor-content w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:outline-none transition-all overflow-y-auto ${editorExpanded ? "min-h-[220px] max-h-[60vh]" : "min-h-[100px]"}`}
                   style={{
                     color: selectedColor.text,
@@ -1240,6 +1328,36 @@ export function ProfileView() {
                 >
                   {editorExpanded ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
                 </button>
+                {/* @Mention dropdown for WYSIWYG editor */}
+                {showEditorMention && (editorMentionUsers.length > 0 || editorMentionLoading) && (
+                  <div className="absolute z-50 min-w-[220px] max-w-[300px] rounded-2xl bg-white shadow-xl border border-[#0A4D5C]/10 overflow-hidden" style={{ top: "100%", left: 0, marginTop: "4px" }}>
+                    <div className="absolute -top-2 left-4 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[6px] border-b-white drop-shadow-sm" />
+                    <div className="py-1.5 max-h-[200px] overflow-y-auto">
+                      {editorMentionLoading && editorMentionUsers.length === 0 ? (
+                        <div className="px-3 py-2.5 text-xs text-[#0A4D5C]/40 flex items-center gap-2">
+                          <span className="inline-block h-3 w-3 border-2 border-[#0A4D5C]/20 border-t-[#0A4D5C] rounded-full animate-spin" />
+                          Buscando...
+                        </div>
+                      ) : (
+                        editorMentionUsers.map((user: any, index: number) => (
+                          <button
+                            key={user.id}
+                            data-editor-mention-index={index}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${index === editorMentionIndex ? "bg-[#0A4D5C]/[0.06]" : "hover:bg-[#0A4D5C]/[0.03]"}`}
+                            onMouseEnter={() => setEditorMentionIndex(index)}
+                            onMouseDown={(e) => { e.preventDefault(); insertEditorMention(user); }}
+                          >
+                            <UserAvatar user={{ id: user.id, display_name: user.display_name, avatar_url: user.avatar }} className="h-7 w-7 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-semibold text-[#000305] truncate">{user.display_name}</div>
+                              <div className="text-[10px] text-[#0A4D5C]/50 truncate">@{user.username}{user.neighborhood && ` · ${user.neighborhood}`}</div>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1304,6 +1422,18 @@ export function ProfileView() {
                 title="Itálico"
               >
                 <Italic className="h-3.5 w-3.5" />
+              </button>
+              {/* @Mention */}
+              <button
+                onClick={() => {
+                  editorRef.current?.focus();
+                  document.execCommand("insertText", false, "@");
+                  setTimeout(() => detectEditorMention(), 50);
+                }}
+                className="flex items-center justify-center rounded-md h-7 w-7 shrink-0 bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10 transition-colors"
+                title="Mencionar @"
+              >
+                <AtSign className="h-3.5 w-3.5" />
               </button>
 
               <div className="w-px h-4 bg-[#0A4D5C]/10 shrink-0" />
@@ -1522,7 +1652,16 @@ export function ProfileView() {
               </div>
               <div className="space-y-3">
                 <div className="space-y-1.5"><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={50} /></div>
-                <div className="space-y-1.5"><Label>Bio</Label><Textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} maxLength={300} /><span className="text-xs text-[#01386A]/40">{bio.length}/300</span></div>
+                <div className="space-y-1.5">
+                  <Label>Bio</Label>
+                  <BioEditor
+                    value={bio}
+                    onChange={setBio}
+                    maxLength={300}
+                    placeholder="Escreva algo sobre você..."
+                    searchUsers={searchUsers}
+                  />
+                </div>
                 <div className="space-y-1.5">
                   <Label>Bairro</Label>
                   <select value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} className="flex h-10 w-full rounded-md border border-[#01386A]/10 bg-[#f7f9fa] px-3 py-2 text-sm">

@@ -18,6 +18,8 @@ import { UserAvatar } from "./UserAvatar";
 import { useRealtimeMessages } from "@/hooks/use-realtime";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { MentionInput } from "./MentionInput";
+import { renderContentWithMentions } from "@/lib/link-utils";
 import {
   Dialog,
   DialogContent,
@@ -30,8 +32,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MentionInput } from "./MentionInput";
-import { renderContentWithMentions } from "@/lib/link-utils";
 
 const ROOM_ICONS = [
   "💬", "🏠", "🎮", "⚽", "🎵", "📸", "🎬", "📚",
@@ -408,22 +408,13 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
   const [membersLoading, setMembersLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // ═══════ @Mention search ═══════
   const searchUsers = async (query: string) => {
     try {
       const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
       if (!res.ok) return [];
       const data = await res.json();
-      return (data.users || []).map((u: any) => ({
-        id: u.id,
-        display_name: u.display_name,
-        username: u.username,
-        avatar: u.avatar || u.avatar_url || null,
-        neighborhood: u.neighborhood || null,
-      }));
-    } catch {
-      return [];
-    }
+      return (data.users || []).map((u: any) => ({ id: u.id, display_name: u.display_name, username: u.username, avatar: u.avatar || u.avatar_url || null, neighborhood: u.neighborhood || null }));
+    } catch { return []; }
   };
 
   // ── Mídia no chat ──
@@ -1217,7 +1208,7 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
                       {hasAudio && (
                         <ChatAudioPlayer src={msg.media_url} isMine={isMine} />
                       )}
-                      {msg.content?.trim() && msg.content !== "📷" && <span>{renderContentWithMentions(msg.content)}</span>}
+                      {msg.content?.trim() && msg.content !== "📷" && <span>{renderContentWithMentions(msg.content, openUserProfile)}</span>}
                     </div>
                     {!isMine && (
                       <span className="text-[9px] text-muted-foreground/50 mb-1 shrink-0">{timeAgo(msg.created_at)}</span>
@@ -1318,10 +1309,10 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
                   <MentionInput
                     placeholder="Escreva uma mensagem..."
                     value={input}
-                    onChange={(v) => setInput(v.slice(0, 2000))}
-                    onSubmit={sendMessage}
+                    onChange={setInput}
                     searchUsers={searchUsers}
                     multiline={false}
+                    onSubmit={sendMessage}
                     maxLength={2000}
                     className="h-11 rounded-full pl-4 pr-4 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
                   />
