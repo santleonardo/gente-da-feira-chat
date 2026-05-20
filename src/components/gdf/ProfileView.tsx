@@ -346,7 +346,7 @@ function sanitizeHTML(html: string): string {
 // ═══════════════════════════════════════════════════════════
 function parseInlineFormatting(text: string, openUserProfile?: (userId: string) => void): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Combined regex: URLs (highest priority), @mentions, bold-italic, bold, italic
+  // Match URLs, @mentions, ***bold+italic***, **bold**, _italic_ (URLs and mentions first, then formatting)
   const regex = /(https?:\/\/[^\s<>"')\]]+)|@(\w[\w.-]{0,29})|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -356,11 +356,12 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
     if (match.index > lastIndex) {
       parts.push(<Fragment key={`t${key++}`}>{text.slice(lastIndex, match.index)}</Fragment>);
     }
-    if (match[1]) {
-      // URL — clickable link
+    const matchedText = match[0];
+    if (matchedText.startsWith('http')) {
+      // URL — render as clickable link
       parts.push(
-        <a key={`url${key++}`} href={match[1]} target="_blank" rel="noopener noreferrer" className="text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors" onClick={(e) => e.stopPropagation()}>
-          {match[1]}
+        <a key={`url${key++}`} href={matchedText} target="_blank" rel="noopener noreferrer" className="text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors" onClick={(e) => e.stopPropagation()}>
+          {matchedText}
         </a>
       );
     } else if (match[2]) {
@@ -375,15 +376,15 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
       } else {
         parts.push(<span key={`mention${key++}`} className="text-[#0A4D5C] font-semibold">@{username}</span>);
       }
-    } else if (match[4]) {
+    } else if (match[3]) {
       // ***bold+italic***
-      parts.push(<strong key={`bi${key++}`}><em>{match[4]}</em></strong>);
-    } else if (match[6]) {
+      parts.push(<strong key={`bi${key++}`}><em>{match[3]}</em></strong>);
+    } else if (match[5]) {
       // **bold**
-      parts.push(<strong key={`b${key++}`}>{match[6]}</strong>);
-    } else if (match[7]) {
+      parts.push(<strong key={`b${key++}`}>{match[5]}</strong>);
+    } else if (match[6]) {
       // _italic_
-      parts.push(<em key={`i${key++}`}>{match[7]}</em>);
+      parts.push(<em key={`i${key++}`}>{match[6]}</em>);
     }
     lastIndex = match.index + match[0].length;
   }
@@ -473,6 +474,28 @@ export function ProfileView() {
   const [myPosts, setMyPosts] = useState<any[]>([]);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
+  // ═══════ @Mention search ═══════
+  const searchUsers = async (query: string) => {
+    try {
+      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.users || []).map((u: any) => ({
+        id: u.id,
+        display_name: u.display_name,
+        username: u.username,
+        avatar: u.avatar || u.avatar_url || null,
+        neighborhood: u.neighborhood || null,
+      }));
+    } catch {
+      return [];
+    }
+  };
+
+  const navigateToProfile = (uid: string) => {
+    window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
+  };
+
   // ═══════ Follow list dialog state ═══════
   const [showFollowingDialog, setShowFollowingDialog] = useState(false);
   const [showFollowersDialog, setShowFollowersDialog] = useState(false);
@@ -541,28 +564,6 @@ export function ProfileView() {
   const canAddPhotos = !hasVideoInComposer && !hasAudioInComposer && selectedFiles.length < MAX_PHOTOS_PER_POST;
   const canAddVideo = !hasPhotosInComposer && !hasAudioInComposer && !hasVideoInComposer;
   const canAddAudio = !hasPhotosInComposer && !hasVideoInComposer && !hasAudioInComposer;
-
-  // ═══════ @Mention search ═══════
-  const searchUsers = async (query: string) => {
-    try {
-      const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.users || []).map((u: any) => ({
-        id: u.id,
-        display_name: u.display_name,
-        username: u.username,
-        avatar: u.avatar || u.avatar_url || null,
-        neighborhood: u.neighborhood || null,
-      }));
-    } catch {
-      return [];
-    }
-  };
-
-  const navigateToProfile = (uid: string) => {
-    window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
-  };
 
   // ═══════ Rich text formatting helpers (WYSIWYG) ═══════
   const handleBold = () => {
@@ -1118,13 +1119,13 @@ export function ProfileView() {
                     <FormattedText
                       className={`whitespace-pre-wrap ${isTextOnly ? "text-sm sm:text-base leading-snug" : "text-[13px] sm:text-sm leading-relaxed text-[#000305]"}`}
                       content={post.content}
-                      openUserProfile={navigateToProfile}
                       style={{
                         fontFamily: postStyleData?.font ? `'${postStyleData.font}', sans-serif` : isTextOnly ? "serif" : undefined,
                         fontWeight: postStyleData?.bold ? 700 : undefined,
                         fontStyle: postStyleData?.italic ? "italic" : undefined,
                         textAlign: postStyleData?.alignment || undefined,
                       }}
+                      openUserProfile={navigateToProfile}
                     />
 
                     {/* Shared/reposted post */}

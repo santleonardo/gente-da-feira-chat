@@ -339,7 +339,7 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
   // ═══════ @Mention search ═══════
   const searchUsers = async (query: string) => {
     try {
-      const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
       if (!res.ok) return [];
       const data = await res.json();
       return (data.users || []).map((u: any) => ({

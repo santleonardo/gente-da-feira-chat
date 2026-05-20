@@ -309,12 +309,12 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
       } else {
         parts.push(<span key={`mention${key++}`} className="text-[#0A4D5C] font-semibold">@{username}</span>);
       }
-    } else if (match[4]) {
-      parts.push(<strong key={`bi${key++}`}><em>{match[4]}</em></strong>);
+    } else if (match[3]) {
+      parts.push(<strong key={`bi${key++}`}><em>{match[3]}</em></strong>);
+    } else if (match[5]) {
+      parts.push(<strong key={`b${key++}`}>{match[5]}</strong>);
     } else if (match[6]) {
-      parts.push(<strong key={`b${key++}`}>{match[6]}</strong>);
-    } else if (match[8]) {
-      parts.push(<em key={`i${key++}`}>{match[8]}</em>);
+      parts.push(<em key={`i${key++}`}>{match[6]}</em>);
     }
     lastIndex = match.index + match[0].length;
   }
@@ -408,6 +408,11 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
   const [postsLoading, setPostsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
+
+  const handleOpenUserProfile = (uid: string) => {
+    // Close current dialog and open the new profile
+    window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
+  };
   const [activeTab, setActiveTab] = useState<"posts" | "followers" | "following" | "album">("posts");
   const [followList, setFollowList] = useState<any[]>([]);
   const [listLoading, setListLoading] = useState(false);
@@ -589,13 +594,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
       const data = await res.json();
       if (data.conversation) { useStore.getState().setSelectedDM(data.conversation); useStore.getState().setTab("dms"); onOpenChange(false); }
     } catch { toast.error("Erro ao iniciar conversa"); }
-  };
-
-  const handleOpenUserProfile = (mentionUserId: string) => {
-    onOpenChange(false);
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: mentionUserId } }));
-    }, 200);
   };
 
   const isOwnProfile = profile?.id === userId;

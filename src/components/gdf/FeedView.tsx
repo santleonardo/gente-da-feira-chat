@@ -651,7 +651,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   // ═══════ @Mention search ═══════
   const searchUsers = async (query: string) => {
     try {
-      const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
       if (!res.ok) return [];
       const data = await res.json();
       return (data.users || []).map((u: any) => ({
@@ -1378,7 +1378,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                 <span className="text-xs font-semibold text-[#000305]">{repostingPost.author?.display_name || "Usuário"}</span>
                 <span className="text-[10px] text-[#0A4D5C]/40">@{repostingPost.author?.username || "usuario"}</span>
               </div>
-              <FormattedText className="text-xs text-[#0A4D5C]/60 line-clamp-3" content={repostingPost.content} openUserProfile={navigateToProfile} />
+              <FormattedText className="text-xs text-[#0A4D5C]/60 line-clamp-3" content={repostingPost.content} openUserProfile={openUserProfile} />
             </div>
             <MentionInput
               placeholder="Adicione um comentário (opcional)..."
@@ -1672,6 +1672,7 @@ function PostThread({
               <FormattedText
                 className={`mt-1.5 text-base sm:text-lg leading-snug whitespace-pre-wrap ${useInlineStyle ? "" : (postItColor?.text || "text-[#000305]")}`}
                 content={post.content}
+                openUserProfile={openUserProfile}
                 style={{
                   fontFamily: hasPostStyle && post.post_style!.font ? `'${post.post_style!.font}', sans-serif` : "serif",
                   fontWeight: hasPostStyle && post.post_style!.bold ? 700 : undefined,
@@ -1679,7 +1680,6 @@ function PostThread({
                   textAlign: hasPostStyle && post.post_style!.alignment ? post.post_style!.alignment : undefined,
                   color: useInlineStyle && postItColorHex ? postItColorHex.text : undefined,
                 }}
-                openUserProfile={openUserProfile}
               />
             ) : (
               <FormattedText
