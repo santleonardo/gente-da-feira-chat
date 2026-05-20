@@ -1,210 +1,179 @@
 import React from "react";
 
 const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g;
-const MENTION_REGEX = /@(\w[\w.-]{0,29})/g;
+const MENTION_REGEX = /@(\w+)/g;
 
-export function renderContentWithLinks(
-  text: string,
-  linkClassName?: string,
-  onOpenUserProfile?: (userId: string) => void
-): React.ReactNode[] {
-  if (!text) return [text];
+// Cache username → userId to avoid repeated lookups
+const usernameCache = new Map<string, string | null>();
 
-  const combinedRegex = /(https?:\/\/[^\s<>"')\]]+)|@(\w[\w.-]{0,29})/g;
-
-  const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  let key = 0;
-
-  while ((match = combinedRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(
-        <span key={`t${key++}`}>{text.slice(lastIndex, match.index)}</span>
-      );
-    }
-
-    if (match[1]) {
-      parts.push(
-        <a
-          key={`url${key++}`}
-          href={match[1]}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={
-            linkClassName ||
-            "text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors"
-          }
-          onClick={(e) => e.stopPropagation()}
-        >
-          {match[1]}
-        </a>
-      );
-    } else if (match[2]) {
-      const username = match[2];
-      if (onOpenUserProfile) {
-        parts.push(
-          <a
-            key={`mention${key++}`}
-            href="#"
-            className="font-bold underline underline-offset-2 decoration-current/50 hover:decoration-current transition-colors"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              openProfileFromMention(username, onOpenUserProfile);
-            }}
-          >
-            @{username}
-          </a>
-        );
-      } else {
-        parts.push(
-          <span key={`mention${key++}`} className="font-bold">
-            @{username}
-          </span>
-        );
-      }
-    }
-
-    lastIndex = match.index + match[0].length;
+/**
+ * Resolves a username to a user ID via the API, with caching.
+ */
+export async function resolveUsernameToId(username: string): Promise<string | null> {
+  const lower = username.toLowerCase();
+  if (usernameCache.has(lower)) return usernameCache.get(lower)!;
+  try {
+    const res = await fetch(`/api/users?username=${encodeURIComponent(lower)}`);
+    if (!res.ok) { usernameCache.set(lower, null); return null; }
+    const data = await res.json();
+    const userId = data.user?.id || null;
+    usernameCache.set(lower, userId);
+    return userId;
+  } catch {
+    usernameCache.set(lower, null);
+    return null;
   }
-
-  if (lastIndex < text.length) {
-    parts.push(<span key={`r${key++}`}>{text.slice(lastIndex)}</span>);
-  }
-
-  return parts.length > 0 ? parts : [text];
 }
 
-// ═══════════════════════════════════════════════════════════
-// @MENTION SUPPORT
-// ═══════════════════════════════════════════════════════════
-
-export const usernameCache = new Map<string, { id: string; avatar: string | null }>();
-
-export async function resolveMentionUsernames(usernames: string[]): Promise<Record<string, { id: string; avatar: string | null }>> {
-  const uncached = usernames.filter((u) => !usernameCache.has(u));
-  if (uncached.length > 0) {
-    try {
-      const res = await fetch(`/api/users?usernames=${uncached.join(",")}`);
-      if (res.ok) {
-        const data = await res.json();
-        for (const [username, info] of Object.entries(data.users || {})) {
-          usernameCache.set(username, info as { id: string; avatar: string | null });
-        }
-      }
-    } catch { /* silent */ }
+/**
+ * Opens a user profile from a mention click.
+ * First resolves the username to a user ID, then opens the profile dialog.
+ */
+export function openProfileFromMention(username: string, openUserProfile?: (userId: string) => void) {
+  if (!openUserProfile) return;
+  const lower = username.toLowerCase();
+  const cached = usernameCache.get(lower);
+  if (cached) {
+    openUserProfile(cached);
+    return;
   }
-  const result: Record<string, { id: string; avatar: string | null }> = {};
-  for (const u of usernames) { const cached = usernameCache.get(u); if (cached) result[u] = cached; }
-  return result;
+  resolveUsernameToId(lower).then((userId) => {
+    if (userId) openUserProfile(userId);
+  });
 }
 
+/**
+ * Extracts all @mentions from a text string.
+ */
+export function extractMentions(text: string): string[] {
+  const matches = text.matchAll(MENTION_REGEX);
+  const mentions = new Set<string>();
+  for (const m of matches) {
+    mentions.add(m[1].toLowerCase());
+  }
+  return Array.from(mentions);
+}
+
+/**
+ * Checks if text contains @mentions.
+ */
 export function hasMentions(text: string): boolean {
   MENTION_REGEX.lastIndex = 0;
   return MENTION_REGEX.test(text);
 }
 
-export function extractMentions(text: string): string[] {
-  MENTION_REGEX.lastIndex = 0;
-  const set = new Set<string>();
-  for (const m of text.matchAll(MENTION_REGEX)) set.add(m[1]);
-  return Array.from(set);
-}
+/**
+ * Renders text content with URLs converted to clickable links.
+ * Returns an array of React elements (text spans and anchor tags).
+ */
+export function renderContentWithLinks(text: string, linkClassName?: string): React.ReactNode[] {
+  if (!text) return [text];
 
-export async function openProfileFromMention(
-  username: string,
-  openUserProfile: (userId: string) => void
-) {
-  const cached = usernameCache.get(username);
-  if (cached?.id) {
-    openUserProfile(cached.id);
-    return;
-  }
-  try {
-    const res = await fetch(`/api/users?usernames=${encodeURIComponent(username)}`);
-    if (res.ok) {
-      const data = await res.json();
-      const info = data.users?.[username];
-      if (info?.id) {
-        usernameCache.set(username, info);
-        openUserProfile(info.id);
-        return;
-      }
+  const parts = text.split(URL_REGEX);
+  if (parts.length <= 1) return [text];
+
+  return parts.map((part, i) => {
+    if (URL_REGEX.test(part)) {
+      // Reset regex lastIndex since we're re-testing
+      URL_REGEX.lastIndex = 0;
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={linkClassName || "text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors"}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
     }
-  } catch { /* silent */ }
+    // Reset regex lastIndex
+    URL_REGEX.lastIndex = 0;
+    return part;
+  });
 }
 
 /**
- * Renders text with both URLs and @mentions as clickable elements.
- * Uses inherited text color + bold + underline for mentions so they are
- * always visible regardless of the bubble background (light or dark).
+ * Renders text content with @mentions converted to clickable styled spans.
+ * Also processes URLs via renderContentWithLinks.
+ * Returns an array of React elements.
  */
 export function renderContentWithMentions(
   text: string,
   openUserProfile?: (userId: string) => void,
-  options?: { linkClassName?: string }
+  options?: {
+    mentionClassName?: string;
+    linkClassName?: string;
+    isMine?: boolean;
+  }
 ): React.ReactNode[] {
   if (!text) return [text];
 
-  const combinedRegex = /(https?:\/\/[^\s<>"')\]]+)|@(\w[\w.-]{0,29})/g;
-  const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  let key = 0;
+  const { mentionClassName, linkClassName, isMine } = options || {};
 
-  while ((match = combinedRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(<React.Fragment key={`t${key++}`}>{text.slice(lastIndex, match.index)}</React.Fragment>);
-    }
+  // First, split by URLs, then process mentions within each non-URL part
+  const urlParts = text.split(URL_REGEX);
 
-    if (match[1]) {
-      // URL
-      parts.push(
+  const result: React.ReactNode[] = [];
+  let keyIdx = 0;
+
+  for (const part of urlParts) {
+    URL_REGEX.lastIndex = 0;
+    if (URL_REGEX.test(part)) {
+      // This is a URL — render as link
+      result.push(
         <a
-          key={`url${key++}`}
-          href={match[1]}
+          key={`url-${keyIdx++}`}
+          href={part}
           target="_blank"
           rel="noopener noreferrer"
-          className={options?.linkClassName || "underline underline-offset-2 decoration-current/50 hover:decoration-current transition-colors"}
+          className={linkClassName || "text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors"}
           onClick={(e) => e.stopPropagation()}
         >
-          {match[1]}
+          {part}
         </a>
       );
-    } else if (match[2]) {
-      // @mention — uses inherited color + bold + underline so it's visible on ANY background
-      const username = match[2];
-      if (openUserProfile) {
-        parts.push(
-          <a
-            key={`mention${key++}`}
-            href="#"
-            className="font-bold underline underline-offset-2 decoration-current/50 hover:decoration-current transition-colors"
+      continue;
+    }
+
+    // Not a URL — split by mentions
+    MENTION_REGEX.lastIndex = 0;
+    const mentionParts = part.split(MENTION_REGEX);
+
+    if (mentionParts.length <= 1) {
+      // No mentions in this part
+      result.push(part);
+      continue;
+    }
+
+    // mentionParts alternates: [text, username, text, username, ...]
+    for (let i = 0; i < mentionParts.length; i++) {
+      const segment = mentionParts[i];
+      if (i % 2 === 0) {
+        // Regular text
+        if (segment) result.push(segment);
+      } else {
+        // This is a captured username (from the regex group)
+        const defaultMentionClass = isMine
+          ? "text-primary-foreground/90 font-semibold underline decoration-primary-foreground/30 underline-offset-2 hover:decoration-primary-foreground/60 cursor-pointer transition-colors"
+          : "text-[#0A4D5C] font-semibold underline decoration-[#0A4D5C]/30 underline-offset-2 hover:decoration-[#0A4D5C]/60 cursor-pointer transition-colors";
+        result.push(
+          <span
+            key={`mention-${keyIdx++}`}
+            className={mentionClassName || defaultMentionClass}
             onClick={(e) => {
-              e.preventDefault();
               e.stopPropagation();
-              openProfileFromMention(username, openUserProfile);
+              openProfileFromMention(segment, openUserProfile);
             }}
           >
-            @{username}
-          </a>
-        );
-      } else {
-        parts.push(
-          <span key={`mention${key++}`} className="font-bold">
-            @{username}
+            @{segment}
           </span>
         );
       }
     }
-
-    lastIndex = match.index + match[0].length;
   }
 
-  if (lastIndex < text.length) {
-    parts.push(<React.Fragment key={`r${key++}`}>{text.slice(lastIndex)}</React.Fragment>);
-  }
-
-  return parts.length > 0 ? parts : [text];
+  return result;
 }
