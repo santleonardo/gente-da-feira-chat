@@ -16,7 +16,6 @@ import { UserAvatar } from "./UserAvatar";
 import { useRealtimeMessages } from "@/hooks/use-realtime";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { MentionInput } from "./MentionInput";
 import { renderContentWithMentions } from "@/lib/link-utils";
 import {
   Dialog,
@@ -336,15 +335,6 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const searchUsers = async (query: string) => {
-    try {
-      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.users || []).map((u: any) => ({ id: u.id, display_name: u.display_name, username: u.username, avatar: u.avatar || u.avatar_url || null, neighborhood: u.neighborhood || null }));
-    } catch { return []; }
-  };
-
   // ── Mídia ──
   const [sendingMedia, setSendingMedia] = useState(false);
   const cameraPhotoRef = useRef<HTMLInputElement>(null);
@@ -623,7 +613,6 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
       recordingTimerRef.current = setInterval(() => {
         setRecordingSeconds((prev) => {
           if (prev + 1 >= MAX_AUDIO_DURATION) {
-            stopAudioRecording();
             return MAX_AUDIO_DURATION;
           }
           return prev + 1;
@@ -643,6 +632,14 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
       mediaRecorderRef.current.stop();
     }
   };
+
+  // Auto-stop recording when max duration is reached
+  useEffect(() => {
+    if (isRecordingAudio && recordingSeconds >= MAX_AUDIO_DURATION) {
+      stopAudioRecording();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordingSeconds, isRecordingAudio]);
 
   const cancelAudioRecording = () => {
     if (recordingTimerRef.current) {
@@ -672,7 +669,6 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
       recordingTimerRef.current = setInterval(() => {
         setRecordingSeconds((prev) => {
           if (prev + 1 >= MAX_AUDIO_DURATION) {
-            stopAudioRecording();
             return MAX_AUDIO_DURATION;
           }
           return prev + 1;
@@ -863,7 +859,7 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
                   {hasAudio && (
                     <ChatAudioPlayer src={msg.media_url} isMine={isMine} />
                   )}
-                  {msg.content?.trim() && <span>{renderContentWithMentions(msg.content, openUserProfile)}</span>}
+                  {msg.content?.trim() && <span>{renderContentWithMentions(msg.content, openUserProfile, { isMine })}</span>}
                 </div>
                 {!isMine && (
                   <span className="text-[9px] text-muted-foreground/50 mb-1 shrink-0">{timeAgo(msg.created_at)}</span>
@@ -957,14 +953,11 @@ function DMChat({ conversation, onBack, openUserProfile }: { conversation: any; 
 
             {/* Input de texto */}
             <div className="flex-1 relative">
-              <MentionInput
+              <Input
                 placeholder="Escreva uma mensagem..."
                 value={input}
-                onChange={setInput}
-                searchUsers={searchUsers}
-                multiline={false}
-                onSubmit={sendMessage}
-                maxLength={2000}
+                onChange={(e) => setInput(e.target.value.slice(0, 2000))}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
                 className="h-11 rounded-full pl-4 pr-4 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
               />
             </div>

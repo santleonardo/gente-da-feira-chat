@@ -43,8 +43,7 @@ import {
   createPreviewUrl,
   revokePreviewUrl,
 } from "@/lib/image-compression";
-import { MentionInput } from "./MentionInput";
-import { renderContentWithMentions, extractMentions, resolveMentionUsernames, openProfileFromMention } from "@/lib/link-utils";
+import DOMPurify from "dompurify";
 
 // ═══════════════════════════════════════════════════════════
 // Constantes
@@ -118,18 +117,17 @@ function isHTMLContent(content: string): boolean {
 }
 
 function sanitizeHTML(html: string): string {
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '')
-    .replace(/\bon\w+\s*=\s*[^\s>]+/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/javascript:/gi, '');
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 's', 'span', 'div', 'p', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'blockquote', 'hr', 'pre', 'code', 'sub', 'sup'],
+    ALLOWED_ATTR: ['style', 'class', 'href', 'target', 'rel'],
+    ALLOW_DATA_ATTR: false,
+  });
 }
 
-function parseInlineFormatting(text: string, openUserProfile?: (userId: string) => void): React.ReactNode[] {
+function parseInlineFormatting(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Combined regex: URLs (highest priority), bold-italic, bold, italic, @mentions
-  const regex = /(https?:\/\/[^\s<>"')\]]+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_|@(\w[\w.-]{0,29})/g;
+  // Combined regex: URLs (highest priority), bold-italic, bold, italic
+  const regex = /(https?:\/\/[^\s<>"')\]]+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -151,18 +149,6 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
       parts.push(<strong key={`b${key++}`}>{match[5]}</strong>);
     } else if (match[6]) {
       parts.push(<em key={`i${key++}`}>{match[6]}</em>);
-    } else if (match[7]) {
-      // @mention — resolve username to userId before opening profile
-      const username = match[7];
-      if (openUserProfile) {
-        parts.push(
-          <a key={`mention${key++}`} href="#" className="text-[#0A4D5C] font-semibold hover:underline underline-offset-2 transition-colors" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openProfileFromMention(username, openUserProfile); }}>
-            @{username}
-          </a>
-        );
-      } else {
-        parts.push(<span key={`mention${key++}`} className="text-[#0A4D5C] font-semibold">@{username}</span>);
-      }
     }
     lastIndex = match.index + match[0].length;
   }
@@ -178,12 +164,10 @@ function FormattedText({
   content,
   className,
   style,
-  openUserProfile,
 }: {
   content: string;
   className?: string;
   style?: React.CSSProperties;
-  openUserProfile?: (userId: string) => void;
 }) {
   // Se o conteúdo é HTML (posts criados com o editor WYSIWYG), renderizar como HTML
   if (isHTMLContent(content)) {
@@ -222,7 +206,7 @@ function FormattedText({
         return (
           <Fragment key={i}>
             {i > 0 && <br />}
-            <span style={headingStyle}>{parseInlineFormatting(text, openUserProfile)}</span>
+            <span style={headingStyle}>{parseInlineFormatting(text)}</span>
           </Fragment>
         );
       })}
@@ -587,24 +571,18 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     else window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
   };
 
-  const searchUsers = async (query: string) => {
-    try {
-      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.users || []).map((u: any) => ({ id: u.id, display_name: u.display_name, username: u.username, avatar: u.avatar || u.avatar_url || null, neighborhood: u.neighborhood || null }));
-    } catch { return []; }
-  };
-
   // Carregar Google Fonts para post_style
   useEffect(() => {
     const fontsParam = EDITOR_FONTS.map(
       (f) => `family=${f.replace(/ /g, "+")}:wght@400;700`
     ).join("&");
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = `https://fonts.googleapis.com/css2?${fontsParam}&display=swap`;
-    document.head.appendChild(link);
+    const href = `https://fonts.googleapis.com/css2?${fontsParam}&display=swap`;
+    if (!document.querySelector(`link[href="${href}"]`)) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      document.head.appendChild(link);
+    }
   }, []);
 
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
@@ -680,7 +658,10 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((t) => t.stop());
       }
+      // Revoke any pending object URLs to prevent memory leaks
+      previewUrls.forEach((url) => { try { URL.revokeObjectURL(url); } catch { /* ignore */ } });
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -890,7 +871,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       recordingTimerRef.current = setInterval(() => {
         setRecordingSeconds((prev) => {
           if (prev + 1 >= MAX_AUDIO_DURATION) {
-            stopAudioRecording();
             return MAX_AUDIO_DURATION;
           }
           return prev + 1;
@@ -910,6 +890,14 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       mediaRecorderRef.current.stop();
     }
   };
+
+  // Auto-stop recording when max duration is reached
+  useEffect(() => {
+    if (isRecordingAudio && recordingSeconds >= MAX_AUDIO_DURATION) {
+      stopAudioRecording();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordingSeconds, isRecordingAudio]);
 
   const cancelAudioRecording = () => {
     if (recordingTimerRef.current) {
@@ -939,7 +927,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       recordingTimerRef.current = setInterval(() => {
         setRecordingSeconds((prev) => {
           if (prev + 1 >= MAX_AUDIO_DURATION) {
-            stopAudioRecording();
             return MAX_AUDIO_DURATION;
           }
           return prev + 1;
@@ -1166,15 +1153,12 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         <div className="flex items-start gap-3.5">
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-12 w-12 shrink-0" />
           <div className="flex-1 space-y-2">
-            <MentionInput
+            <textarea
               placeholder="O que está acontecendo no seu bairro?"
               value={content}
-              onChange={setContent}
-              searchUsers={searchUsers}
+              onChange={(e) => setContent(e.target.value.slice(0, 500))}
               className="w-full min-h-[72px] resize-none border-0 bg-transparent p-0 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
               rows={2}
-              multiline={true}
-              maxLength={500}
             />
 
             {/* Photo previews */}
@@ -1368,17 +1352,14 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                 <span className="text-xs font-semibold text-[#000305]">{repostingPost.author?.display_name || "Usuário"}</span>
                 <span className="text-[10px] text-[#0A4D5C]/40">@{repostingPost.author?.username || "usuario"}</span>
               </div>
-              <FormattedText className="text-xs text-[#0A4D5C]/60 line-clamp-3" content={repostingPost.content} openUserProfile={navigateToProfile} />
+              <FormattedText className="text-xs text-[#0A4D5C]/60 line-clamp-3" content={repostingPost.content} />
             </div>
-            <MentionInput
+            <textarea
               placeholder="Adicione um comentário (opcional)..."
               value={repostContent}
-              onChange={setRepostContent}
-              searchUsers={searchUsers}
+              onChange={(e) => setRepostContent(e.target.value.slice(0, 200))}
               className="w-full min-h-[60px] resize-none border-0 bg-transparent p-3 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
               rows={2}
-              multiline={true}
-              maxLength={200}
             />
             <div className="flex items-center gap-2 mt-3">
               <Button variant="outline" size="sm" onClick={() => { setRepostingPost(null); setRepostContent(""); }} className="rounded-full border-[#0A4D5C]/10 text-[#0A4D5C]">Cancelar</Button>
@@ -1662,7 +1643,6 @@ function PostThread({
               <FormattedText
                 className={`mt-1.5 text-base sm:text-lg leading-snug whitespace-pre-wrap ${useInlineStyle ? "" : (postItColor?.text || "text-[#000305]")}`}
                 content={post.content}
-                openUserProfile={openUserProfile}
                 style={{
                   fontFamily: hasPostStyle && post.post_style!.font ? `'${post.post_style!.font}', sans-serif` : "serif",
                   fontWeight: hasPostStyle && post.post_style!.bold ? 700 : undefined,
@@ -1675,7 +1655,6 @@ function PostThread({
               <FormattedText
                 className="mt-1.5 text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]"
                 content={post.content}
-                openUserProfile={openUserProfile}
               />
             )}
 
@@ -1695,7 +1674,7 @@ function PostThread({
                   </button>
 
                 </div>
-                <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-4" content={post.shared_post.content} openUserProfile={openUserProfile} />
+                <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-4" content={post.shared_post.content} />
                 {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
                   <div className="mt-1.5 flex gap-1 overflow-x-auto">
                     {post.shared_post.image_urls.slice(0, 2).map((url, i) => (
@@ -1899,7 +1878,7 @@ function CommentItem({
             </button>
             <span className="text-[9px] sm:text-[10px] text-[#0A4D5C]/30">{timeAgo(comment.created_at)}</span>
           </div>
-          <FormattedText className="text-[11px] sm:text-xs text-[#000305]/80 leading-relaxed" content={comment.content} openUserProfile={openUserProfile} />
+          <FormattedText className="text-[11px] sm:text-xs text-[#000305]/80 leading-relaxed" content={comment.content} />
           <div className="flex items-center gap-1.5 mt-0.5">
             <div className="relative">
               <button

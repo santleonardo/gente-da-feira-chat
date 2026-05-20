@@ -4,13 +4,14 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, Loader2, Clock, MoreVertical, Ban, ShieldBan, Play, Pause, Video, Mic, X, Repeat2, Users as UsersIcon, Camera } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 import { timeAgo } from "@/lib/constants";
-import { renderContentWithLinks, renderContentWithMentions, openProfileFromMention } from "@/lib/link-utils";
+import { renderContentWithLinks } from "@/lib/link-utils";
 import { toast } from "sonner";
+import DOMPurify from "dompurify";
 
 // ═══════════════════════════════════════════════════════════
 // Post-it colors (Tailwind classes)
@@ -272,17 +273,16 @@ function isHTMLContent(content: string): boolean {
 }
 
 function sanitizeHTML(html: string): string {
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '')
-    .replace(/\bon\w+\s*=\s*[^\s>]+/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/javascript:/gi, '');
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 's', 'span', 'div', 'p', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'blockquote', 'hr', 'pre', 'code', 'sub', 'sup'],
+    ALLOWED_ATTR: ['style', 'class', 'href', 'target', 'rel'],
+    ALLOW_DATA_ATTR: false,
+  });
 }
 
-function parseInlineFormatting(text: string, openUserProfile?: (userId: string) => void): React.ReactNode[] {
+function parseInlineFormatting(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  const regex = /(https?:\/\/[^\s<>"')\]]+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_|@(\w[\w.-]{0,29})/g;
+  const regex = /(https?:\/\/[^\s<>"')\]]+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -303,18 +303,6 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
       parts.push(<strong key={`b${key++}`}>{match[5]}</strong>);
     } else if (match[6]) {
       parts.push(<em key={`i${key++}`}>{match[6]}</em>);
-    } else if (match[7]) {
-      // @mention — resolve username to userId before opening profile
-      const username = match[7];
-      if (openUserProfile) {
-        parts.push(
-          <a key={`mention${key++}`} href="#" className="text-[#0A4D5C] font-semibold hover:underline underline-offset-2 transition-colors" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openProfileFromMention(username, openUserProfile); }}>
-            @{username}
-          </a>
-        );
-      } else {
-        parts.push(<span key={`mention${key++}`} className="text-[#0A4D5C] font-semibold">@{username}</span>);
-      }
     }
     lastIndex = match.index + match[0].length;
   }
@@ -330,12 +318,10 @@ function FormattedText({
   content,
   className,
   style,
-  openUserProfile,
 }: {
   content: string;
   className?: string;
   style?: React.CSSProperties;
-  openUserProfile?: (userId: string) => void;
 }) {
   if (isHTMLContent(content)) {
     return (
@@ -372,7 +358,7 @@ function FormattedText({
         return (
           <Fragment key={i}>
             {i > 0 && <br />}
-            <span style={headingStyle}>{parseInlineFormatting(text, openUserProfile)}</span>
+            <span style={headingStyle}>{parseInlineFormatting(text)}</span>
           </Fragment>
         );
       })}
@@ -396,10 +382,6 @@ interface UserProfileDialogProps {
 
 export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDialogProps) {
   const { profile } = useStore();
-
-  const handleOpenUserProfile = (uid: string) => {
-    window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
-  };
   const [userData, setUserData] = useState<any>(null);
   const [followData, setFollowData] = useState<{
     followingCount: number;
@@ -448,10 +430,13 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
     const fontsParam = EDITOR_FONTS.map(
       (f) => `family=${f.replace(/ /g, "+")}:wght@400;700`
     ).join("&");
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = `https://fonts.googleapis.com/css2?${fontsParam}&display=swap`;
-    document.head.appendChild(link);
+    const href = `https://fonts.googleapis.com/css2?${fontsParam}&display=swap`;
+    if (!document.querySelector(`link[href="${href}"]`)) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      document.head.appendChild(link);
+    }
   }, []);
 
   useEffect(() => {
@@ -632,8 +617,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden">
-        <DialogTitle className="sr-only">Perfil do usuário</DialogTitle>
-        <DialogDescription className="sr-only">Visualizar perfil e posts do usuário</DialogDescription>
         {loading ? (
           <div className="p-6 space-y-4">
             <div className="flex items-center gap-4">
@@ -792,7 +775,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                                 <FormattedText
                                   className={`mt-1 text-sm leading-snug whitespace-pre-wrap ${useInlineStyle ? "" : (postItColor?.text || "text-[#000305]")}`}
                                   content={post.content}
-                                  openUserProfile={handleOpenUserProfile}
                                   style={{
                                     fontFamily: hasPostStyle && post.post_style!.font ? `'${post.post_style!.font}', sans-serif` : "serif",
                                     fontWeight: hasPostStyle && post.post_style!.bold ? 700 : undefined,
@@ -805,7 +787,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                                 <FormattedText
                                   className="mt-1 text-sm leading-relaxed whitespace-pre-wrap text-[#000305]"
                                   content={post.content}
-                                  openUserProfile={handleOpenUserProfile}
                                 />
                               )}
 
@@ -822,7 +803,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                                     )}
                                     <span className="text-xs font-semibold">{post.shared_post.author?.display_name || "Usuário"}</span>
                                   </div>
-                                  <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-3" content={post.shared_post.content} openUserProfile={handleOpenUserProfile} />
+                                  <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-3" content={post.shared_post.content} />
                                   {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
                                     <div className="mt-1.5 flex gap-1 overflow-x-auto">
                                       {post.shared_post.image_urls.slice(0, 2).map((url: string, i: number) => (

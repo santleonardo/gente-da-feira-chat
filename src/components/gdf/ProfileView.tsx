@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, Fragment, useCallback } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { useStore } from "@/lib/store";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -46,15 +47,13 @@ import {
   Loader2,
   Clock,
   Repeat2,
-  AtSign,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo, BAIRROS } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
 import { SettingsView } from "./SettingsView";
 import { AlbumView } from "./AlbumView";
 import { createClient } from "@/lib/supabase/client";
-import { renderContentWithLinks, renderContentWithMentions, openProfileFromMention } from "@/lib/link-utils";
-import { BioEditor } from "./BioEditor";
+import { renderContentWithLinks } from "@/lib/link-utils";
 import { toast } from "sonner";
 import {
   compressImage,
@@ -62,6 +61,7 @@ import {
   createPreviewUrl,
   revokePreviewUrl,
 } from "@/lib/image-compression";
+import DOMPurify from "dompurify";
 
 // ═══════════════════════════════════════════════════════════
 // Post-it colors — TONS MÉDIOS (nem forte nem fraco)
@@ -333,21 +333,20 @@ function isHTMLContent(content: string): boolean {
 }
 
 function sanitizeHTML(html: string): string {
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '')
-    .replace(/\bon\w+\s*=\s*[^\s>]+/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/javascript:/gi, '');
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 's', 'span', 'div', 'p', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'blockquote', 'hr', 'pre', 'code', 'sub', 'sup'],
+    ALLOWED_ATTR: ['style', 'class', 'href', 'target', 'rel'],
+    ALLOW_DATA_ATTR: false,
+  });
 }
 
 // ═══════════════════════════════════════════════════════════
 // FormattedText — renderiza HTML ou parseia markdown
 // ═══════════════════════════════════════════════════════════
-function parseInlineFormatting(text: string, openUserProfile?: (userId: string) => void): React.ReactNode[] {
+function parseInlineFormatting(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Match URLs, @mentions, ***bold+italic***, **bold**, _italic_ (URLs first, then @mentions, then formatting)
-  const regex = /(https?:\/\/[^\s<>"')\]]+)|@(\w[\w.-]{0,29})|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
+  // Match URLs, ***bold+italic***, **bold**, _italic_ (URLs first, then formatting)
+  const regex = /(https?:\/\/[^\s<>"')\]]+|\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|_(.+?)_)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -365,26 +364,14 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
         </a>
       );
     } else if (match[2]) {
-      // @mention — resolve username to userId before opening profile
-      const username = match[2];
-      if (openUserProfile) {
-        parts.push(
-          <a key={`mention${key++}`} href="#" className="text-[#0A4D5C] font-semibold hover:underline underline-offset-2 transition-colors" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openProfileFromMention(username, openUserProfile); }}>
-            @{username}
-          </a>
-        );
-      } else {
-        parts.push(<span key={`mention${key++}`} className="text-[#0A4D5C] font-semibold">@{username}</span>);
-      }
-    } else if (match[3]) {
       // ***bold+italic***
-      parts.push(<strong key={`bi${key++}`}><em>{match[4]}</em></strong>);
-    } else if (match[5]) {
+      parts.push(<strong key={`bi${key++}`}><em>{match[2]}</em></strong>);
+    } else if (match[3]) {
       // **bold**
-      parts.push(<strong key={`b${key++}`}>{match[6]}</strong>);
-    } else if (match[7]) {
+      parts.push(<strong key={`b${key++}`}>{match[3]}</strong>);
+    } else if (match[4]) {
       // _italic_
-      parts.push(<em key={`i${key++}`}>{match[7]}</em>);
+      parts.push(<em key={`i${key++}`}>{match[4]}</em>);
     }
     lastIndex = match.index + match[0].length;
   }
@@ -400,12 +387,10 @@ function FormattedText({
   content,
   className,
   style,
-  openUserProfile,
 }: {
   content: string;
   className?: string;
   style?: React.CSSProperties;
-  openUserProfile?: (userId: string) => void;
 }) {
   // Se o conteúdo é HTML (posts criados com o editor WYSIWYG), renderizar como HTML
   if (isHTMLContent(content)) {
@@ -453,7 +438,7 @@ function FormattedText({
         return (
           <Fragment key={i}>
             {i > 0 && <br />}
-            <span style={headingStyle}>{parseInlineFormatting(text, openUserProfile)}</span>
+            <span style={headingStyle}>{parseInlineFormatting(text)}</span>
           </Fragment>
         );
       })}
@@ -499,14 +484,6 @@ export function ProfileView() {
   const [textContent, setTextContent] = useState("");
   const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false });
 
-  // @Mention state for WYSIWYG editor
-  const [showEditorMention, setShowEditorMention] = useState(false);
-  const [editorMentionUsers, setEditorMentionUsers] = useState<any[]>([]);
-  const [editorMentionIndex, setEditorMentionIndex] = useState(0);
-  const [editorMentionLoading, setEditorMentionLoading] = useState(false);
-  const editorMentionDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const editorContainerRef = useRef<HTMLDivElement>(null);
-
   // Media state
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -551,28 +528,6 @@ export function ProfileView() {
   const canAddVideo = !hasPhotosInComposer && !hasAudioInComposer && !hasVideoInComposer;
   const canAddAudio = !hasPhotosInComposer && !hasVideoInComposer && !hasAudioInComposer;
 
-  // ═══════ @Mention search ═══════
-  const searchUsers = async (query: string) => {
-    try {
-      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.users || []).map((u: any) => ({
-        id: u.id,
-        display_name: u.display_name,
-        username: u.username,
-        avatar: u.avatar || u.avatar_url || null,
-        neighborhood: u.neighborhood || null,
-      }));
-    } catch {
-      return [];
-    }
-  };
-
-  const navigateToProfile = (uid: string) => {
-    window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
-  };
-
   // ═══════ Rich text formatting helpers (WYSIWYG) ═══════
   const handleBold = () => {
     document.execCommand('bold');
@@ -601,89 +556,20 @@ export function ProfileView() {
     if (el) {
       setTextContent(el.textContent || "");
     }
-    detectEditorMention();
   };
-
-  // ─── @Mention detection in WYSIWYG editor ───
-  const detectEditorMention = useCallback(() => {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return;
-    const range = sel.getRangeAt(0);
-    const node = range.startContainer;
-    if (node.nodeType !== Node.TEXT_NODE) { setShowEditorMention(false); return; }
-    const text = node.textContent || "";
-    const offset = range.startOffset;
-    const textBefore = text.slice(0, offset);
-    const atMatch = textBefore.match(/(?:^|\s)@(\w[\w.-]*)$/);
-    if (atMatch) {
-      const query = atMatch[1];
-      setShowEditorMention(true);
-      setEditorMentionIndex(0);
-      if (editorMentionDebounce.current) clearTimeout(editorMentionDebounce.current);
-      if (query.length >= 1) {
-        setEditorMentionLoading(true);
-        editorMentionDebounce.current = setTimeout(async () => {
-          try { const results = await searchUsers(query); setEditorMentionUsers(results); }
-          catch { setEditorMentionUsers([]); }
-          setEditorMentionLoading(false);
-        }, 200);
-      } else { setEditorMentionUsers([]); }
-    } else {
-      setShowEditorMention(false);
-      setEditorMentionUsers([]);
-    }
-  }, [searchUsers]);
-
-  const insertEditorMention = useCallback(
-    (user: any) => {
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0 || !editorRef.current) return;
-      const range = sel.getRangeAt(0);
-      const node = range.startContainer;
-      if (node.nodeType !== Node.TEXT_NODE) return;
-      const text = node.textContent || "";
-      const offset = range.startOffset;
-      const textBefore = text.slice(0, offset);
-      const atMatch = textBefore.match(/(?:^|\s)@(\w[\w.-]*)$/);
-      if (!atMatch) return;
-      const atPos = offset - atMatch[0].length;
-      const textAfter = text.slice(offset);
-      const beforeNode = document.createTextNode(text.slice(0, atPos));
-      const mentionSpan = document.createElement("span");
-      mentionSpan.textContent = `@${user.username}`;
-      mentionSpan.className = "text-[#0A4D5C] font-semibold";
-      mentionSpan.setAttribute("data-mention", user.username);
-      const afterNode = document.createTextNode(` ${textAfter}`);
-      const parent = node.parentNode;
-      if (parent) {
-        parent.insertBefore(beforeNode, node);
-        parent.insertBefore(mentionSpan, node);
-        parent.insertBefore(afterNode, node);
-        parent.removeChild(node);
-      }
-      const newRange = document.createRange();
-      newRange.setStartAfter(mentionSpan);
-      newRange.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(newRange);
-      setShowEditorMention(false);
-      setEditorMentionUsers([]);
-      // Update textContent state
-      const plainText = editorRef.current?.textContent || "";
-      setTextContent(plainText);
-    },
-    []
-  );
 
   // Carregar Google Fonts
   useEffect(() => {
     const fontsParam = FONTS.map(
       (f) => `family=${f.value.replace(/ /g, "+")}:wght@400;700`
     ).join("&");
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = `https://fonts.googleapis.com/css2?${fontsParam}&display=swap`;
-    document.head.appendChild(link);
+    const href = `https://fonts.googleapis.com/css2?${fontsParam}&display=swap`;
+    if (!document.querySelector(`link[href="${href}"]`)) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      document.head.appendChild(link);
+    }
   }, []);
 
   // Fechar menus ao clicar fora
@@ -717,7 +603,10 @@ export function ProfileView() {
     return () => {
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
       if (mediaStreamRef.current) mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      // Revoke any pending object URLs to prevent memory leaks
+      previewUrls.forEach((url) => { try { URL.revokeObjectURL(url); } catch { /* ignore */ } });
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -876,7 +765,7 @@ export function ProfileView() {
       setIsRecordingAudio(true);
       setRecordingSeconds(0);
       recordingTimerRef.current = setInterval(() => {
-        setRecordingSeconds((prev) => { if (prev + 1 >= MAX_AUDIO_DURATION) { stopAudioRecording(); return MAX_AUDIO_DURATION; } return prev + 1; });
+        setRecordingSeconds((prev) => { if (prev + 1 >= MAX_AUDIO_DURATION) { return MAX_AUDIO_DURATION; } return prev + 1; });
       }, 1000);
     } catch { toast.error("Não foi possível acessar o microfone."); }
   };
@@ -885,6 +774,14 @@ export function ProfileView() {
     if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") mediaRecorderRef.current.stop();
   };
+
+  // Auto-stop recording when max duration is reached
+  useEffect(() => {
+    if (isRecordingAudio && recordingSeconds >= MAX_AUDIO_DURATION) {
+      stopAudioRecording();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordingSeconds, isRecordingAudio]);
 
   const cancelAudioRecording = () => {
     if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
@@ -1110,7 +1007,7 @@ export function ProfileView() {
           </div>
 
           <div className="mt-4">
-            {profile?.bio ? <p className="text-sm text-[#000305]">{renderContentWithMentions(profile.bio, navigateToProfile)}</p> : <p className="text-sm text-[#01386A]/40 italic">Sem bio ainda</p>}
+            {profile?.bio ? <p className="text-sm text-[#000305]">{profile.bio}</p> : <p className="text-sm text-[#01386A]/40 italic">Sem bio ainda</p>}
           </div>
 
           <div className="mt-6 flex gap-6">
@@ -1205,7 +1102,6 @@ export function ProfileView() {
                         fontStyle: postStyleData?.italic ? "italic" : undefined,
                         textAlign: postStyleData?.alignment || undefined,
                       }}
-                      openUserProfile={navigateToProfile}
                     />
 
                     {/* Shared/reposted post */}
@@ -1221,7 +1117,7 @@ export function ProfileView() {
                           )}
                           <span className="text-xs font-semibold text-[#000305]">{post.shared_post.author?.display_name}</span>
                         </div>
-                        <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-3" content={post.shared_post.content} openUserProfile={navigateToProfile} />
+                        <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-3" content={post.shared_post.content} />
                         {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
                           <div className="mt-1.5 flex gap-1 overflow-x-auto">
                             {post.shared_post.image_urls.slice(0, 2).map((url: string, i: number) => (
@@ -1293,7 +1189,7 @@ export function ProfileView() {
               className="rounded-xl border border-[#0A4D5C]/8 overflow-hidden transition-all"
               style={{ backgroundColor: selectedColor.bg }}
             >
-              <div className="relative" ref={editorContainerRef}>
+              <div className="relative">
                 {!textContent.trim() && (
                   <div className="absolute top-0 left-0 right-0 px-3 py-2.5 text-sm pointer-events-none select-none" style={{ color: selectedColor.text, opacity: 0.4 }}>
                     Escreva algo bonito... Selecione texto e use B/I para formatar
@@ -1305,14 +1201,6 @@ export function ProfileView() {
                   role="textbox"
                   aria-multiline="true"
                   onInput={handleEditorInput}
-                  onKeyDown={(e) => {
-                    if (showEditorMention && editorMentionUsers.length > 0) {
-                      if (e.key === "ArrowDown") { e.preventDefault(); setEditorMentionIndex((i) => (i < editorMentionUsers.length - 1 ? i + 1 : 0)); return; }
-                      if (e.key === "ArrowUp") { e.preventDefault(); setEditorMentionIndex((i) => (i > 0 ? i - 1 : editorMentionUsers.length - 1)); return; }
-                      if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); insertEditorMention(editorMentionUsers[editorMentionIndex]); return; }
-                      if (e.key === "Escape") { e.preventDefault(); setShowEditorMention(false); setEditorMentionUsers([]); return; }
-                    }
-                  }}
                   className={`editor-content w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:outline-none transition-all overflow-y-auto ${editorExpanded ? "min-h-[220px] max-h-[60vh]" : "min-h-[100px]"}`}
                   style={{
                     color: selectedColor.text,
@@ -1328,36 +1216,6 @@ export function ProfileView() {
                 >
                   {editorExpanded ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
                 </button>
-                {/* @Mention dropdown for WYSIWYG editor */}
-                {showEditorMention && (editorMentionUsers.length > 0 || editorMentionLoading) && (
-                  <div className="absolute z-50 min-w-[220px] max-w-[300px] rounded-2xl bg-white shadow-xl border border-[#0A4D5C]/10 overflow-hidden" style={{ top: "100%", left: 0, marginTop: "4px" }}>
-                    <div className="absolute -top-2 left-4 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[6px] border-b-white drop-shadow-sm" />
-                    <div className="py-1.5 max-h-[200px] overflow-y-auto">
-                      {editorMentionLoading && editorMentionUsers.length === 0 ? (
-                        <div className="px-3 py-2.5 text-xs text-[#0A4D5C]/40 flex items-center gap-2">
-                          <span className="inline-block h-3 w-3 border-2 border-[#0A4D5C]/20 border-t-[#0A4D5C] rounded-full animate-spin" />
-                          Buscando...
-                        </div>
-                      ) : (
-                        editorMentionUsers.map((user: any, index: number) => (
-                          <button
-                            key={user.id}
-                            data-editor-mention-index={index}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${index === editorMentionIndex ? "bg-[#0A4D5C]/[0.06]" : "hover:bg-[#0A4D5C]/[0.03]"}`}
-                            onMouseEnter={() => setEditorMentionIndex(index)}
-                            onMouseDown={(e) => { e.preventDefault(); insertEditorMention(user); }}
-                          >
-                            <UserAvatar user={{ id: user.id, display_name: user.display_name, avatar_url: user.avatar }} className="h-7 w-7 shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-semibold text-[#000305] truncate">{user.display_name}</div>
-                              <div className="text-[10px] text-[#0A4D5C]/50 truncate">@{user.username}{user.neighborhood && ` · ${user.neighborhood}`}</div>
-                            </div>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -1422,18 +1280,6 @@ export function ProfileView() {
                 title="Itálico"
               >
                 <Italic className="h-3.5 w-3.5" />
-              </button>
-              {/* @Mention */}
-              <button
-                onClick={() => {
-                  editorRef.current?.focus();
-                  document.execCommand("insertText", false, "@");
-                  setTimeout(() => detectEditorMention(), 50);
-                }}
-                className="flex items-center justify-center rounded-md h-7 w-7 shrink-0 bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10 transition-colors"
-                title="Mencionar @"
-              >
-                <AtSign className="h-3.5 w-3.5" />
               </button>
 
               <div className="w-px h-4 bg-[#0A4D5C]/10 shrink-0" />
@@ -1652,16 +1498,7 @@ export function ProfileView() {
               </div>
               <div className="space-y-3">
                 <div className="space-y-1.5"><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={50} /></div>
-                <div className="space-y-1.5">
-                  <Label>Bio</Label>
-                  <BioEditor
-                    value={bio}
-                    onChange={setBio}
-                    maxLength={300}
-                    placeholder="Escreva algo sobre você..."
-                    searchUsers={searchUsers}
-                  />
-                </div>
+                <div className="space-y-1.5"><Label>Bio</Label><Textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} maxLength={300} /><span className="text-xs text-[#01386A]/40">{bio.length}/300</span></div>
                 <div className="space-y-1.5">
                   <Label>Bairro</Label>
                   <select value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} className="flex h-10 w-full rounded-md border border-[#01386A]/10 bg-[#f7f9fa] px-3 py-2 text-sm">
