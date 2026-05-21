@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MapPin, UserPlus, UserMinus, MessageCircle, Users, Lock, Loader2, Clock, MoreVertical, Ban, ShieldBan, Play, Pause, Video, Mic, X, Repeat2, Users as UsersIcon, Camera } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
@@ -613,6 +613,7 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden">
+        <DialogTitle className="sr-only">Perfil do usuário</DialogTitle>
         {loading ? (
           <div className="p-6 space-y-4">
             <div className="flex items-center gap-4">
