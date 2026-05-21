@@ -4,24 +4,25 @@
  * evitando erros de "window is not defined" no servidor.
  */
 
-type DOMPurifyType = typeof import("dompurify");
-let purify: DOMPurifyType | null = null;
+import DOMPurify from "dompurify";
 
-const ALLOWED: Parameters<DOMPurifyType["sanitize"]>[1] = {
+const ALLOWED: { ALLOWED_TAGS: string[]; ALLOWED_ATTR: string[] } = {
   ALLOWED_TAGS: ["b", "i", "em", "strong", "a", "br", "p", "span", "u", "s"],
   ALLOWED_ATTR: ["href", "target", "rel", "class"],
 };
+
+let loaded = false;
 
 export async function sanitizeHTMLAsync(html: string): Promise<string> {
   if (typeof window === "undefined") {
     // Servidor: strip all tags
     return html.replace(/<[^>]+>/g, "");
   }
-  if (!purify) {
-    const mod = await import("dompurify");
-    purify = mod.default;
+  if (!loaded) {
+    // DOMPurify auto-initializes on import in browser
+    loaded = true;
   }
-  return purify.sanitize(html, ALLOWED) as string;
+  return DOMPurify.sanitize(html, ALLOWED) as string;
 }
 
 /**
@@ -29,8 +30,8 @@ export async function sanitizeHTMLAsync(html: string): Promise<string> {
  * Fallback seguro (strip tags) se ainda não estiver disponível.
  */
 export function sanitizeHTMLSync(html: string): string {
-  if (typeof window === "undefined" || !purify) {
+  if (typeof window === "undefined" || !loaded) {
     return html.replace(/<[^>]+>/g, "");
   }
-  return purify.sanitize(html, ALLOWED) as string;
+  return DOMPurify.sanitize(html, ALLOWED) as string;
 }
