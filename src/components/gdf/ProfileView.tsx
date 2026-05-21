@@ -61,7 +61,7 @@ import {
   createPreviewUrl,
   revokePreviewUrl,
 } from "@/lib/image-compression";
-import DOMPurify from "dompurify";
+import { sanitizeHTMLSync } from "@/lib/sanitize";
 
 // ═══════════════════════════════════════════════════════════
 // Post-it colors — TONS MÉDIOS (nem forte nem fraco)
@@ -333,11 +333,8 @@ function isHTMLContent(content: string): boolean {
 }
 
 function sanitizeHTML(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 's', 'span', 'div', 'p', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'blockquote', 'hr', 'pre', 'code', 'sub', 'sup'],
-    ALLOWED_ATTR: ['style', 'class', 'href', 'target', 'rel'],
-    ALLOW_DATA_ATTR: false,
-  });
+  return sanitizeHTMLSync(html);
+});
 }
 
 // ═══════════════════════════════════════════════════════════

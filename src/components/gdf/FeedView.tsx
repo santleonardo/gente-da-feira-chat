@@ -43,7 +43,7 @@ import {
   createPreviewUrl,
   revokePreviewUrl,
 } from "@/lib/image-compression";
-import DOMPurify from "dompurify";
+import { sanitizeHTMLSync, sanitizeHTMLAsync } from "@/lib/sanitize";
 
 // ═══════════════════════════════════════════════════════════
 // Constantes
@@ -116,12 +116,17 @@ function isHTMLContent(content: string): boolean {
   return /<\/?[a-z][\s\S]*>/i.test(content);
 }
 
+// Pré-carrega DOMPurify no cliente assim que o componente monta
+function useDOMPurify() {
+  const [ready, setReady] = React.useState(false);
+  React.useEffect(() => {
+    sanitizeHTMLAsync("").then(() => setReady(true));
+  }, []);
+  return ready;
+}
+
 function sanitizeHTML(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 's', 'span', 'div', 'p', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'blockquote', 'hr', 'pre', 'code', 'sub', 'sup'],
-    ALLOWED_ATTR: ['style', 'class', 'href', 'target', 'rel'],
-    ALLOW_DATA_ATTR: false,
-  });
+  return sanitizeHTMLSync(html);
 }
 
 function parseInlineFormatting(text: string): React.ReactNode[] {

@@ -5,10 +5,36 @@ import { Button } from "@/components/ui/button";
 import { Download, X, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 
-// Tipos para o BeforeInstallPromptEvent (não é nativo do TS)
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
+async function registerPushSubscription(registration: ServiceWorkerRegistration) {
+  try {
+    if (!("PushManager" in window)) return;
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return;
+
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) return;
+
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapidKey) return;
+
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: vapidKey,
+    });
+
+    await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(subscription),
+    });
+  } catch {
+    // Push não suportado ou usuário negou — silencioso
+  }
 }
 
 export function PWARegister() {
@@ -16,21 +42,40 @@ export function PWARegister() {
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
   useEffect(() => {
-    // Registrar Service Worker
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js")
         .then((reg) => {
           console.log("SW registrado:", reg.scope);
 
-          // Verificar atualizações periodicamente
+          // Registrar push após SW ativo
+          if (reg.active) {
+            registerPushSubscription(reg);
+          } else {
+            reg.addEventListener("updatefound", () => {
+              const worker = reg.installing;
+              if (worker) {
+                worker.addEventListener("statechange", () => {
+                  if (worker.state === "activated") {
+                    registerPushSubscription(reg);
+                  }
+                });
+              }
+            });
+          }
+
+          // Notificar atualização com botão de ação
           reg.addEventListener("updatefound", () => {
             const newWorker = reg.installing;
             if (newWorker) {
               newWorker.addEventListener("statechange", () => {
                 if (newWorker.state === "activated") {
-                  toast.success("App atualizado! Recarregue a página.", {
-                    duration: 5000,
+                  toast.success("Nova versão disponível!", {
+                    duration: Infinity,
+                    action: {
+                      label: "Atualizar agora",
+                      onClick: () => window.location.reload(),
+                    },
                   });
                 }
               });
@@ -40,17 +85,14 @@ export function PWARegister() {
         .catch((err) => console.log("SW falhou:", err));
     }
 
-    // Capturar evento de instalação
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      // Mostrar banner após 3 segundos (não incomodar logo de cara)
       setTimeout(() => setShowInstallBanner(true), 3000);
     };
 
     window.addEventListener("beforeinstallprompt", handler);
 
-    // Se já está instalado, não mostrar
     window.addEventListener("appinstalled", () => {
       setDeferredPrompt(null);
       setShowInstallBanner(false);
@@ -75,7 +117,6 @@ export function PWARegister() {
 
   const dismissBanner = () => {
     setShowInstallBanner(false);
-    // Não mostrar novamente por 24h
     try {
       localStorage.setItem("gdf_install_dismissed", Date.now().toString());
     } catch {
@@ -83,7 +124,6 @@ export function PWARegister() {
     }
   };
 
-  // Verificar se foi dispensado recentemente
   useEffect(() => {
     try {
       const dismissed = localStorage.getItem("gdf_install_dismissed");
