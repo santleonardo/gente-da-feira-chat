@@ -1,1 +1,202 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
+// GET /api/posts/[id] — Fetch a single post by ID
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: postId } = await params;
+    const supabase = await createClient();
+
+    const { data: post, error } = await supabase
+      .from("posts")
+      .select(
+        `
+        *,
+        author:profiles(id, display_name, username, avatar_url, neighborhood),
+        reactions(user_id, type),
+        comments(count),
+        shared_post:posts!shared_post_id(id, content, image_urls, video_url, audio_url, created_at, author:profiles(id, display_name, username, avatar_url, neighborhood))
+      `
+      )
+      .eq("id", postId)
+      .eq("is_deleted", false)
+      .single();
+
+    if (error) throw error;
+    if (!post) {
+      return NextResponse.json({ error: "Post não encontrado" }, { status: 404 });
+    }
+
+    const result = {
+      ...post,
+      comment_count: post.comments?.[0]?.count || 0,
+      comments: undefined,
+      shared_post:
+        post.shared_post && !Array.isArray(post.shared_post)
+          ? post.shared_post
+          : Array.isArray(post.shared_post)
+          ? post.shared_post[0]
+          : null,
+      postStyle: post.post_style || null,
+    };
+
+    return NextResponse.json({ post: result });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// PATCH /api/posts/[id] — Edit a post (content and optionally postStyle)
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: postId } = await params;
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+
+    // Fetch the existing post to verify ownership
+    const { data: existingPost, error: fetchError } = await supabase
+      .from("posts")
+      .select("id, author_id")
+      .eq("id", postId)
+      .eq("is_deleted", false)
+      .single();
+
+    if (fetchError || !existingPost) {
+      return NextResponse.json(
+        { error: "Post não encontrado" },
+        { status: 404 }
+      );
+    }
+
+    if (existingPost.author_id !== user.id) {
+      return NextResponse.json(
+        { error: "Você não tem permissão para editar este post" },
+        { status: 403 }
+      );
+    }
+
+    const body = await req.json();
+    const { content, postStyle } = body;
+
+    // Validate content
+    if (content !== undefined) {
+      if (!content || !content.trim()) {
+        return NextResponse.json(
+          { error: "Conteúdo é obrigatório" },
+          { status: 400 }
+        );
+      }
+      if (content.trim().length > 500) {
+        return NextResponse.json(
+          { error: "Post muito longo (máx 500 chars)" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate postStyle if provided
+    const validFonts = [
+      "Nunito",
+      "Quicksand",
+      "Poppins",
+      "Inter",
+      "Comfortaa",
+      "Montserrat",
+      "Lato",
+      "Raleway",
+      "DM Sans",
+      "Work Sans",
+    ];
+    const validAlignments = ["left", "center", "right", "justify"];
+    let validatedStyle: Record<string, any> | undefined;
+
+    if (postStyle !== undefined) {
+      if (postStyle && typeof postStyle === "object") {
+        validatedStyle = {
+          font: validFonts.includes(postStyle.font) ? postStyle.font : null,
+          bold: typeof postStyle.bold === "boolean" ? postStyle.bold : false,
+          italic:
+            typeof postStyle.italic === "boolean" ? postStyle.italic : false,
+          alignment: validAlignments.includes(postStyle.alignment)
+            ? postStyle.alignment
+            : "left",
+          postItColor:
+            typeof postStyle.postItColor === "number" &&
+            postStyle.postItColor >= 0 &&
+            postStyle.postItColor <= 11
+              ? postStyle.postItColor
+              : null,
+        };
+        // Remove null values to keep it clean
+        if (!validatedStyle.font) delete validatedStyle.font;
+        if (validatedStyle.postItColor === null)
+          delete validatedStyle.postItColor;
+      } else {
+        // If postStyle is null or falsy, set to null to clear it
+        validatedStyle = null as any;
+      }
+    }
+
+    // Build update object
+    const updateData: Record<string, any> = {};
+    if (content !== undefined) {
+      updateData.content = content.trim();
+    }
+    if (postStyle !== undefined) {
+      updateData.post_style = validatedStyle;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { error: "Nenhum campo para atualizar" },
+        { status: 400 }
+      );
+    }
+
+    const { data: post, error } = await supabase
+      .from("posts")
+      .update(updateData)
+      .eq("id", postId)
+      .select(
+        `
+        *,
+        author:profiles(id, display_name, username, avatar_url, neighborhood),
+        reactions(user_id, type),
+        comments(count),
+        shared_post:posts!shared_post_id(id, content, image_urls, video_url, audio_url, created_at, author:profiles(id, display_name, username, avatar_url, neighborhood))
+      `
+      )
+      .single();
+
+    if (error) throw error;
+
+    const result = {
+      ...post,
+      comment_count: post.comments?.[0]?.count || 0,
+      comments: undefined,
+      shared_post:
+        post.shared_post && !Array.isArray(post.shared_post)
+          ? post.shared_post
+          : Array.isArray(post.shared_post)
+          ? post.shared_post[0]
+          : null,
+      postStyle: post.post_style || null,
+    };
+
+    return NextResponse.json({ post: result });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
