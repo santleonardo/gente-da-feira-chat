@@ -151,16 +151,18 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
       );
     } else if (match[2]) {
       // @mention — clickable profile link
+      // Capture username in local variable to avoid closure over mutable `match`
+      const mentionUsername = match[2];
       parts.push(
         <span
           key={`mention${key++}`}
           className="text-[#0A4D5C] font-semibold underline decoration-[#0A4D5C]/30 underline-offset-2 hover:decoration-[#0A4D5C]/60 cursor-pointer transition-colors"
           onClick={(e) => {
             e.stopPropagation();
-            openProfileFromMention(match![2], openUserProfile);
+            openProfileFromMention(mentionUsername, openUserProfile);
           }}
         >
-          @{match[2]}
+          @{mentionUsername}
         </span>
       );
     } else if (match[4]) {
