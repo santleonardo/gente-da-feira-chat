@@ -11,7 +11,7 @@ export interface Profile {
   id: string;
   username: string;
   display_name: string;
-  avatar: string | null;         // era "avatar_url" — corrigido para "avatar"
+  avatar_url: string | null;
   bio: string;
   neighborhood: string | null;
   theme: string;                 // DEFAULT 'auto'
@@ -109,7 +109,7 @@ export interface Author {
   id: string;
   display_name: string;
   username: string;
-  avatar: string | null;          // era "avatar" já, mantido
+  avatar_url: string | null;
   neighborhood: string | null;
 }
 
@@ -197,7 +197,7 @@ export interface UserSearchResult {
   id: string;
   display_name: string;
   username: string;
-  avatar: string | null;
+  avatar_url: string | null;
   neighborhood: string | null;
   bio: string;
 }
