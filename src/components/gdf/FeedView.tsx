@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, Fragment } from "react";
+import React, { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import { useStore, Profile } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,8 +118,8 @@ function isHTMLContent(content: string): boolean {
 
 // Pré-carrega DOMPurify no cliente assim que o componente monta
 function useDOMPurify() {
-  const [ready, setReady] = React.useState(false);
-  React.useEffect(() => {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
     sanitizeHTMLAsync("").then(() => setReady(true));
   }, []);
   return ready;
