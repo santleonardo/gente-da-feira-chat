@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import { useStore, Profile } from "@/lib/store";
+import { openProfileFromMention } from "@/lib/link-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -129,10 +130,10 @@ function sanitizeHTML(html: string): string {
   return sanitizeHTMLSync(html);
 }
 
-function parseInlineFormatting(text: string): React.ReactNode[] {
+function parseInlineFormatting(text: string, openUserProfile?: (userId: string) => void): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Combined regex: URLs (highest priority), bold-italic, bold, italic
-  const regex = /(https?:\/\/[^\s<>"')\]]+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
+  // Combined regex: URLs (highest priority), @mentions, bold-italic, bold, italic
+  const regex = /(https?:\/\/[^\s<>"')\]]+)|@(\w+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -148,12 +149,26 @@ function parseInlineFormatting(text: string): React.ReactNode[] {
           {match[1]}
         </a>
       );
-    } else if (match[3]) {
-      parts.push(<strong key={`bi${key++}`}><em>{match[3]}</em></strong>);
-    } else if (match[5]) {
-      parts.push(<strong key={`b${key++}`}>{match[5]}</strong>);
+    } else if (match[2]) {
+      // @mention — clickable profile link
+      parts.push(
+        <span
+          key={`mention${key++}`}
+          className="text-[#0A4D5C] font-semibold underline decoration-[#0A4D5C]/30 underline-offset-2 hover:decoration-[#0A4D5C]/60 cursor-pointer transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            openProfileFromMention(match![2], openUserProfile);
+          }}
+        >
+          @{match[2]}
+        </span>
+      );
+    } else if (match[4]) {
+      parts.push(<strong key={`bi${key++}`}><em>{match[4]}</em></strong>);
     } else if (match[6]) {
-      parts.push(<em key={`i${key++}`}>{match[6]}</em>);
+      parts.push(<strong key={`b${key++}`}>{match[6]}</strong>);
+    } else if (match[7]) {
+      parts.push(<em key={`i${key++}`}>{match[7]}</em>);
     }
     lastIndex = match.index + match[0].length;
   }
@@ -169,10 +184,12 @@ function FormattedText({
   content,
   className,
   style,
+  openUserProfile,
 }: {
   content: string;
   className?: string;
   style?: React.CSSProperties;
+  openUserProfile?: (userId: string) => void;
 }) {
   // Se o conteúdo é HTML (posts criados com o editor WYSIWYG), renderizar como HTML
   if (isHTMLContent(content)) {
@@ -211,7 +228,7 @@ function FormattedText({
         return (
           <Fragment key={i}>
             {i > 0 && <br />}
-            <span style={headingStyle}>{parseInlineFormatting(text)}</span>
+            <span style={headingStyle}>{parseInlineFormatting(text, openUserProfile)}</span>
           </Fragment>
         );
       })}
@@ -1648,6 +1665,7 @@ function PostThread({
               <FormattedText
                 className={`mt-1.5 text-base sm:text-lg leading-snug whitespace-pre-wrap ${useInlineStyle ? "" : (postItColor?.text || "text-[#000305]")}`}
                 content={post.content}
+                openUserProfile={openUserProfile}
                 style={{
                   fontFamily: hasPostStyle && post.post_style!.font ? `'${post.post_style!.font}', sans-serif` : "serif",
                   fontWeight: hasPostStyle && post.post_style!.bold ? 700 : undefined,
@@ -1660,6 +1678,7 @@ function PostThread({
               <FormattedText
                 className="mt-1.5 text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]"
                 content={post.content}
+                openUserProfile={openUserProfile}
               />
             )}
 
@@ -1679,7 +1698,7 @@ function PostThread({
                   </button>
 
                 </div>
-                <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-4" content={post.shared_post.content} />
+                <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-4" content={post.shared_post.content} openUserProfile={openUserProfile} />
                 {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
                   <div className="mt-1.5 flex gap-1 overflow-x-auto">
                     {post.shared_post.image_urls.slice(0, 2).map((url, i) => (

@@ -23,12 +23,12 @@ import {
   ExternalLink,
   Users as UsersIcon,
   Globe,
+  Pencil,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
 import { toast } from "sonner";
-import { renderContentWithLinks, renderContentWithMentions } from "@/lib/link-utils";
-import { MentionInput } from "./MentionInput";
+import { renderContentWithMentions } from "@/lib/link-utils";
 
 // ═══════════════════════════════════════════════════════════
 // Constants (duplicated from FeedView for self-containment)
@@ -375,7 +375,7 @@ function CommentItem({
             </button>
             <span className="text-[9px] sm:text-[10px] text-[#0A4D5C]/30">{timeAgo(comment.created_at)}</span>
           </div>
-          <p className="text-[11px] sm:text-xs text-[#000305]/80 leading-relaxed">{renderContentWithMentions(comment.content, openUserProfile)}</p>
+          <p className="text-[11px] sm:text-xs text-[#000305]/80 leading-relaxed">{comment.content}</p>
           <div className="flex items-center gap-1.5 mt-0.5">
             <div className="relative">
               <button onClick={() => setShowCommentReactions(!showCommentReactions)} className="text-[10px] text-[#0A4D5C]/30 hover:text-[#0A4D5C] transition-colors">
@@ -435,6 +435,9 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [expirationLabel, setExpirationLabel] = useState<string>("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState("");
+  const [wasEdited, setWasEdited] = useState(false);
   const commentInputRef = useRef<HTMLInputElement>(null);
   const shareRef = useRef<HTMLDivElement>(null);
 
@@ -482,6 +485,9 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
       setRepostingPost(null);
       setRepostContent("");
       setViewerOpen(false);
+      setIsEditing(false);
+      setEditContent("");
+      setWasEdited(false);
     }
   }, [open]);
 
@@ -490,15 +496,6 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
     }, 200);
-  };
-
-  const searchUsers = async (query: string) => {
-    try {
-      const res = await fetch(`/api/users?q=${encodeURIComponent(query)}`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.users || []).map((u: any) => ({ id: u.id, display_name: u.display_name, username: u.username, avatar: u.avatar || u.avatar_url || null, neighborhood: u.neighborhood || null }));
-    } catch { return []; }
   };
 
   const fetchComments = async () => {
@@ -567,6 +564,39 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
       }
     } catch { /* silent */ }
     setShowReactions(false);
+  };
+
+  const handleEdit = () => {
+    if (!localPost) return;
+    setEditContent(localPost.content);
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!localPost || !editContent.trim()) return;
+    try {
+      const res = await fetch(`/api/posts/${localPost.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editContent.trim() }),
+      });
+      const data = await res.json();
+      if (data.post) {
+        setLocalPost({ ...localPost, content: editContent.trim() });
+        setIsEditing(false);
+        setWasEdited(true);
+        toast.success("Post editado");
+      } else if (data.error) {
+        toast.error(data.error);
+      }
+    } catch {
+      toast.error("Erro ao editar");
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditContent("");
   };
 
   const handleDelete = async () => {
@@ -677,18 +707,40 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
                         Seu post
                       </span>
                     )}
+                    {wasEdited && (
+                      <span className="inline-flex items-center rounded-full bg-[#0A4D5C]/10 px-2 py-0.5 text-[10px] font-medium text-[#0A4D5C]/60">
+                        Editado
+                      </span>
+                    )}
                     <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/20" : "text-[#0A4D5C]/25"}`}>·</span>
                     <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/40" : "text-[#0A4D5C]/40"}`}>{timeAgo(localPost.created_at)}</span>
                   </div>
 
-                  {/* Content with clickable links */}
-                  {isTextOnly ? (
+                  {/* Content with clickable links and mentions */}
+                  {isEditing ? (
+                    <div className="mt-1.5">
+                      <textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value.slice(0, 500))}
+                        className="w-full resize-none rounded-xl border border-[#0A4D5C]/20 bg-white/80 p-2.5 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-[#0A4D5C]/30"
+                        rows={3}
+                        autoFocus
+                      />
+                      <div className="flex items-center justify-between mt-1.5">
+                        <span className="text-[10px] text-[#0A4D5C]/40">{editContent.length}/500</span>
+                        <div className="flex gap-1.5">
+                          <button onClick={handleCancelEdit} className="rounded-full px-3 py-1 text-xs text-[#0A4D5C]/50 hover:bg-[#0A4D5C]/[0.04] transition-colors">Cancelar</button>
+                          <button onClick={handleSaveEdit} disabled={!editContent.trim()} className="rounded-full px-3 py-1 text-xs bg-[#0A4D5C] text-white hover:bg-[#0A4D5C]/90 transition-colors disabled:opacity-40">Salvar</button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : isTextOnly ? (
                     <p className={`mt-1.5 font-serif text-base sm:text-lg leading-snug whitespace-pre-wrap ${postItColor?.text || "text-[#000305]"}`}>
-                      {renderContentWithMentions(localPost.content, navigateToProfile, { linkClassName: linkClass })}
+                      {renderContentWithMentions(localPost.content, navigateToProfile, { isMine: isOwnPost, linkClassName: linkClass })}
                     </p>
                   ) : (
                     <p className="mt-1.5 text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]">
-                      {renderContentWithMentions(localPost.content, navigateToProfile, { linkClassName: linkClass })}
+                      {renderContentWithMentions(localPost.content, navigateToProfile, { isMine: isOwnPost, linkClassName: linkClass })}
                     </p>
                   )}
 
@@ -799,6 +851,16 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
                       )}
                     </div>
 
+                    {/* Edit (own posts) */}
+                    {isOwnPost && !isEditing && (
+                      <button
+                        onClick={handleEdit}
+                        className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-[#0A4D5C]/25 hover:text-[#0A4D5C] hover:bg-[#0A4D5C]/[0.04] transition-colors"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+
                     {/* Delete (own posts) */}
                     {isOwnPost && (
                       <button
@@ -855,14 +917,12 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
                       </div>
                     )}
                     <div className="flex items-center gap-1">
-                      <MentionInput
+                      <input
+                        ref={commentInputRef}
                         placeholder="Comentar..."
                         value={commentInput}
-                        onChange={setCommentInput}
-                        searchUsers={searchUsers}
-                        multiline={false}
-                        onSubmit={submitComment}
-                        inputRef={commentInputRef as any}
+                        onChange={(e) => setCommentInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && submitComment()}
                         className="flex-1 min-w-0 rounded-full border border-[#0A4D5C]/10 bg-[#f7f9fa] px-2.5 py-1 text-[11px] sm:text-xs text-[#000305] focus:outline-none focus:border-[#2EC4B6] placeholder:text-[#0A4D5C]/30"
                       />
                       <button
@@ -894,15 +954,12 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
               </div>
               <p className="text-xs text-[#0A4D5C]/60 line-clamp-3">{repostingPost.content}</p>
             </div>
-            <MentionInput
+            <textarea
               placeholder="Adicione um comentário (opcional)..."
               value={repostContent}
-              onChange={setRepostContent}
-              searchUsers={searchUsers}
+              onChange={(e) => setRepostContent(e.target.value.slice(0, 200))}
               className="w-full min-h-[60px] resize-none border-0 bg-transparent p-3 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
               rows={2}
-              multiline={true}
-              maxLength={200}
             />
             <div className="flex items-center gap-2 mt-3">
               <Button variant="outline" size="sm" onClick={() => { setRepostingPost(null); setRepostContent(""); }} className="rounded-full border-[#0A4D5C]/10 text-[#0A4D5C]">Cancelar</Button>
