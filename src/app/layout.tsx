@@ -9,7 +9,12 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: "/icon.png",
-    apple: "/icon.png",
+    apple: "/icons/icon-maskable-192.png",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Gente da Feira",
+    statusBarStyle: "black-translucent",
   },
   openGraph: {
     title: "Gente da Feira",
@@ -27,10 +32,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: "#0A4D5C",
-  viewportFit: "auto",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
