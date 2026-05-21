@@ -295,6 +295,39 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
 
+    // Process @mentions asynchronously — don't block the response
+    const mentionRegex = /@(\w+)/g;
+    const mentionMatches = [...content.trim().matchAll(mentionRegex)];
+    const mentionedUsernames = [...new Set(mentionMatches.map((m) => m[1]))];
+
+    if (mentionedUsernames.length > 0) {
+      // Fire-and-forget async mention processing
+      (async () => {
+        try {
+          const adminClient = createAdminClient();
+          for (const username of mentionedUsernames) {
+            const { data: mentionedProfile } = await adminClient
+              .from("profiles")
+              .select("id")
+              .eq("username", username)
+              .single();
+
+            if (mentionedProfile && mentionedProfile.id !== user.id) {
+              await adminClient.from("notifications").insert({
+                user_id: mentionedProfile.id,
+                type: "mention",
+                actor_id: user.id,
+                post_id: post.id,
+                is_read: false,
+              });
+            }
+          }
+        } catch {
+          // Silent — mention processing should not break the post creation
+        }
+      })();
+    }
+
     return NextResponse.json({ post: { ...post, comment_count: 0, shared_post: post.shared_post && !Array.isArray(post.shared_post) ? post.shared_post : (Array.isArray(post.shared_post) ? post.shared_post[0] : null) } });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
