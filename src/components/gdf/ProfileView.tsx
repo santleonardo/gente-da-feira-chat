@@ -334,7 +334,6 @@ function isHTMLContent(content: string): boolean {
 
 function sanitizeHTML(html: string): string {
   return sanitizeHTMLSync(html);
-});
 }
 
 // ═══════════════════════════════════════════════════════════

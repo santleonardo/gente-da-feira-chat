@@ -274,7 +274,6 @@ function isHTMLContent(content: string): boolean {
 
 function sanitizeHTML(html: string): string {
   return sanitizeHTMLSync(html);
-});
 }
 
 function parseInlineFormatting(text: string): React.ReactNode[] {
