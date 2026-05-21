@@ -6,7 +6,6 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 export async function middleware(req: NextRequest) {
   let res = NextResponse.next({ request: req });
 
-  // Se Supabase não configurado, apenas passa
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     return res;
   }
@@ -30,7 +29,21 @@ export async function middleware(req: NextRequest) {
       },
     });
 
-    await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    // Proteger todas as rotas /api/* — retornar 401 se não autenticado
+    // Exceção: /api/auth (login/callback do Supabase)
+    const isApiRoute = req.nextUrl.pathname.startsWith("/api/");
+    const isAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
+
+    if (isApiRoute && !isAuthRoute && !user) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
   } catch (error) {
     console.error("[middleware] Supabase error:", error);
   }
