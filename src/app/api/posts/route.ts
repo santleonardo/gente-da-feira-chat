@@ -160,7 +160,9 @@ export async function POST(req: NextRequest) {
     if (!content || !content.trim()) {
       return NextResponse.json({ error: "Conteúdo é obrigatório" }, { status: 400 });
     }
-    if (content.trim().length > 500) {
+    // Validar tamanho pelo texto puro (sem tags HTML) para não penalizar formatação
+    const plainText = content.replace(/<[^>]+>/g, "").trim();
+    if (plainText.length > 500) {
       return NextResponse.json({ error: "Post muito longo (máx 500 chars)" }, { status: 400 });
     }
 
