@@ -116,7 +116,6 @@ const POST_IT_COLORS_HEX = [
   { bg: "#f3f4f6", text: "#4b5563", border: "#d1d5db" },        // Cinza
 ] as const;
 
-// Fontes disponíveis para post_style
 const EDITOR_FONTS = ["Nunito", "Quicksand", "Poppins", "Inter", "Comfortaa", "Montserrat", "Lato", "Raleway", "DM Sans", "Work Sans"] as const;
 
 const FONTS = [
@@ -643,7 +642,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   }, []);
 
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
-  // content state removed — using textContent + editorRef for WYSIWYG
   const [loading, setLoading] = useState(true);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -671,21 +669,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // ═══════ WYSIWYG Editor state ═══════
-  const [postStyle, setPostStyle] = useState<PostStyle>({
-    font: null,
-    bold: false,
-    italic: false,
-    alignment: "left",
-    postItColor: 0,
-  });
-  const [fontMenuOpen, setFontMenuOpen] = useState(false);
-  const fontMenuRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<HTMLDivElement>(null);
-  const [editorExpanded, setEditorExpanded] = useState(false);
-  const [textContent, setTextContent] = useState("");
-  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false });
-
   // Audio recording state (direct in-app recording)
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -707,9 +690,20 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [repostingPost, setRepostingPost] = useState<PostWithAuthor | null>(null);
   const [repostContent, setRepostContent] = useState("");
 
-  // ═══════ Can post check ═══════
-  const hasMediaInComposer = selectedFiles.length > 0 || selectedVideo || selectedAudio;
-  const canPost = !!profile && (textContent.trim().length > 0 || hasMediaInComposer);
+  // ═══════ WYSIWYG Editor state ═══════
+  const [postStyle, setPostStyle] = useState<PostStyle>({
+    font: null,
+    bold: false,
+    italic: false,
+    alignment: "left",
+    postItColor: 0,
+  });
+  const [fontMenuOpen, setFontMenuOpen] = useState(false);
+  const fontMenuRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [editorExpanded, setEditorExpanded] = useState(false);
+  const [textContent, setTextContent] = useState("");
+  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false });
 
   // ═══════ Rich text formatting helpers (WYSIWYG) ═══════
   const handleBold = () => {
@@ -743,6 +737,10 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 
   const selectedColor = POST_IT_COLORS[postStyle.postItColor ?? 0];
 
+  // ═══════ Can post check ═══════
+  const hasMediaInComposer = selectedFiles.length > 0 || selectedVideo || selectedAudio;
+  const canPost = !!profile && (textContent.trim().length > 0 || hasMediaInComposer);
+
   // Close menu on outside click
   useEffect(() => {
     if (!menuOpen) return;
@@ -754,19 +752,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
-
-  // Cleanup recording on unmount
-  useEffect(() => {
-    return () => {
-      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-      }
-      // Revoke any pending object URLs to prevent memory leaks
-      previewUrls.forEach((url) => { try { URL.revokeObjectURL(url); } catch { /* ignore */ } });
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Close font menu on outside click
   useEffect(() => {
@@ -790,6 +775,19 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     };
     document.addEventListener('selectionchange', updateFormats);
     return () => document.removeEventListener('selectionchange', updateFormats);
+  }, []);
+
+  // Cleanup recording on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      // Revoke any pending object URLs to prevent memory leaks
+      previewUrls.forEach((url) => { try { URL.revokeObjectURL(url); } catch { /* ignore */ } });
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
