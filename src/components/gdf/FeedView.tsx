@@ -366,7 +366,7 @@ function VideoPlayer({ src }: { src: string }) {
       <video
         ref={videoRef}
         src={src}
-        className="w-full max-h-[450px] object-contain"
+        className="w-full max-h-[600px] object-contain"
         playsInline
         preload="metadata"
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
@@ -455,7 +455,7 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
   if (count === 1) {
     return (
       <button onClick={() => onPhotoClick?.(0)} className="mt-2.5 w-full overflow-hidden rounded-3xl shadow-lg">
-        <img src={photos[0]} alt="Foto do post" className="w-full max-h-[450px] object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+        <img src={photos[0]} alt="Foto do post" className="w-full max-h-[600px] object-cover hover:opacity-95 transition-opacity" loading="lazy" />
       </button>
     );
   }
@@ -464,7 +464,7 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
       <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
         {photos.map((url, i) => (
           <button key={i} onClick={() => onPhotoClick?.(i)} className="overflow-hidden">
-            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-72 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           </button>
         ))}
       </div>
@@ -477,10 +477,10 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
           <img src={photos[0]} alt="Foto 1" className="w-full h-full object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(1)} className="overflow-hidden">
-          <img src={photos[1]} alt="Foto 2" className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[1]} alt="Foto 2" className="w-full h-72 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(2)} className="overflow-hidden">
-          <img src={photos[2]} alt="Foto 3" className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[2]} alt="Foto 3" className="w-full h-72 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
       </div>
     );
@@ -489,7 +489,7 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
     <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
       {photos.slice(0, 4).map((url, i) => (
         <button key={i} onClick={() => onPhotoClick?.(i)} className="relative overflow-hidden">
-          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-72 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           {i === 3 && count > 4 && (
             <div className="absolute inset-0 flex items-center justify-center bg-[#000305]/50 text-[#f7f9fa] font-bold text-lg">+{count - 4}</div>
           )}
@@ -708,11 +708,13 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   // ═══════ Rich text formatting helpers (WYSIWYG) ═══════
   const handleBold = () => {
     document.execCommand('bold');
+    setPostStyle(prev => ({ ...prev, bold: !prev.bold }));
     editorRef.current?.focus();
   };
 
   const handleItalic = () => {
     document.execCommand('italic');
+    setPostStyle(prev => ({ ...prev, italic: !prev.italic }));
     editorRef.current?.focus();
   };
 
@@ -1913,7 +1915,7 @@ function PostThread({
                 content={post.content}
                 openUserProfile={openUserProfile}
                 style={{
-                  fontFamily: hasPostStyle && post.post_style!.font ? `'${post.post_style!.font}', sans-serif` : "serif",
+                  fontFamily: hasPostStyle && post.post_style!.font ? `'${post.post_style!.font}', sans-serif` : undefined,
                   fontWeight: hasPostStyle && post.post_style!.bold ? 700 : undefined,
                   fontStyle: hasPostStyle && post.post_style!.italic ? "italic" : undefined,
                   textAlign: hasPostStyle && post.post_style!.alignment ? post.post_style!.alignment : undefined,
