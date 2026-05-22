@@ -34,6 +34,15 @@ import {
   Plus,
   Square,
   Music,
+  Bold,
+  Italic,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  Type,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -77,18 +86,18 @@ const REACTION_EMOJIS = [
 // Post-it colors for text-only posts (tons médios)
 // ═══════════════════════════════════════════════════════════
 const POST_IT_COLORS = [
-  { bg: "bg-[#fef9c3]", text: "text-[#854d0e]", border: "border-[#fde68a]" },       // Amarelo
-  { bg: "bg-[#fce7f3]", text: "text-[#9d174d]", border: "border-[#fbcfe8]" },        // Rosa
-  { bg: "bg-[#dbeafe]", text: "text-[#1e40af]", border: "border-[#bfdbfe]" },        // Azul
-  { bg: "bg-[#dcfce7]", text: "text-[#166534]", border: "border-[#bbf7d0]" },        // Verde
-  { bg: "bg-[#ffedd5]", text: "text-[#9a3412]", border: "border-[#fed7aa]" },        // Laranja
-  { bg: "bg-[#ede9fe]", text: "text-[#5b21b6]", border: "border-[#ddd6fe]" },        // Roxo
-  { bg: "bg-[#fee2e2]", text: "text-[#991b1b]", border: "border-[#fecaca]" },        // Coral
-  { bg: "bg-[#d1fae5]", text: "text-[#065f46]", border: "border-[#a7f3d0]" },        // Menta
-  { bg: "bg-[#e0e7ff]", text: "text-[#3730a3]", border: "border-[#c7d2fe]" },        // Lavanda
-  { bg: "bg-[#fef3c7]", text: "text-[#92400e]", border: "border-[#fde68a]" },        // Pêssego
-  { bg: "bg-white", text: "text-[#374151]", border: "border-[#d1d5db]" },              // Branco
-  { bg: "bg-[#f3f4f6]", text: "text-[#4b5563]", border: "border-[#d1d5db]" },        // Cinza
+  { bg: "bg-[#fef9c3]", text: "text-[#854d0e]", border: "border-[#fde68a]", label: "Amarelo" },
+  { bg: "bg-[#fce7f3]", text: "text-[#9d174d]", border: "border-[#fbcfe8]", label: "Rosa" },
+  { bg: "bg-[#dbeafe]", text: "text-[#1e40af]", border: "border-[#bfdbfe]", label: "Azul" },
+  { bg: "bg-[#dcfce7]", text: "text-[#166534]", border: "border-[#bbf7d0]", label: "Verde" },
+  { bg: "bg-[#ffedd5]", text: "text-[#9a3412]", border: "border-[#fed7aa]", label: "Laranja" },
+  { bg: "bg-[#ede9fe]", text: "text-[#5b21b6]", border: "border-[#ddd6fe]", label: "Roxo" },
+  { bg: "bg-[#fee2e2]", text: "text-[#991b1b]", border: "border-[#fecaca]", label: "Coral" },
+  { bg: "bg-[#d1fae5]", text: "text-[#065f46]", border: "border-[#a7f3d0]", label: "Menta" },
+  { bg: "bg-[#e0e7ff]", text: "text-[#3730a3]", border: "border-[#c7d2fe]", label: "Lavanda" },
+  { bg: "bg-[#fef3c7]", text: "text-[#92400e]", border: "border-[#fde68a]", label: "Pêssego" },
+  { bg: "bg-white", text: "text-[#374151]", border: "border-[#d1d5db]", label: "Branco" },
+  { bg: "bg-[#f3f4f6]", text: "text-[#4b5563]", border: "border-[#d1d5db]", label: "Cinza" },
 ] as const;
 
 // Cores em hex para uso com inline styles (post_style)
@@ -109,6 +118,30 @@ const POST_IT_COLORS_HEX = [
 
 // Fontes disponíveis para post_style
 const EDITOR_FONTS = ["Nunito", "Quicksand", "Poppins", "Inter", "Comfortaa", "Montserrat", "Lato", "Raleway", "DM Sans", "Work Sans"] as const;
+
+const FONTS = [
+  { name: "Nunito", value: "Nunito" },
+  { name: "Quicksand", value: "Quicksand" },
+  { name: "Poppins", value: "Poppins" },
+  { name: "Inter", value: "Inter" },
+  { name: "Comfortaa", value: "Comfortaa" },
+  { name: "Montserrat", value: "Montserrat" },
+  { name: "Lato", value: "Lato" },
+  { name: "Raleway", value: "Raleway" },
+  { name: "DM Sans", value: "DM Sans" },
+  { name: "Work Sans", value: "Work Sans" },
+] as const;
+
+// ═══════════════════════════════════════════════════════════
+// PostStyle interface
+// ═══════════════════════════════════════════════════════════
+interface PostStyle {
+  font?: string | null;
+  bold?: boolean;
+  italic?: boolean;
+  alignment?: "left" | "center" | "right" | "justify";
+  postItColor?: number | null;
+}
 
 // ═══════════════════════════════════════════════════════════
 // FormattedText — renderiza HTML ou parseia markdown
@@ -334,7 +367,7 @@ function VideoPlayer({ src }: { src: string }) {
       <video
         ref={videoRef}
         src={src}
-        className="w-full max-h-96 object-contain"
+        className="w-full max-h-[450px] object-contain"
         playsInline
         preload="metadata"
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
@@ -423,7 +456,7 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
   if (count === 1) {
     return (
       <button onClick={() => onPhotoClick?.(0)} className="mt-2.5 w-full overflow-hidden rounded-3xl shadow-lg">
-        <img src={photos[0]} alt="Foto do post" className="w-full max-h-80 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+        <img src={photos[0]} alt="Foto do post" className="w-full max-h-[450px] object-cover hover:opacity-95 transition-opacity" loading="lazy" />
       </button>
     );
   }
@@ -432,7 +465,7 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
       <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
         {photos.map((url, i) => (
           <button key={i} onClick={() => onPhotoClick?.(i)} className="overflow-hidden">
-            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           </button>
         ))}
       </div>
@@ -445,10 +478,10 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
           <img src={photos[0]} alt="Foto 1" className="w-full h-full object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(1)} className="overflow-hidden">
-          <img src={photos[1]} alt="Foto 2" className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[1]} alt="Foto 2" className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(2)} className="overflow-hidden">
-          <img src={photos[2]} alt="Foto 3" className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[2]} alt="Foto 3" className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
       </div>
     );
@@ -457,7 +490,7 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
     <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
       {photos.slice(0, 4).map((url, i) => (
         <button key={i} onClick={() => onPhotoClick?.(i)} className="relative overflow-hidden">
-          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           {i === 3 && count > 4 && (
             <div className="absolute inset-0 flex items-center justify-center bg-[#000305]/50 text-[#f7f9fa] font-bold text-lg">+{count - 4}</div>
           )}
@@ -610,7 +643,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   }, []);
 
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
-  const [content, setContent] = useState("");
+  // content state removed — using textContent + editorRef for WYSIWYG
   const [loading, setLoading] = useState(true);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -638,6 +671,21 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // ═══════ WYSIWYG Editor state ═══════
+  const [postStyle, setPostStyle] = useState<PostStyle>({
+    font: null,
+    bold: false,
+    italic: false,
+    alignment: "left",
+    postItColor: 0,
+  });
+  const [fontMenuOpen, setFontMenuOpen] = useState(false);
+  const fontMenuRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [editorExpanded, setEditorExpanded] = useState(false);
+  const [textContent, setTextContent] = useState("");
+  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false });
+
   // Audio recording state (direct in-app recording)
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -661,7 +709,39 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 
   // ═══════ Can post check ═══════
   const hasMediaInComposer = selectedFiles.length > 0 || selectedVideo || selectedAudio;
-  const canPost = !!profile && (content.trim().length > 0 || hasMediaInComposer);
+  const canPost = !!profile && (textContent.trim().length > 0 || hasMediaInComposer);
+
+  // ═══════ Rich text formatting helpers (WYSIWYG) ═══════
+  const handleBold = () => {
+    document.execCommand('bold');
+    editorRef.current?.focus();
+  };
+
+  const handleItalic = () => {
+    document.execCommand('italic');
+    editorRef.current?.focus();
+  };
+
+  const handleH1 = () => {
+    const current = document.queryCommandValue('formatBlock');
+    document.execCommand('formatBlock', false, current.toLowerCase() === 'h1' ? 'p' : 'h1');
+    editorRef.current?.focus();
+  };
+
+  const handleH2 = () => {
+    const current = document.queryCommandValue('formatBlock');
+    document.execCommand('formatBlock', false, current.toLowerCase() === 'h2' ? 'p' : 'h2');
+    editorRef.current?.focus();
+  };
+
+  const handleEditorInput = () => {
+    const el = editorRef.current;
+    if (el) {
+      setTextContent(el.textContent || "");
+    }
+  };
+
+  const selectedColor = POST_IT_COLORS[postStyle.postItColor ?? 0];
 
   // Close menu on outside click
   useEffect(() => {
@@ -686,6 +766,30 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       previewUrls.forEach((url) => { try { URL.revokeObjectURL(url); } catch { /* ignore */ } });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Close font menu on outside click
+  useEffect(() => {
+    if (!fontMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (fontMenuRef.current && !fontMenuRef.current.contains(e.target as Node)) {
+        setFontMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [fontMenuOpen]);
+
+  // Track active formatting states
+  useEffect(() => {
+    const updateFormats = () => {
+      setActiveFormats({
+        bold: document.queryCommandState('bold'),
+        italic: document.queryCommandState('italic'),
+      });
+    };
+    document.addEventListener('selectionchange', updateFormats);
+    return () => document.removeEventListener('selectionchange', updateFormats);
   }, []);
 
   useEffect(() => {
@@ -1027,7 +1131,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const handlePost = async () => {
     // ═══════ Permite postar mídia sem texto ═══════
     if (!profile) return;
-    if (!content.trim() && !hasMediaInComposer) return;
+    if (!textContent.trim() && !hasMediaInComposer) return;
 
     const hasMedia = selectedFiles.length > 0 || selectedVideo || selectedAudio;
 
@@ -1063,12 +1167,20 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         if (!audioUrl) { setUploading(false); return; }
       }
 
-      // Se não tem texto mas tem mídia, usa placeholder
-      const postContent = content.trim() || (
+      // Use HTML from WYSIWYG editor for rich content
+      const postContent = textContent.trim() ? editorRef.current!.innerHTML : (
         selectedFiles.length > 0 ? "📷" :
         selectedVideo ? "🎥" :
         selectedAudio ? "🎙️" : ""
       );
+
+      // Prepare postStyle
+      const styleToSend: PostStyle = { ...postStyle };
+      if (!styleToSend.font) delete styleToSend.font;
+      if (!styleToSend.bold) delete styleToSend.bold;
+      if (!styleToSend.italic) delete styleToSend.italic;
+      if (styleToSend.alignment === "left") delete styleToSend.alignment;
+      if (styleToSend.postItColor === null || styleToSend.postItColor === undefined) delete styleToSend.postItColor;
 
       const res = await fetch("/api/posts", {
         method: "POST",
@@ -1082,12 +1194,16 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
           audioDuration,
           videoDuration,
           visibility,
+          postStyle: styleToSend,
         }),
       });
       const data = await res.json();
       if (data.post) {
         setPosts((prev) => [{ ...data.post, comment_count: data.post.comment_count || 0 }, ...prev]);
-        setContent("");
+        // Clear editor
+        if (editorRef.current) editorRef.current.innerHTML = "";
+        setTextContent("");
+        setPostStyle({ font: null, bold: false, italic: false, alignment: "left", postItColor: 0 });
         clearMedia();
         fetchMediaCounts();
         toast.success("Post publicado!");
@@ -1165,8 +1281,8 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     <div className="space-y-0">
       {/* Styles for HTML post content */}
       <style>{`
-        .post-content h1 { font-size: 1.25rem; font-weight: 700; line-height: 1.3; margin: 0.35em 0 0.1em; }
-        .post-content h2 { font-size: 1.1rem; font-weight: 700; line-height: 1.3; margin: 0.25em 0 0.1em; }
+        .editor-content h1, .post-content h1 { font-size: 1.25rem; font-weight: 700; line-height: 1.3; margin: 0.35em 0 0.1em; }
+        .editor-content h2, .post-content h2 { font-size: 1.1rem; font-weight: 700; line-height: 1.3; margin: 0.25em 0 0.1em; }
         .post-content b, .post-content strong { font-weight: 700; }
         .post-content i, .post-content em { font-style: italic; }
         .post-content a { color: #0A4D5C; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: #0A4D5C66; }
@@ -1177,13 +1293,40 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         <div className="flex items-start gap-3.5">
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-12 w-12 shrink-0" />
           <div className="flex-1 space-y-2">
-            <textarea
-              placeholder="O que está acontecendo no seu bairro?"
-              value={content}
-              onChange={(e) => setContent(e.target.value.slice(0, 500))}
-              className="w-full min-h-[72px] resize-none border-0 bg-transparent p-0 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
-              rows={2}
-            />
+            {/* ═══════ WYSIWYG EDITOR ═══════ */}
+            <div
+              className="rounded-xl border border-[#0A4D5C]/8 overflow-hidden transition-all"
+              style={{ backgroundColor: selectedColor.bg }}
+            >
+              <div className="relative">
+                {!textContent.trim() && (
+                  <div className="absolute top-0 left-0 right-0 px-3 py-2.5 text-sm pointer-events-none select-none" style={{ color: selectedColor.text, opacity: 0.4 }}>
+                    O que está acontecendo no seu bairro?
+                  </div>
+                )}
+                <div
+                  ref={editorRef}
+                  contentEditable
+                  role="textbox"
+                  aria-multiline="true"
+                  onInput={handleEditorInput}
+                  className={`editor-content w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:outline-none transition-all overflow-y-auto ${editorExpanded ? "min-h-[220px] max-h-[60vh]" : "min-h-[72px]"}`}
+                  style={{
+                    color: selectedColor.text,
+                    fontFamily: postStyle.font ? `'${postStyle.font}', sans-serif` : undefined,
+                    textAlign: postStyle.alignment || "left",
+                  }}
+                  suppressContentEditableWarning
+                />
+                <button
+                  onClick={() => setEditorExpanded(!editorExpanded)}
+                  className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-md bg-[#0A4D5C]/[0.08] text-[#0A4D5C]/50 hover:bg-[#0A4D5C]/15 hover:text-[#0A4D5C] transition-colors"
+                  title={editorExpanded ? "Reduzir" : "Expandir"}
+                >
+                  {editorExpanded ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+                </button>
+              </div>
+            </div>
 
             {/* Photo previews */}
             {hasPhotosInComposer && previewUrls.length > 0 && (
@@ -1231,7 +1374,110 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               </div>
             )}
 
+            {/* ═══════ TOOLBAR — FORMATAÇÃO ═══════ */}
+            <div className="flex items-center gap-1 mt-2 flex-wrap">
+              {/* Negrito */}
+              <button
+                onClick={handleBold}
+                className={`flex items-center justify-center rounded-md h-7 w-7 shrink-0 transition-colors ${activeFormats.bold ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                title="Negrito"
+              >
+                <Bold className="h-3.5 w-3.5" />
+              </button>
+              {/* Itálico */}
+              <button
+                onClick={handleItalic}
+                className={`flex items-center justify-center rounded-md h-7 w-7 shrink-0 transition-colors ${activeFormats.italic ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                title="Itálico"
+              >
+                <Italic className="h-3.5 w-3.5" />
+              </button>
 
+              <div className="w-px h-4 bg-[#0A4D5C]/10 shrink-0" />
+
+              {/* H1 */}
+              <button
+                onClick={handleH1}
+                className="flex items-center justify-center rounded-md h-7 px-1.5 shrink-0 text-[10px] font-bold transition-colors bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"
+                title="Título H1"
+              >
+                H1
+              </button>
+              {/* H2 */}
+              <button
+                onClick={handleH2}
+                className="flex items-center justify-center rounded-md h-7 px-1.5 shrink-0 text-[10px] font-bold transition-colors bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"
+                title="Título H2"
+              >
+                H2
+              </button>
+
+              <div className="w-px h-4 bg-[#0A4D5C]/10 shrink-0" />
+
+              {/* Alinhamento */}
+              {([
+                { align: "left" as const, Icon: AlignLeft },
+                { align: "center" as const, Icon: AlignCenter },
+                { align: "right" as const, Icon: AlignRight },
+                { align: "justify" as const, Icon: AlignJustify },
+              ]).map(({ align, Icon }) => (
+                <button
+                  key={align}
+                  onClick={() => setPostStyle((s) => ({ ...s, alignment: align }))}
+                  className={`flex items-center justify-center rounded-md h-7 w-7 shrink-0 transition-colors ${postStyle.alignment === align ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                  title={align}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </button>
+              ))}
+
+              <div className="w-px h-4 bg-[#0A4D5C]/10 shrink-0" />
+
+              {/* Fonte dropdown */}
+              <div className="relative shrink-0" ref={fontMenuRef}>
+                <button
+                  onClick={() => setFontMenuOpen(!fontMenuOpen)}
+                  className={`flex items-center gap-0.5 rounded-md h-7 px-1.5 text-[9px] font-medium transition-colors ${fontMenuOpen ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/[0.06] text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                >
+                  <Type className="h-3 w-3" />
+                  <span className="max-w-[36px] truncate">{postStyle.font || "Fonte"}</span>
+                  <ChevronDown className={`h-2.5 w-2.5 transition-transform ${fontMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+                {fontMenuOpen && (
+                  <div className="absolute left-0 top-full mt-1 z-50 w-36 rounded-xl bg-[#f7f9fa] p-1 shadow-lg border border-[#0A4D5C]/10 animate-in fade-in-0 zoom-in-95 max-h-[180px] overflow-y-auto">
+                    <button
+                      onClick={() => { setPostStyle((s) => ({ ...s, font: null })); setFontMenuOpen(false); }}
+                      className={`w-full text-left rounded-lg px-2 py-1 text-[10px] transition-colors ${!postStyle.font ? "bg-[#0A4D5C] text-[#f7f9fa]" : "text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                    >
+                      Padrão
+                    </button>
+                    {FONTS.map((f) => (
+                      <button
+                        key={f.value}
+                        onClick={() => { setPostStyle((s) => ({ ...s, font: f.value })); setFontMenuOpen(false); }}
+                        className={`w-full text-left rounded-lg px-2 py-1 text-[10px] transition-colors ${postStyle.font === f.value ? "bg-[#0A4D5C] text-[#f7f9fa]" : "text-[#0A4D5C] hover:bg-[#0A4D5C]/10"}`}
+                        style={{ fontFamily: `'${f.value}', sans-serif` }}
+                      >
+                        {f.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ═══════ CORES — GRID ═══════ */}
+            <div className="grid grid-cols-6 gap-1 mt-2">
+              {POST_IT_COLORS.map((color, i) => (
+                <button
+                  key={i}
+                  onClick={() => setPostStyle((s) => ({ ...s, postItColor: i }))}
+                  className={`h-6 rounded-full border-2 transition-all hover:scale-105 ${postStyle.postItColor === i ? "border-[#0A4D5C] scale-105 shadow-sm" : "border-[#0A4D5C]/10"}`}
+                  style={{ backgroundColor: color.bg }}
+                  title={color.label}
+                />
+              ))}
+            </div>
 
             {/* ═══════ ACTION BAR ═══════ */}
             <div className="flex items-center justify-between pt-1">
@@ -1340,9 +1586,9 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 
               {/* ═══════ Publish button - ícone apenas, cor viva ═══════ */}
               <div className="flex items-center gap-2">
-                {content.trim().length > 0 && (
-                  <span className={`text-[10px] ${content.length > 450 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>
-                    {content.length}/500
+                {textContent.trim().length > 0 && (
+                  <span className={`text-[10px] ${textContent.length > 450 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>
+                    {textContent.length}/500
                   </span>
                 )}
                 <button
