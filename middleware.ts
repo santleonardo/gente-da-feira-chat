@@ -6,6 +6,7 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 export async function middleware(req: NextRequest) {
   let res = NextResponse.next({ request: req });
 
+  // Se Supabase não configurado, apenas passa
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     return res;
   }
@@ -33,14 +34,13 @@ export async function middleware(req: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    // Proteger rotas /api/* de mutações (POST/PUT/DELETE/PATCH) se não autenticado
-    // GET requests são permitidas mesmo sem autenticação (necessário para o feed)
-    // Exceção: /api/auth (login/callback do Supabase)
+    // Proteger rotas /api/* que são mutations (POST/PUT/DELETE/PATCH)
+    // Rotas GET são permitidas mesmo sem autenticação (para carregar o feed)
     const isApiRoute = req.nextUrl.pathname.startsWith("/api/");
     const isAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
     const isMutation = ["POST", "PUT", "DELETE", "PATCH"].includes(req.method);
 
-    if (isApiRoute && !isAuthRoute && !user && isMutation) {
+    if (isApiRoute && !isAuthRoute && isMutation && !user) {
       return NextResponse.json(
         { error: "Não autenticado" },
         { status: 401 }
