@@ -160,7 +160,11 @@ export async function POST(req: NextRequest) {
     if (!content || !content.trim()) {
       return NextResponse.json({ error: "Conteúdo é obrigatório" }, { status: 400 });
     }
-    if (content.trim().length > 1000) {
+
+    // Strip HTML tags before counting characters for the limit
+    // (posts from WYSIWYG editor contain HTML; plain-text posts don't)
+    const plainText = content.replace(/<[^>]*>/g, "").replace(/&\w+;/g, " ");
+    if (plainText.trim().length > 1000) {
       return NextResponse.json({ error: "Post muito longo (máx 1000 chars)" }, { status: 400 });
     }
 
