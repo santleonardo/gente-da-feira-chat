@@ -7,7 +7,7 @@
 // - Compartilhamento: shared_post_id referencia um post original
 // - Máx 5 posts com mídia expirável ativos por usuário
 // - Limpeza automática de posts expirados
-// - Suporte a post_style (fonte, bold, itálico, alinhamento, cor do post-it)
+// - Suporte a post_style (fonte, bold, itálico, alinhamento, cor do post-it, cor da fonte)
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server";
@@ -149,6 +149,11 @@ function extractStoragePaths(urls: string[], bucket: string): string[] {
     .filter(Boolean) as string[];
 }
 
+// Helper: strip HTML tags to count only plain text characters
+function stripHTML(html: string): string {
+  return html.replace(/<[^>]+>/g, "").replace(/&\w+;/g, " ").trim();
+}
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -160,9 +165,10 @@ export async function POST(req: NextRequest) {
     if (!content || !content.trim()) {
       return NextResponse.json({ error: "Conteúdo é obrigatório" }, { status: 400 });
     }
-    // Validar tamanho pelo texto puro (sem tags HTML) para não penalizar formatação
-    const plainText = content.replace(/<[^>]+>/g, "").trim();
-    if (plainText.length > 500) {
+
+    // Contar apenas texto puro (strip HTML antes de contar)
+    const plainTextLength = stripHTML(content.trim()).length;
+    if (plainTextLength > 500) {
       return NextResponse.json({ error: "Post muito longo (máx 500 chars)" }, { status: 400 });
     }
 
@@ -177,10 +183,12 @@ export async function POST(req: NextRequest) {
         italic: typeof postStyle.italic === "boolean" ? postStyle.italic : false,
         alignment: validAlignments.includes(postStyle.alignment) ? postStyle.alignment : "left",
         postItColor: typeof postStyle.postItColor === "number" && postStyle.postItColor >= 0 && postStyle.postItColor <= 11 ? postStyle.postItColor : null,
+        fontColor: typeof postStyle.fontColor === "string" && /^#[0-9a-fA-F]{6}$/.test(postStyle.fontColor) ? postStyle.fontColor : null,
       };
-      // Remove null font to keep it clean
+      // Remove null fields to keep it clean
       if (!validatedStyle.font) delete validatedStyle.font;
       if (validatedStyle.postItColor === null) delete validatedStyle.postItColor;
+      if (validatedStyle.fontColor === null) delete validatedStyle.fontColor;
     }
 
     // Validate visibility
@@ -296,39 +304,6 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) throw error;
-
-    // Process @mentions asynchronously — don't block the response
-    const mentionRegex = /@(\w+)/g;
-    const mentionMatches = [...content.trim().matchAll(mentionRegex)];
-    const mentionedUsernames = [...new Set(mentionMatches.map((m) => m[1]))];
-
-    if (mentionedUsernames.length > 0) {
-      // Fire-and-forget async mention processing
-      (async () => {
-        try {
-          const adminClient = createAdminClient();
-          for (const username of mentionedUsernames) {
-            const { data: mentionedProfile } = await adminClient
-              .from("profiles")
-              .select("id")
-              .eq("username", username)
-              .single();
-
-            if (mentionedProfile && mentionedProfile.id !== user.id) {
-              await adminClient.from("notifications").insert({
-                user_id: mentionedProfile.id,
-                type: "mention",
-                actor_id: user.id,
-                post_id: post.id,
-                is_read: false,
-              });
-            }
-          }
-        } catch {
-          // Silent — mention processing should not break the post creation
-        }
-      })();
-    }
 
     return NextResponse.json({ post: { ...post, comment_count: 0, shared_post: post.shared_post && !Array.isArray(post.shared_post) ? post.shared_post : (Array.isArray(post.shared_post) ? post.shared_post[0] : null) } });
   } catch (error: any) {
