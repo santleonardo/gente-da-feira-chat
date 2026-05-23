@@ -738,6 +738,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   };
 
   const selectedColor = POST_IT_COLORS[postStyle.postItColor ?? 0];
+  const selectedColorHex = POST_IT_COLORS_HEX[postStyle.postItColor ?? 0];
 
   // ═══════ Can post check ═══════
   const hasMediaInComposer = selectedFiles.length > 0 || selectedVideo || selectedAudio;
@@ -1295,12 +1296,12 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
           <div className="flex-1 space-y-2">
             {/* ═══════ WYSIWYG EDITOR ═══════ */}
             <div
-              className="rounded-xl border border-[#0A4D5C]/8 overflow-hidden transition-all"
-              style={{ backgroundColor: selectedColor.bg }}
+              className="rounded-xl overflow-hidden transition-all"
+              style={{ backgroundColor: selectedColorHex.bg, border: `2px solid ${selectedColorHex.border}` }}
             >
               <div className="relative">
                 {!textContent.trim() && (
-                  <div className="absolute top-0 left-0 right-0 px-3 py-2.5 text-sm pointer-events-none select-none" style={{ color: selectedColor.text, opacity: 0.4 }}>
+                  <div className="absolute top-0 left-0 right-0 px-3 py-2.5 text-sm pointer-events-none select-none" style={{ color: selectedColorHex.text, opacity: 0.4 }}>
                     O que está acontecendo no seu bairro?
                   </div>
                 )}
@@ -1312,7 +1313,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                   onInput={handleEditorInput}
                   className={`editor-content w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:outline-none transition-all overflow-y-auto ${editorExpanded ? "min-h-[220px] max-h-[60vh]" : "min-h-[72px]"}`}
                   style={{
-                    color: selectedColor.text,
+                    color: selectedColorHex.text,
                     fontFamily: postStyle.font ? `'${postStyle.font}', sans-serif` : undefined,
                     textAlign: postStyle.alignment || "left",
                   }}
@@ -1466,17 +1467,20 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               </div>
             </div>
 
-            {/* ═══════ CORES — GRID ═══════ */}
-            <div className="grid grid-cols-6 gap-1 mt-2">
-              {POST_IT_COLORS.map((color, i) => (
-                <button
-                  key={i}
-                  onClick={() => setPostStyle((s) => ({ ...s, postItColor: i }))}
-                  className={`h-6 rounded-full border-2 transition-all hover:scale-105 ${postStyle.postItColor === i ? "border-[#0A4D5C] scale-105 shadow-sm" : "border-[#0A4D5C]/10"}`}
-                  style={{ backgroundColor: color.bg }}
-                  title={color.label}
-                />
-              ))}
+            {/* ═══════ CORES ═══════ */}
+            <div className="mt-2">
+              <span className="text-[10px] font-bold text-[#0A4D5C]/70 uppercase tracking-widest">Cores</span>
+              <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                {POST_IT_COLORS_HEX.map((color, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPostStyle((s) => ({ ...s, postItColor: i }))}
+                    className={`h-7 w-7 rounded-full border-2 transition-all hover:scale-110 ${postStyle.postItColor === i ? "border-[#0A4D5C] scale-115 shadow-md ring-2 ring-[#0A4D5C]/30" : "border-[#0A4D5C]/15"} ${color.bg === "#ffffff" ? "border-[#0A4D5C]/30" : ""}`}
+                    style={{ backgroundColor: color.bg }}
+                    title={POST_IT_COLORS[i].label ?? `Cor ${i + 1}`}
+                  />
+                ))}
+              </div>
             </div>
 
             {/* ═══════ ACTION BAR ═══════ */}
