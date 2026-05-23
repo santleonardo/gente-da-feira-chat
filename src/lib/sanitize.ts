@@ -7,8 +7,18 @@
 import DOMPurify from "dompurify";
 
 const ALLOWED: { ALLOWED_TAGS: string[]; ALLOWED_ATTR: string[] } = {
-  ALLOWED_TAGS: ["b", "i", "em", "strong", "a", "br", "p", "span", "u", "s"],
-  ALLOWED_ATTR: ["href", "target", "rel", "class"],
+  ALLOWED_TAGS: [
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "b", "i", "em", "strong", "u", "s", "strike", "sub", "sup",
+    "a", "br", "p", "span", "div",
+    "font", "ul", "ol", "li", "blockquote", "pre", "code",
+    "hr", "table", "thead", "tbody", "tr", "th", "td",
+  ],
+  ALLOWED_ATTR: [
+    "href", "target", "rel", "class", "style",
+    "color", "size", "face",           // <font> attrs
+    "data-username", "data-user-id",   // mention spans
+  ],
 };
 
 let loaded = false;
