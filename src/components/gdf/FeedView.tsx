@@ -77,18 +77,18 @@ const REACTION_EMOJIS = [
 // Post-it colors for text-only posts (tons médios)
 // ═══════════════════════════════════════════════════════════
 const POST_IT_COLORS = [
-  { bg: "bg-[#fef9c3]", text: "text-[#854d0e]", border: "border-[#fde68a]", label: "Amarelo" },
-  { bg: "bg-[#fce7f3]", text: "text-[#9d174d]", border: "border-[#fbcfe8]", label: "Rosa" },
-  { bg: "bg-[#dbeafe]", text: "text-[#1e40af]", border: "border-[#bfdbfe]", label: "Azul" },
-  { bg: "bg-[#dcfce7]", text: "text-[#166534]", border: "border-[#bbf7d0]", label: "Verde" },
-  { bg: "bg-[#ffedd5]", text: "text-[#9a3412]", border: "border-[#fed7aa]", label: "Laranja" },
-  { bg: "bg-[#ede9fe]", text: "text-[#5b21b6]", border: "border-[#ddd6fe]", label: "Roxo" },
-  { bg: "bg-[#fee2e2]", text: "text-[#991b1b]", border: "border-[#fecaca]", label: "Coral" },
-  { bg: "bg-[#d1fae5]", text: "text-[#065f46]", border: "border-[#a7f3d0]", label: "Menta" },
-  { bg: "bg-[#e0e7ff]", text: "text-[#3730a3]", border: "border-[#c7d2fe]", label: "Lavanda" },
-  { bg: "bg-[#fef3c7]", text: "text-[#92400e]", border: "border-[#fde68a]", label: "Pêssego" },
-  { bg: "bg-white", text: "text-[#374151]", border: "border-[#d1d5db]", label: "Branco" },
-  { bg: "bg-[#f3f4f6]", text: "text-[#4b5563]", border: "border-[#d1d5db]", label: "Cinza" },
+  { bg: "bg-[#fef9c3]", text: "text-[#854d0e]", border: "border-[#fde68a]" },       // Amarelo
+  { bg: "bg-[#fce7f3]", text: "text-[#9d174d]", border: "border-[#fbcfe8]" },        // Rosa
+  { bg: "bg-[#dbeafe]", text: "text-[#1e40af]", border: "border-[#bfdbfe]" },        // Azul
+  { bg: "bg-[#dcfce7]", text: "text-[#166534]", border: "border-[#bbf7d0]" },        // Verde
+  { bg: "bg-[#ffedd5]", text: "text-[#9a3412]", border: "border-[#fed7aa]" },        // Laranja
+  { bg: "bg-[#ede9fe]", text: "text-[#5b21b6]", border: "border-[#ddd6fe]" },        // Roxo
+  { bg: "bg-[#fee2e2]", text: "text-[#991b1b]", border: "border-[#fecaca]" },        // Coral
+  { bg: "bg-[#d1fae5]", text: "text-[#065f46]", border: "border-[#a7f3d0]" },        // Menta
+  { bg: "bg-[#e0e7ff]", text: "text-[#3730a3]", border: "border-[#c7d2fe]" },        // Lavanda
+  { bg: "bg-[#fef3c7]", text: "text-[#92400e]", border: "border-[#fde68a]" },        // Pêssego
+  { bg: "bg-white", text: "text-[#374151]", border: "border-[#d1d5db]" },              // Branco
+  { bg: "bg-[#f3f4f6]", text: "text-[#4b5563]", border: "border-[#d1d5db]" },        // Cinza
 ] as const;
 
 // Cores em hex para uso com inline styles (post_style)
@@ -106,6 +106,9 @@ const POST_IT_COLORS_HEX = [
   { bg: "#ffffff", text: "#374151", border: "#d1d5db" },        // Branco
   { bg: "#f3f4f6", text: "#4b5563", border: "#d1d5db" },        // Cinza
 ] as const;
+
+// Fontes disponíveis para post_style
+const EDITOR_FONTS = ["Nunito", "Quicksand", "Poppins", "Inter", "Comfortaa", "Montserrat", "Lato", "Raleway", "DM Sans", "Work Sans"] as const;
 
 // ═══════════════════════════════════════════════════════════
 // FormattedText — renderiza HTML ou parseia markdown
@@ -305,6 +308,7 @@ interface PostWithAuthor {
     italic?: boolean;
     alignment?: "left" | "center" | "right" | "justify";
     postItColor?: number | null;
+    fontColor?: string | null;
   } | null;
   author: { id: string; display_name: string; username: string; avatar_url?: string | null; neighborhood?: string | null };
   reactions: { user_id: string; type: string }[];
@@ -331,7 +335,7 @@ function VideoPlayer({ src }: { src: string }) {
       <video
         ref={videoRef}
         src={src}
-        className="w-full max-h-[600px] object-contain"
+        className="w-full max-h-96 object-contain"
         playsInline
         preload="metadata"
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
@@ -420,7 +424,7 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
   if (count === 1) {
     return (
       <button onClick={() => onPhotoClick?.(0)} className="mt-2.5 w-full overflow-hidden rounded-3xl shadow-lg">
-        <img src={photos[0]} alt="Foto do post" className="w-full max-h-[600px] object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+        <img src={photos[0]} alt="Foto do post" className="w-full max-h-80 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
       </button>
     );
   }
@@ -429,7 +433,7 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
       <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
         {photos.map((url, i) => (
           <button key={i} onClick={() => onPhotoClick?.(i)} className="overflow-hidden">
-            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-72 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           </button>
         ))}
       </div>
@@ -442,10 +446,10 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
           <img src={photos[0]} alt="Foto 1" className="w-full h-full object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(1)} className="overflow-hidden">
-          <img src={photos[1]} alt="Foto 2" className="w-full h-72 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[1]} alt="Foto 2" className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(2)} className="overflow-hidden">
-          <img src={photos[2]} alt="Foto 3" className="w-full h-72 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[2]} alt="Foto 3" className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
       </div>
     );
@@ -454,7 +458,7 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
     <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
       {photos.slice(0, 4).map((url, i) => (
         <button key={i} onClick={() => onPhotoClick?.(i)} className="relative overflow-hidden">
-          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-72 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           {i === 3 && count > 4 && (
             <div className="absolute inset-0 flex items-center justify-center bg-[#000305]/50 text-[#f7f9fa] font-bold text-lg">+{count - 4}</div>
           )}
@@ -592,7 +596,22 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     else window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
   };
 
+  // Carregar Google Fonts para post_style
+  useEffect(() => {
+    const fontsParam = EDITOR_FONTS.map(
+      (f) => `family=${f.replace(/ /g, "+")}:wght@400;700`
+    ).join("&");
+    const href = `https://fonts.googleapis.com/css2?${fontsParam}&display=swap`;
+    if (!document.querySelector(`link[href="${href}"]`)) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      document.head.appendChild(link);
+    }
+  }, []);
+
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
+  const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -641,9 +660,22 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [repostingPost, setRepostingPost] = useState<PostWithAuthor | null>(null);
   const [repostContent, setRepostContent] = useState("");
 
-  // ═══════ Composer state ═══════
-  const [content, setContent] = useState("");
-  const contentRef = useRef<HTMLTextAreaElement>(null);
+  // Mini Editor state (post style)
+  const [postStyle, setPostStyle] = useState<{
+    font: string;
+    bold: boolean;
+    italic: boolean;
+    alignment: "left" | "center" | "right" | "justify";
+    postItColor: number | null;
+    fontColor: string | null;
+  }>({
+    font: "Nunito",
+    bold: false,
+    italic: false,
+    alignment: "left",
+    postItColor: null,
+    fontColor: null, // INDEPENDENT from post-it color - defaults to null (uses post-it text color or black)
+  });
 
   // ═══════ Can post check ═══════
   const hasMediaInComposer = selectedFiles.length > 0 || selectedVideo || selectedAudio;
@@ -1049,6 +1081,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         if (!audioUrl) { setUploading(false); return; }
       }
 
+      // Se não tem texto mas tem mídia, usa placeholder
       const postContent = content.trim() || (
         selectedFiles.length > 0 ? "📷" :
         selectedVideo ? "🎥" :
@@ -1067,14 +1100,17 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
           audioDuration,
           videoDuration,
           visibility,
+          postStyle: postStyle.postItColor !== null || postStyle.fontColor || postStyle.bold || postStyle.italic || postStyle.alignment !== "left" || postStyle.font !== "Nunito"
+            ? postStyle
+            : undefined,
         }),
       });
       const data = await res.json();
       if (data.post) {
         setPosts((prev) => [{ ...data.post, comment_count: data.post.comment_count || 0 }, ...prev]);
-        // Clear composer
         setContent("");
         clearMedia();
+        setPostStyle({ font: "Nunito", bold: false, italic: false, alignment: "left", postItColor: null, fontColor: null });
         fetchMediaCounts();
         toast.success("Post publicado!");
       } else if (data.error) { toast.error(data.error); }
@@ -1162,17 +1198,116 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       <div className="relative z-10 rounded-3xl bg-[#eef1f3] p-5 shadow-lg border border-[#0A4D5C]/8">
         <div className="flex items-start gap-3.5">
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-12 w-12 shrink-0" />
-          <div className="flex-1 space-y-2">
-            {/* ═══════ SIMPLE TEXT INPUT ═══════ */}
+          <div className="flex-1 space-y-2" style={postStyle.postItColor !== null ? { backgroundColor: POST_IT_COLORS_HEX[postStyle.postItColor]?.bg, borderRadius: "1rem", padding: "0.75rem", border: `1px solid ${POST_IT_COLORS_HEX[postStyle.postItColor]?.border}` } : undefined}>
             <textarea
-              ref={contentRef}
+              placeholder="O que está acontecendo no seu bairro?"
               value={content}
               onChange={(e) => setContent(e.target.value.slice(0, 500))}
-              placeholder="O que está acontecendo no seu bairro?"
-              maxLength={500}
+              className={`w-full min-h-[72px] resize-none border-0 bg-transparent p-0 text-sm focus:outline-none placeholder:text-[#0A4D5C]/30 ${postStyle.bold ? "font-bold" : ""} ${postStyle.italic ? "italic" : ""}`}
+              style={{
+                color: postStyle.fontColor || (postStyle.postItColor !== null ? POST_IT_COLORS_HEX[postStyle.postItColor]?.text : "#000305"),
+                fontFamily: `'${postStyle.font}', sans-serif`,
+                textAlign: postStyle.alignment,
+              }}
               rows={2}
-              className="w-full min-h-[72px] resize-none rounded-xl border border-[#0A4D5C]/10 bg-[#f7f9fa] px-3 py-2.5 text-sm text-[#000305] placeholder:text-[#0A4D5C]/30 focus:outline-none focus:border-[#0A4D5C]/25 focus:ring-1 focus:ring-[#0A4D5C]/10 transition-all"
             />
+
+            {/* ═══════ Mini Editor Toolbar ═══════ */}
+            <div className="flex flex-wrap items-center gap-1.5 py-1">
+              {/* Post-it color circles */}
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-[#0A4D5C]/40 font-medium mr-0.5">Post-it:</span>
+                {POST_IT_COLORS_HEX.map((color, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setPostStyle((s) => ({
+                      ...s,
+                      postItColor: s.postItColor === idx ? null : idx,
+                      // Do NOT auto-change fontColor when selecting post-it color!
+                    }))}
+                    className={`h-5 w-5 rounded-full border-2 transition-all hover:scale-110 ${postStyle.postItColor === idx ? "ring-2 ring-[#0A4D5C] ring-offset-1 scale-110" : ""}`}
+                    style={{ backgroundColor: color.bg, borderColor: color.border }}
+                    title={`Cor ${idx + 1}`}
+                  />
+                ))}
+              </div>
+
+              {/* Separator */}
+              <div className="w-px h-4 bg-[#0A4D5C]/10" />
+
+              {/* Font color picker - INDEPENDENT from post-it color */}
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-[#0A4D5C]/40 font-medium">Fonte:</span>
+                <div className="relative">
+                  <input
+                    type="color"
+                    value={postStyle.fontColor || "#000305"}
+                    onChange={(e) => setPostStyle((s) => ({
+                      ...s,
+                      fontColor: e.target.value === "#000305" ? null : e.target.value,
+                    }))}
+                    className="h-5 w-5 rounded-full cursor-pointer border border-[#0A4D5C]/20"
+                    title="Cor da fonte"
+                  />
+                </div>
+                {postStyle.fontColor && (
+                  <button
+                    onClick={() => setPostStyle((s) => ({ ...s, fontColor: null }))}
+                    className="text-[9px] text-[#0A4D5C]/40 hover:text-[#0A4D5C] transition-colors"
+                    title="Resetar cor da fonte"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Separator */}
+              <div className="w-px h-4 bg-[#0A4D5C]/10" />
+
+              {/* Font selector */}
+              <select
+                value={postStyle.font}
+                onChange={(e) => setPostStyle((s) => ({ ...s, font: e.target.value }))}
+                className="text-[10px] rounded-full border border-[#0A4D5C]/15 bg-[#f7f9fa] px-1.5 py-0.5 text-[#0A4D5C] focus:outline-none focus:border-[#2EC4B6]"
+                style={{ fontFamily: `'${postStyle.font}', sans-serif` }}
+              >
+                {EDITOR_FONTS.map((f) => (
+                  <option key={f} value={f} style={{ fontFamily: `'${f}', sans-serif` }}>{f}</option>
+                ))}
+              </select>
+
+              {/* Bold */}
+              <button
+                onClick={() => setPostStyle((s) => ({ ...s, bold: !s.bold }))}
+                className={`h-5 w-5 flex items-center justify-center rounded-full text-[10px] font-bold transition-colors ${postStyle.bold ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/5 text-[#0A4D5C]/60 hover:bg-[#0A4D5C]/10"}`}
+                title="Negrito"
+              >
+                B
+              </button>
+
+              {/* Italic */}
+              <button
+                onClick={() => setPostStyle((s) => ({ ...s, italic: !s.italic }))}
+                className={`h-5 w-5 flex items-center justify-center rounded-full text-[10px] italic transition-colors ${postStyle.italic ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/5 text-[#0A4D5C]/60 hover:bg-[#0A4D5C]/10"}`}
+                title="Itálico"
+              >
+                I
+              </button>
+
+              {/* Alignment */}
+              <div className="flex items-center gap-0.5">
+                {(["left", "center", "right"] as const).map((align) => (
+                  <button
+                    key={align}
+                    onClick={() => setPostStyle((s) => ({ ...s, alignment: align }))}
+                    className={`h-5 w-5 flex items-center justify-center rounded-full text-[9px] transition-colors ${postStyle.alignment === align ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/5 text-[#0A4D5C]/60 hover:bg-[#0A4D5C]/10"}`}
+                    title={align === "left" ? "Esquerda" : align === "center" ? "Centro" : "Direita"}
+                  >
+                    {align === "left" ? "◀" : align === "center" ? "◆" : "▶"}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Photo previews */}
             {hasPhotosInComposer && previewUrls.length > 0 && (
@@ -1219,6 +1354,8 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                 </button>
               </div>
             )}
+
+
 
             {/* ═══════ ACTION BAR ═══════ */}
             <div className="flex items-center justify-between pt-1">
@@ -1631,7 +1768,7 @@ function PostThread({
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <button onClick={() => post.author?.id && openUserProfile?.(post.author.id)} className={`text-sm font-semibold hover:underline underline-offset-2 transition-all ${isTextOnly ? postItColor?.text || "text-[#000305]" : "text-[#000305]"}`}>
+              <button onClick={() => post.author?.id && openUserProfile?.(post.author.id)} className={`text-sm font-semibold hover:underline underline-offset-2 transition-all ${isTextOnly && !(hasPostStyle && post.post_style!.fontColor) ? postItColor?.text || "text-[#000305]" : "text-[#000305]"}`} style={hasPostStyle && post.post_style!.fontColor ? { color: post.post_style!.fontColor } : undefined}>
                 {post.author?.display_name || "Usuário"}
               </button>
 
@@ -1652,15 +1789,15 @@ function PostThread({
             {/* Content */}
             {isTextOnly ? (
               <FormattedText
-                className={`mt-1.5 text-base sm:text-lg leading-snug whitespace-pre-wrap ${useInlineStyle ? "" : (postItColor?.text || "text-[#000305]")}`}
+                className={`mt-1.5 text-base sm:text-lg leading-snug whitespace-pre-wrap ${useInlineStyle || (hasPostStyle && post.post_style!.fontColor) ? "" : (postItColor?.text || "text-[#000305]")}`}
                 content={post.content}
                 openUserProfile={openUserProfile}
                 style={{
-                  fontFamily: hasPostStyle && post.post_style!.font ? `'${post.post_style!.font}', sans-serif` : undefined,
+                  fontFamily: hasPostStyle && post.post_style!.font ? `'${post.post_style!.font}', sans-serif` : "serif",
                   fontWeight: hasPostStyle && post.post_style!.bold ? 700 : undefined,
                   fontStyle: hasPostStyle && post.post_style!.italic ? "italic" : undefined,
                   textAlign: hasPostStyle && post.post_style!.alignment ? post.post_style!.alignment : undefined,
-                  color: useInlineStyle && postItColorHex ? postItColorHex.text : undefined,
+                  color: hasPostStyle && post.post_style!.fontColor ? post.post_style!.fontColor : (useInlineStyle && postItColorHex ? postItColorHex.text : undefined),
                 }}
               />
             ) : (
