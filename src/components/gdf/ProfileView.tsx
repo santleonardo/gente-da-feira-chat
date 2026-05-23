@@ -81,6 +81,22 @@ const POST_IT_COLORS = [
   { bg: "#f3f4f6", text: "#4b5563", border: "#d1d5db", label: "Cinza" },
 ] as const;
 
+// Cores disponíveis para a fonte (independente do post-it)
+const FONT_COLORS = [
+  { color: "#000305", label: "Preto" },
+  { color: "#374151", label: "Cinza escuro" },
+  { color: "#854d0e", label: "Marrom" },
+  { color: "#991b1b", label: "Vermelho escuro" },
+  { color: "#9d174d", label: "Rosa escuro" },
+  { color: "#5b21b6", label: "Roxo escuro" },
+  { color: "#1e40af", label: "Azul escuro" },
+  { color: "#166534", label: "Verde escuro" },
+  { color: "#9a3412", label: "Laranja escuro" },
+  { color: "#065f46", label: "Menta escuro" },
+  { color: "#3730a3", label: "Indigo" },
+  { color: "#ffffff", label: "Branco" },
+] as const;
+
 // ═══════════════════════════════════════════════════════════
 // Fontes disponíveis
 // ═══════════════════════════════════════════════════════════
@@ -110,6 +126,7 @@ interface PostStyle {
   italic?: boolean;
   alignment?: "left" | "center" | "right" | "justify";
   postItColor?: number | null;
+  fontColor?: string | null;
 }
 
 function formatDuration(seconds: number): string {
@@ -471,6 +488,7 @@ export function ProfileView() {
     italic: false,
     alignment: "left",
     postItColor: 0,
+    fontColor: null,
   });
   const [publishing, setPublishing] = useState(false);
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
@@ -924,6 +942,7 @@ export function ProfileView() {
       if (!styleToSend.italic) delete styleToSend.italic;
       if (styleToSend.alignment === "left") delete styleToSend.alignment;
       if (styleToSend.postItColor === null || styleToSend.postItColor === undefined) delete styleToSend.postItColor;
+      if (!styleToSend.fontColor) delete styleToSend.fontColor;
 
       const res = await fetch("/api/posts", {
         method: "POST",
@@ -944,7 +963,7 @@ export function ProfileView() {
       if (data.post) {
         if (editorRef.current) editorRef.current.innerHTML = "";
         setTextContent("");
-        setPostStyle({ font: null, bold: false, italic: false, alignment: "left", postItColor: 0 });
+        setPostStyle({ font: null, bold: false, italic: false, alignment: "left", postItColor: 0, fontColor: null });
         clearMedia();
         toast.success("Post publicado!");
         fetchMyPosts();
@@ -1085,7 +1104,7 @@ export function ProfileView() {
                     style={{
                       backgroundColor: isTextOnly ? postItColor.bg : "#f7f9fa",
                       border: isTextOnly ? `1px solid ${postItColor.border}` : "1px solid rgba(10,77,92,0.08)",
-                      color: isTextOnly ? postItColor.text : "#000305",
+                      color: isTextOnly ? (postStyleData?.fontColor || postItColor.text) : "#000305",
                     }}
                   >
                     {/* Conteúdo textual */}
@@ -1097,6 +1116,7 @@ export function ProfileView() {
                         fontWeight: postStyleData?.bold ? 700 : undefined,
                         fontStyle: postStyleData?.italic ? "italic" : undefined,
                         textAlign: postStyleData?.alignment || undefined,
+                        color: postStyleData?.fontColor || undefined,
                       }}
                     />
 
@@ -1187,7 +1207,7 @@ export function ProfileView() {
             >
               <div className="relative">
                 {!textContent.trim() && (
-                  <div className="absolute top-0 left-0 right-0 px-3 py-2.5 text-sm pointer-events-none select-none" style={{ color: selectedColor.text, opacity: 0.4 }}>
+                  <div className="absolute top-0 left-0 right-0 px-3 py-2.5 text-sm pointer-events-none select-none" style={{ color: postStyle.fontColor || selectedColor.text, opacity: 0.4 }}>
                     Escreva algo bonito... Selecione texto e use B/I para formatar
                   </div>
                 )}
@@ -1199,7 +1219,7 @@ export function ProfileView() {
                   onInput={handleEditorInput}
                   className={`editor-content w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:outline-none transition-all overflow-y-auto ${editorExpanded ? "min-h-[220px] max-h-[60vh]" : "min-h-[100px]"}`}
                   style={{
-                    color: selectedColor.text,
+                    color: postStyle.fontColor || selectedColor.text,
                     fontFamily: postStyle.font ? `'${postStyle.font}', sans-serif` : undefined,
                     textAlign: postStyle.alignment || "left",
                   }}
@@ -1414,6 +1434,32 @@ export function ProfileView() {
               ))}
             </div>
 
+            {/* ═══════ COR DA FONTE — GRID 2 LINHAS × 6 ═══════ */}
+            <div className="mt-1.5">
+              <div className="flex items-center gap-1 mb-1">
+                <span className="text-[9px] font-medium text-[#0A4D5C]/50">Cor da fonte</span>
+                {postStyle.fontColor && (
+                  <button
+                    onClick={() => setPostStyle((s) => ({ ...s, fontColor: null }))}
+                    className="text-[8px] text-[#0A4D5C]/40 hover:text-[#0A4D5C] underline"
+                  >
+                    Auto
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-6 gap-1">
+                {FONT_COLORS.map((fc, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPostStyle((s) => ({ ...s, fontColor: fc.color }))}
+                    className={`h-5 rounded-full border-2 transition-all hover:scale-105 ${(postStyle.fontColor || null) === fc.color ? "border-[#0A4D5C] scale-105 shadow-sm" : "border-[#0A4D5C]/10"}`}
+                    style={{ backgroundColor: fc.color, boxShadow: fc.color === "#ffffff" ? "inset 0 0 0 1px rgba(0,0,0,0.1)" : undefined }}
+                    title={fc.label}
+                  />
+                ))}
+              </div>
+            </div>
+
             {/* ═══════ AÇÃO: VISIBILIDADE + CONTAGEM + PUBLICAR ═══════ */}
             <div className="flex items-center gap-2 mt-2">
               {/* Visibilidade */}
@@ -1430,8 +1476,8 @@ export function ProfileView() {
 
               {/* Contagem */}
               {textContent.trim().length > 0 && (
-                <span className={`text-[9px] shrink-0 ${textContent.length > 450 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>
-                  {textContent.length}/500
+                <span className={`text-[9px] shrink-0 ${textContent.length > 900 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>
+                  {textContent.length}/1000
                 </span>
               )}
 

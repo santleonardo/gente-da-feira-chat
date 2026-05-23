@@ -660,23 +660,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const [repostingPost, setRepostingPost] = useState<PostWithAuthor | null>(null);
   const [repostContent, setRepostContent] = useState("");
 
-  // Mini Editor state (post style)
-  const [postStyle, setPostStyle] = useState<{
-    font: string;
-    bold: boolean;
-    italic: boolean;
-    alignment: "left" | "center" | "right" | "justify";
-    postItColor: number | null;
-    fontColor: string | null;
-  }>({
-    font: "Nunito",
-    bold: false,
-    italic: false,
-    alignment: "left",
-    postItColor: null,
-    fontColor: null, // INDEPENDENT from post-it color - defaults to null (uses post-it text color or black)
-  });
-
   // ═══════ Can post check ═══════
   const hasMediaInComposer = selectedFiles.length > 0 || selectedVideo || selectedAudio;
   const canPost = !!profile && (content.trim().length > 0 || hasMediaInComposer);
@@ -1100,9 +1083,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
           audioDuration,
           videoDuration,
           visibility,
-          postStyle: postStyle.postItColor !== null || postStyle.fontColor || postStyle.bold || postStyle.italic || postStyle.alignment !== "left" || postStyle.font !== "Nunito"
-            ? postStyle
-            : undefined,
         }),
       });
       const data = await res.json();
@@ -1110,7 +1090,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         setPosts((prev) => [{ ...data.post, comment_count: data.post.comment_count || 0 }, ...prev]);
         setContent("");
         clearMedia();
-        setPostStyle({ font: "Nunito", bold: false, italic: false, alignment: "left", postItColor: null, fontColor: null });
         fetchMediaCounts();
         toast.success("Post publicado!");
       } else if (data.error) { toast.error(data.error); }
@@ -1198,116 +1177,14 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       <div className="relative z-10 rounded-3xl bg-[#eef1f3] p-5 shadow-lg border border-[#0A4D5C]/8">
         <div className="flex items-start gap-3.5">
           <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-12 w-12 shrink-0" />
-          <div className="flex-1 space-y-2" style={postStyle.postItColor !== null ? { backgroundColor: POST_IT_COLORS_HEX[postStyle.postItColor]?.bg, borderRadius: "1rem", padding: "0.75rem", border: `1px solid ${POST_IT_COLORS_HEX[postStyle.postItColor]?.border}` } : undefined}>
+          <div className="flex-1 space-y-2">
             <textarea
               placeholder="O que está acontecendo no seu bairro?"
               value={content}
               onChange={(e) => setContent(e.target.value.slice(0, 500))}
-              className={`w-full min-h-[72px] resize-none border-0 bg-transparent p-0 text-sm focus:outline-none placeholder:text-[#0A4D5C]/30 ${postStyle.bold ? "font-bold" : ""} ${postStyle.italic ? "italic" : ""}`}
-              style={{
-                color: postStyle.fontColor || (postStyle.postItColor !== null ? POST_IT_COLORS_HEX[postStyle.postItColor]?.text : "#000305"),
-                fontFamily: `'${postStyle.font}', sans-serif`,
-                textAlign: postStyle.alignment,
-              }}
+              className="w-full min-h-[72px] resize-none border-0 bg-transparent p-0 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
               rows={2}
             />
-
-            {/* ═══════ Mini Editor Toolbar ═══════ */}
-            <div className="flex flex-wrap items-center gap-1.5 py-1">
-              {/* Post-it color circles */}
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-[#0A4D5C]/40 font-medium mr-0.5">Post-it:</span>
-                {POST_IT_COLORS_HEX.map((color, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setPostStyle((s) => ({
-                      ...s,
-                      postItColor: s.postItColor === idx ? null : idx,
-                      // Do NOT auto-change fontColor when selecting post-it color!
-                    }))}
-                    className={`h-5 w-5 rounded-full border-2 transition-all hover:scale-110 ${postStyle.postItColor === idx ? "ring-2 ring-[#0A4D5C] ring-offset-1 scale-110" : ""}`}
-                    style={{ backgroundColor: color.bg, borderColor: color.border }}
-                    title={`Cor ${idx + 1}`}
-                  />
-                ))}
-              </div>
-
-              {/* Separator */}
-              <div className="w-px h-4 bg-[#0A4D5C]/10" />
-
-              {/* Font color picker - INDEPENDENT from post-it color */}
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-[#0A4D5C]/40 font-medium">Fonte:</span>
-                <div className="relative">
-                  <input
-                    type="color"
-                    value={postStyle.fontColor || "#000305"}
-                    onChange={(e) => setPostStyle((s) => ({
-                      ...s,
-                      fontColor: e.target.value === "#000305" ? null : e.target.value,
-                    }))}
-                    className="h-5 w-5 rounded-full cursor-pointer border border-[#0A4D5C]/20"
-                    title="Cor da fonte"
-                  />
-                </div>
-                {postStyle.fontColor && (
-                  <button
-                    onClick={() => setPostStyle((s) => ({ ...s, fontColor: null }))}
-                    className="text-[9px] text-[#0A4D5C]/40 hover:text-[#0A4D5C] transition-colors"
-                    title="Resetar cor da fonte"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-
-              {/* Separator */}
-              <div className="w-px h-4 bg-[#0A4D5C]/10" />
-
-              {/* Font selector */}
-              <select
-                value={postStyle.font}
-                onChange={(e) => setPostStyle((s) => ({ ...s, font: e.target.value }))}
-                className="text-[10px] rounded-full border border-[#0A4D5C]/15 bg-[#f7f9fa] px-1.5 py-0.5 text-[#0A4D5C] focus:outline-none focus:border-[#2EC4B6]"
-                style={{ fontFamily: `'${postStyle.font}', sans-serif` }}
-              >
-                {EDITOR_FONTS.map((f) => (
-                  <option key={f} value={f} style={{ fontFamily: `'${f}', sans-serif` }}>{f}</option>
-                ))}
-              </select>
-
-              {/* Bold */}
-              <button
-                onClick={() => setPostStyle((s) => ({ ...s, bold: !s.bold }))}
-                className={`h-5 w-5 flex items-center justify-center rounded-full text-[10px] font-bold transition-colors ${postStyle.bold ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/5 text-[#0A4D5C]/60 hover:bg-[#0A4D5C]/10"}`}
-                title="Negrito"
-              >
-                B
-              </button>
-
-              {/* Italic */}
-              <button
-                onClick={() => setPostStyle((s) => ({ ...s, italic: !s.italic }))}
-                className={`h-5 w-5 flex items-center justify-center rounded-full text-[10px] italic transition-colors ${postStyle.italic ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/5 text-[#0A4D5C]/60 hover:bg-[#0A4D5C]/10"}`}
-                title="Itálico"
-              >
-                I
-              </button>
-
-              {/* Alignment */}
-              <div className="flex items-center gap-0.5">
-                {(["left", "center", "right"] as const).map((align) => (
-                  <button
-                    key={align}
-                    onClick={() => setPostStyle((s) => ({ ...s, alignment: align }))}
-                    className={`h-5 w-5 flex items-center justify-center rounded-full text-[9px] transition-colors ${postStyle.alignment === align ? "bg-[#0A4D5C] text-[#f7f9fa]" : "bg-[#0A4D5C]/5 text-[#0A4D5C]/60 hover:bg-[#0A4D5C]/10"}`}
-                    title={align === "left" ? "Esquerda" : align === "center" ? "Centro" : "Direita"}
-                  >
-                    {align === "left" ? "◀" : align === "center" ? "◆" : "▶"}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             {/* Photo previews */}
             {hasPhotosInComposer && previewUrls.length > 0 && (
