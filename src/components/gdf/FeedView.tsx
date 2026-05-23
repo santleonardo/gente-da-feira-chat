@@ -1168,10 +1168,23 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       <style>{`
         .post-content h1 { font-size: 1.25rem; font-weight: 700; line-height: 1.3; margin: 0.35em 0 0.1em; }
         .post-content h2 { font-size: 1.1rem; font-weight: 700; line-height: 1.3; margin: 0.25em 0 0.1em; }
+        .post-content h3 { font-size: 1rem; font-weight: 700; line-height: 1.3; margin: 0.2em 0 0.1em; }
+        .post-content h4 { font-size: 0.95rem; font-weight: 600; line-height: 1.3; }
         .post-content b, .post-content strong { font-weight: 700; }
         .post-content i, .post-content em { font-style: italic; }
+        .post-content u { text-decoration: underline; }
+        .post-content s, .post-content strike { text-decoration: line-through; }
         .post-content a { color: #0A4D5C; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: #0A4D5C66; }
         .post-content a:hover { color: #2EC4B6; }
+        .post-content ul { list-style: disc; padding-left: 1.5em; margin: 0.3em 0; }
+        .post-content ol { list-style: decimal; padding-left: 1.5em; margin: 0.3em 0; }
+        .post-content li { margin: 0.1em 0; }
+        .post-content blockquote { border-left: 3px solid #0A4D5C; padding-left: 0.75em; margin: 0.3em 0; color: #000305/70; font-style: italic; }
+        .post-content pre { background: #f3f4f6; border-radius: 8px; padding: 0.5em 0.75em; margin: 0.3em 0; overflow-x: auto; font-size: 0.85em; }
+        .post-content code { background: #f3f4f6; border-radius: 4px; padding: 0.1em 0.3em; font-size: 0.9em; }
+        .post-content font { /* preserve font face/color/size from WYSIWYG */ }
+        .post-content div { margin: 0; }
+        .post-content hr { border: none; border-top: 1px solid #0A4D5C/15; margin: 0.5em 0; }
       `}</style>
       {/* ═══════ COMPOSER ═══════ */}
       <div className="relative z-10 rounded-3xl bg-[#eef1f3] p-5 shadow-lg border border-[#0A4D5C]/8">
