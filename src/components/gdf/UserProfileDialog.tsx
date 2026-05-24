@@ -11,7 +11,7 @@ import { UserAvatar } from "./UserAvatar";
 import { timeAgo } from "@/lib/constants";
 import { renderContentWithLinks } from "@/lib/link-utils";
 import { toast } from "sonner";
-import { sanitizeHTMLSync } from "@/lib/sanitize";
+import { sanitizeHTMLSync, sanitizeHTMLAsync } from "@/lib/sanitize";
 
 // ═══════════════════════════════════════════════════════════
 // Post-it colors (Tailwind classes)
@@ -272,6 +272,14 @@ function isHTMLContent(content: string): boolean {
   return /<\/?[a-z][\s\S]*>/i.test(content);
 }
 
+function useDOMPurify() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    sanitizeHTMLAsync("").then(() => setReady(true));
+  }, []);
+  return ready;
+}
+
 function sanitizeHTML(html: string): string {
   return sanitizeHTMLSync(html);
 }
@@ -378,6 +386,8 @@ interface UserProfileDialogProps {
 
 export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDialogProps) {
   const { profile } = useStore();
+  // Inicializa DOMPurify para que sanitizeHTMLSync funcione corretamente
+  useDOMPurify();
   const [userData, setUserData] = useState<any>(null);
   const [followData, setFollowData] = useState<{
     followingCount: number;

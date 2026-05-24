@@ -593,6 +593,8 @@ function FeedSkeleton() {
 // ═══════════════════════════════════════════════════════════
 export function FeedView({ openUserProfile }: { openUserProfile?: (userId: string) => void }) {
   const { profile } = useStore();
+  // Inicializa DOMPurify para que sanitizeHTMLSync funcione corretamente
+  useDOMPurify();
   const navigateToProfile = (uid: string) => {
     if (openUserProfile) openUserProfile(uid);
     else window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
