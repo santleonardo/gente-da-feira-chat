@@ -332,9 +332,9 @@ function VideoPlayer({ src, fullWidth }: { src: string; fullWidth?: boolean }) {
   };
 
   const wrapClass = fullWidth
-    ? "relative overflow-hidden rounded-2xl bg-[#000305] group"
+    ? "relative overflow-hidden rounded-2xl bg-[#000305] group max-w-full"
     : "mt-2.5 relative rounded-3xl overflow-hidden bg-[#000305] shadow-lg group";
-  const videoMaxH = fullWidth ? "max-h-[28rem] sm:max-h-[32rem]" : "max-h-[28rem]";
+  const videoMaxH = fullWidth ? "max-h-[24rem] sm:max-h-[28rem]" : "max-h-[28rem]";
 
   return (
     <div className={wrapClass}>
@@ -429,12 +429,12 @@ function PhotoGrid({ photos, onPhotoClick, fullWidth }: { photos: string[]; onPh
 
   // Classes comuns para o wrapper do grid/botão
   const wrapBase = fullWidth
-    ? "w-full overflow-hidden rounded-2xl"
+    ? "w-full max-w-full overflow-hidden rounded-2xl"
     : "mt-2.5 w-full overflow-hidden rounded-3xl shadow-lg";
   // Altura das imagens no grid
-  const gridImgH = fullWidth ? "h-52 sm:h-64" : "h-56";
+  const gridImgH = fullWidth ? "h-44 sm:h-56" : "h-56";
   // Max-height da foto única
-  const singleMaxH = fullWidth ? "max-h-[28rem] sm:max-h-[32rem]" : "max-h-[28rem]";
+  const singleMaxH = fullWidth ? "max-h-[24rem] sm:max-h-[28rem]" : "max-h-[28rem]";
 
   if (count === 1) {
     return (
@@ -1187,7 +1187,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   if (loading) return <FeedSkeleton />;
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-0 overflow-x-hidden">
       {/* Styles for HTML post content */}
       <style>{`
         .post-content h1 { font-size: 1.25rem; font-weight: 700; line-height: 1.3; margin: 0.35em 0 0.1em; }
@@ -1443,7 +1443,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       )}
 
       {/* Masonry 2-column grid */}
-      <div className="columns-1 sm:columns-2 gap-3.5 mt-4">
+      <div className="columns-1 sm:columns-2 gap-3.5 mt-4 [overflow-x:hidden]">
         {posts.map((post) => (
           <div key={post.id} className="break-inside-avoid mb-3.5">
             <PostThread
@@ -1675,7 +1675,7 @@ function PostThread({
 
   return (
     <div
-      className={`rounded-2xl ${cardBg} shadow-md ${shareMenuOpen === post.id ? "overflow-visible" : "overflow-hidden"} transition-shadow hover:shadow-lg cursor-pointer ${isOwnPost ? "border-l-3 border-l-[#f7f75e]" : ""} ${isTextOnly && isRichPost && !useInlineStyle && postItColor ? `border ${postItColor.border}` : ""} ${!useInlineStyle ? "border border-[#0A4D5C]/8" : ""}`}
+      className={`rounded-2xl ${cardBg} shadow-md overflow-x-hidden ${shareMenuOpen === post.id ? "overflow-y-visible" : "overflow-hidden"} transition-shadow hover:shadow-lg cursor-pointer ${isOwnPost ? "border-l-3 border-l-[#f7f75e]" : ""} ${isTextOnly && isRichPost && !useInlineStyle && postItColor ? `border ${postItColor.border}` : ""} ${!useInlineStyle ? "border border-[#0A4D5C]/8" : ""}`}
       style={useInlineStyle && postItColorHex ? { backgroundColor: postItColorHex.bg, border: `1px solid ${postItColorHex.border}` } : undefined}
       onClick={handleOpenPostDetail}
     >
@@ -1772,7 +1772,7 @@ function PostThread({
 
       {/* ═══════ Media (photos/video) — wide with rounded corners ═══════ */}
       {hasVisualMedia && (
-        <div className="mx-2 sm:mx-3">
+        <div className="px-2 sm:px-3">
           {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} fullWidth />}
           {hasVideo && <VideoPlayer src={post.video_url!} fullWidth />}
         </div>
