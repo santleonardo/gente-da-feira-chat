@@ -332,9 +332,9 @@ function VideoPlayer({ src, fullWidth }: { src: string; fullWidth?: boolean }) {
   };
 
   const wrapClass = fullWidth
-    ? "relative overflow-hidden bg-[#000305] group"
+    ? "relative overflow-hidden rounded-2xl bg-[#000305] group"
     : "mt-2.5 relative rounded-3xl overflow-hidden bg-[#000305] shadow-lg group";
-  const videoMaxH = fullWidth ? "max-h-[36rem]" : "max-h-[28rem]";
+  const videoMaxH = fullWidth ? "max-h-[28rem] sm:max-h-[32rem]" : "max-h-[28rem]";
 
   return (
     <div className={wrapClass}>
@@ -429,12 +429,12 @@ function PhotoGrid({ photos, onPhotoClick, fullWidth }: { photos: string[]; onPh
 
   // Classes comuns para o wrapper do grid/botão
   const wrapBase = fullWidth
-    ? "w-full"
+    ? "w-full overflow-hidden rounded-2xl"
     : "mt-2.5 w-full overflow-hidden rounded-3xl shadow-lg";
   // Altura das imagens no grid
-  const gridImgH = fullWidth ? "h-64 sm:h-72" : "h-56";
+  const gridImgH = fullWidth ? "h-52 sm:h-64" : "h-56";
   // Max-height da foto única
-  const singleMaxH = fullWidth ? "max-h-[36rem]" : "max-h-[28rem]";
+  const singleMaxH = fullWidth ? "max-h-[28rem] sm:max-h-[32rem]" : "max-h-[28rem]";
 
   if (count === 1) {
     return (
@@ -1770,9 +1770,9 @@ function PostThread({
         </div>
       </div>
 
-      {/* ═══════ Full-width Media (photos/video) ═══════ */}
+      {/* ═══════ Media (photos/video) — wide with rounded corners ═══════ */}
       {hasVisualMedia && (
-        <div className="w-full">
+        <div className="mx-2 sm:mx-3">
           {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} fullWidth />}
           {hasVideo && <VideoPlayer src={post.video_url!} fullWidth />}
         </div>
