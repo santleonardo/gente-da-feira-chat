@@ -302,7 +302,6 @@ interface PostWithAuthor {
   visibility?: "public" | "followers";
   shared_post_id?: string | null;
   shared_post?: PostWithAuthor | null;
-  post_type?: "simple" | "rich" | null;
   post_style?: {
     font?: string | null;
     bold?: boolean;
@@ -318,7 +317,7 @@ interface PostWithAuthor {
 // ═══════════════════════════════════════════════════════════
 // VideoPlayer
 // ═══════════════════════════════════════════════════════════
-function VideoPlayer({ src, fullWidth }: { src: string; fullWidth?: boolean }) {
+function VideoPlayer({ src }: { src: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -331,17 +330,12 @@ function VideoPlayer({ src, fullWidth }: { src: string; fullWidth?: boolean }) {
     setPlaying(!playing);
   };
 
-  const wrapClass = fullWidth
-    ? "relative overflow-hidden rounded-2xl bg-[#000305] group max-w-full"
-    : "mt-2.5 relative rounded-3xl overflow-hidden bg-[#000305] shadow-lg group";
-  const videoMaxH = fullWidth ? "max-h-[24rem] sm:max-h-[28rem]" : "max-h-[28rem]";
-
   return (
-    <div className={wrapClass}>
+    <div className="mt-2.5 relative rounded-3xl overflow-hidden bg-[#000305] shadow-lg group">
       <video
         ref={videoRef}
         src={src}
-        className={`w-full ${videoMaxH} object-contain`}
+        className="w-full max-h-96 object-contain"
         playsInline
         preload="metadata"
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
@@ -423,68 +417,53 @@ function AudioPlayer({ src }: { src: string }) {
 // ═══════════════════════════════════════════════════════════
 // PhotoGrid
 // ═══════════════════════════════════════════════════════════
-function PhotoGrid({ photos, onPhotoClick, fullWidth }: { photos: string[]; onPhotoClick?: (index: number) => void; fullWidth?: boolean }) {
+function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: (index: number) => void }) {
   const count = photos.length;
   if (count === 0) return null;
 
-  // Classes comuns para o wrapper do grid/botão
-  const wrapBase = fullWidth
-    ? "w-full max-w-full overflow-hidden rounded-2xl"
-    : "mt-2.5 w-full overflow-hidden rounded-3xl shadow-lg";
-  // Altura das imagens no grid
-  const gridImgH = fullWidth ? "h-44 sm:h-56" : "h-56";
-  // Max-height da foto única
-  const singleMaxH = fullWidth ? "max-h-[24rem] sm:max-h-[28rem]" : "max-h-[28rem]";
-
   if (count === 1) {
     return (
-      <button onClick={() => onPhotoClick?.(0)} className={wrapBase}>
-        <img src={photos[0]} alt="Foto do post" className={`w-full ${singleMaxH} object-cover hover:opacity-95 transition-opacity`} loading="lazy" />
+      <button onClick={() => onPhotoClick?.(0)} className="mt-2.5 w-full overflow-hidden rounded-3xl shadow-lg">
+        <img src={photos[0]} alt="Foto do post" className="w-full max-h-80 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
       </button>
     );
   }
   if (count === 2) {
     return (
-      <div className={wrapBase}>
-        <div className="grid grid-cols-2 gap-0.5">
-          {photos.map((url, i) => (
-            <button key={i} onClick={() => onPhotoClick?.(i)} className="overflow-hidden">
-              <img src={url} alt={`Foto ${i + 1}`} className={`w-full ${gridImgH} object-cover hover:opacity-95 transition-opacity`} loading="lazy" />
-            </button>
-          ))}
-        </div>
+      <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
+        {photos.map((url, i) => (
+          <button key={i} onClick={() => onPhotoClick?.(i)} className="overflow-hidden">
+            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          </button>
+        ))}
       </div>
     );
   }
   if (count === 3) {
     return (
-      <div className={wrapBase}>
-        <div className="grid grid-cols-2 gap-0.5">
-          <button onClick={() => onPhotoClick?.(0)} className="row-span-2 overflow-hidden">
-            <img src={photos[0]} alt="Foto 1" className={`w-full h-full object-cover hover:opacity-95 transition-opacity`} loading="lazy" />
-          </button>
-          <button onClick={() => onPhotoClick?.(1)} className="overflow-hidden">
-            <img src={photos[1]} alt="Foto 2" className={`w-full ${gridImgH} object-cover hover:opacity-95 transition-opacity`} loading="lazy" />
-          </button>
-          <button onClick={() => onPhotoClick?.(2)} className="overflow-hidden">
-            <img src={photos[2]} alt="Foto 3" className={`w-full ${gridImgH} object-cover hover:opacity-95 transition-opacity`} loading="lazy" />
-          </button>
-        </div>
+      <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
+        <button onClick={() => onPhotoClick?.(0)} className="row-span-2 overflow-hidden">
+          <img src={photos[0]} alt="Foto 1" className="w-full h-full object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+        </button>
+        <button onClick={() => onPhotoClick?.(1)} className="overflow-hidden">
+          <img src={photos[1]} alt="Foto 2" className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+        </button>
+        <button onClick={() => onPhotoClick?.(2)} className="overflow-hidden">
+          <img src={photos[2]} alt="Foto 3" className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+        </button>
       </div>
     );
   }
   return (
-    <div className={wrapBase}>
-      <div className="grid grid-cols-2 gap-0.5">
-        {photos.slice(0, 4).map((url, i) => (
-          <button key={i} onClick={() => onPhotoClick?.(i)} className="relative overflow-hidden">
-            <img src={url} alt={`Foto ${i + 1}`} className={`w-full ${gridImgH} object-cover hover:opacity-95 transition-opacity`} loading="lazy" />
-            {i === 3 && count > 4 && (
-              <div className="absolute inset-0 flex items-center justify-center bg-[#000305]/50 text-[#f7f9fa] font-bold text-lg">+{count - 4}</div>
-            )}
-          </button>
-        ))}
-      </div>
+    <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
+      {photos.slice(0, 4).map((url, i) => (
+        <button key={i} onClick={() => onPhotoClick?.(i)} className="relative overflow-hidden">
+          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          {i === 3 && count > 4 && (
+            <div className="absolute inset-0 flex items-center justify-center bg-[#000305]/50 text-[#f7f9fa] font-bold text-lg">+{count - 4}</div>
+          )}
+        </button>
+      ))}
     </div>
   );
 }
@@ -612,8 +591,6 @@ function FeedSkeleton() {
 // ═══════════════════════════════════════════════════════════
 export function FeedView({ openUserProfile }: { openUserProfile?: (userId: string) => void }) {
   const { profile } = useStore();
-  // Inicializa DOMPurify para que sanitizeHTMLSync funcione corretamente
-  useDOMPurify();
   const navigateToProfile = (uid: string) => {
     if (openUserProfile) openUserProfile(uid);
     else window.dispatchEvent(new CustomEvent("openUserProfile", { detail: { userId: uid } }));
@@ -1009,15 +986,19 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     const urls: string[] = [];
     for (const file of selectedFiles) {
       try {
-        const compressed = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.55, maxSizeKB: 150 });
+        const compressed = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.55, maxSizeKB: 300 });
         const formData = new FormData();
-        formData.append("file", compressed, "photo.webp");
+        const isJpeg = compressed.type === "image/jpeg";
+        const fileName = isJpeg ? "photo.jpg" : "photo.webp";
+        formData.append("file", compressed, fileName);
         formData.append("folder", "posts");
         const res = await fetch("/api/upload", { method: "POST", body: formData });
         const data = await res.json();
         if (data.url) urls.push(data.url);
         else toast.error(data.error || "Erro ao enviar foto");
-      } catch { toast.error("Erro ao processar foto"); }
+      } catch (err) {
+        console.error("Photo compression error:", err);
+        toast.error("Erro ao processar foto. Tente outra imagem."); }
     }
     return urls;
   };
@@ -1106,7 +1087,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
           audioDuration,
           videoDuration,
           visibility,
-          postType: "simple",
         }),
       });
       const data = await res.json();
@@ -1187,7 +1167,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   if (loading) return <FeedSkeleton />;
 
   return (
-    <div className="space-y-0 overflow-x-hidden">
+    <div className="space-y-0">
       {/* Styles for HTML post content */}
       <style>{`
         .post-content h1 { font-size: 1.25rem; font-weight: 700; line-height: 1.3; margin: 0.35em 0 0.1em; }
@@ -1218,7 +1198,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
             <textarea
               placeholder="O que está acontecendo no seu bairro?"
               value={content}
-              onChange={(e) => setContent(e.target.value.slice(0, 1500))}
+              onChange={(e) => setContent(e.target.value.slice(0, 500))}
               className="w-full min-h-[72px] resize-none border-0 bg-transparent p-0 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
               rows={2}
             />
@@ -1370,7 +1350,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 
                 {/* Hidden inputs */}
                 <input ref={cameraPhotoRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhotoSelect} className="hidden" />
-                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
+                <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileSelect} className="hidden" />
                 <input ref={cameraVideoRef} type="file" accept="video/*" capture="environment" onChange={handleCameraVideoSelect} className="hidden" />
                 <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
                 <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
@@ -1379,8 +1359,8 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               {/* ═══════ Publish button - ícone apenas, cor viva ═══════ */}
               <div className="flex items-center gap-2">
                 {content.trim().length > 0 && (
-                  <span className={`text-[10px] ${content.length > 1350 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>
-                    {content.length}/1500
+                  <span className={`text-[10px] ${content.length > 450 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>
+                    {content.length}/500
                   </span>
                 )}
                 <button
@@ -1443,7 +1423,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       )}
 
       {/* Masonry 2-column grid */}
-      <div className="columns-1 sm:columns-2 gap-3.5 mt-4 [overflow-x:hidden]">
+      <div className="columns-1 sm:columns-2 gap-3.5 mt-4">
         {posts.map((post) => (
           <div key={post.id} className="break-inside-avoid mb-3.5">
             <PostThread
@@ -1528,29 +1508,24 @@ function PostThread({
   const hasPhotos = post.image_urls && post.image_urls.length > 0;
   const hasVideo = !!post.video_url;
   const hasAudio = !!post.audio_url;
-  const hasVisualMedia = hasPhotos || hasVideo;
   const isOwnPost = post.author_id === profile?.id;
   const isTextOnly = !hasPhotos && !hasVideo && !hasAudio;
 
   // ═══════ Post-it color for text-only posts ═══════
-  // Posts SIMPLES (do FeedView) → card branco com fonte preta
-  // Posts RICH (do Mini Editor) → card colorido com post_style
+  // Se o post tem post_style com cor definida, usar essa cor; senão usar hash
   const hasPostStyle = post.post_style && typeof post.post_style === "object";
-  const isRichPost = post.post_type === "rich";
-  const styleColorIdx = isRichPost && hasPostStyle && post.post_style!.postItColor != null ? post.post_style!.postItColor : -1;
-  const postItColor = isTextOnly && isRichPost ? (styleColorIdx >= 0 && styleColorIdx < POST_IT_COLORS.length ? POST_IT_COLORS[styleColorIdx] : getPostItColor(post.id)) : null;
-  const postItColorHex = isTextOnly && isRichPost ? (styleColorIdx >= 0 && styleColorIdx < POST_IT_COLORS_HEX.length ? POST_IT_COLORS_HEX[styleColorIdx] : null) : null;
+  const styleColorIdx = hasPostStyle && post.post_style!.postItColor != null ? post.post_style!.postItColor : -1;
+  const postItColor = isTextOnly ? (styleColorIdx >= 0 && styleColorIdx < POST_IT_COLORS.length ? POST_IT_COLORS[styleColorIdx] : getPostItColor(post.id)) : null;
+  const postItColorHex = isTextOnly ? (styleColorIdx >= 0 && styleColorIdx < POST_IT_COLORS_HEX.length ? POST_IT_COLORS_HEX[styleColorIdx] : null) : null;
 
   // Determine card background based on post type
-  // Posts simples do FeedView → sempre branco; Posts rich do Mini Editor → colorido
-  const useInlineStyle = isTextOnly && isRichPost && styleColorIdx >= 0;
-  const cardBg = isTextOnly && isRichPost
+  // Se tem post_style com cor, usamos inline styles; senão Tailwind classes
+  const useInlineStyle = isTextOnly && styleColorIdx >= 0;
+  const cardBg = isTextOnly
     ? (useInlineStyle ? "" : (postItColor?.bg || "bg-[#fdf6b2]"))
-    : isTextOnly
-      ? "bg-white"  // Posts simples do FeedView → branco
-      : hasAudio
-        ? "bg-[#eef1f3]"
-        : "bg-[#eef1f3]";
+    : hasAudio
+      ? "bg-[#eef1f3]"
+      : "bg-[#eef1f3]";
   const commentsBg = isTextOnly
     ? "bg-[#000305]/[0.04]"
     : hasAudio
@@ -1675,7 +1650,7 @@ function PostThread({
 
   return (
     <div
-      className={`rounded-2xl ${cardBg} shadow-md overflow-x-hidden ${shareMenuOpen === post.id ? "overflow-y-visible" : "overflow-hidden"} transition-shadow hover:shadow-lg cursor-pointer ${isOwnPost ? "border-l-3 border-l-[#f7f75e]" : ""} ${isTextOnly && isRichPost && !useInlineStyle && postItColor ? `border ${postItColor.border}` : ""} ${!useInlineStyle ? "border border-[#0A4D5C]/8" : ""}`}
+      className={`rounded-2xl ${cardBg} shadow-md ${shareMenuOpen === post.id ? "overflow-visible" : "overflow-hidden"} transition-shadow hover:shadow-lg cursor-pointer ${isOwnPost ? "border-l-3 border-l-[#f7f75e]" : ""} ${isTextOnly && !useInlineStyle && postItColor ? `border ${postItColor.border}` : ""} ${!useInlineStyle ? "border border-[#0A4D5C]/8" : ""}`}
       style={useInlineStyle && postItColorHex ? { backgroundColor: postItColorHex.bg, border: `1px solid ${postItColorHex.border}` } : undefined}
       onClick={handleOpenPostDetail}
     >
@@ -1687,7 +1662,7 @@ function PostThread({
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <button onClick={() => post.author?.id && openUserProfile?.(post.author.id)} className={`text-sm font-semibold hover:underline underline-offset-2 transition-all ${isTextOnly && isRichPost && !(hasPostStyle && post.post_style!.fontColor) ? postItColor?.text || "text-[#000305]" : "text-[#000305]"}`} style={hasPostStyle && post.post_style!.fontColor ? { color: post.post_style!.fontColor } : undefined}>
+              <button onClick={() => post.author?.id && openUserProfile?.(post.author.id)} className={`text-sm font-semibold hover:underline underline-offset-2 transition-all ${isTextOnly && !(hasPostStyle && post.post_style!.fontColor) ? postItColor?.text || "text-[#000305]" : "text-[#000305]"}`} style={hasPostStyle && post.post_style!.fontColor ? { color: post.post_style!.fontColor } : undefined}>
                 {post.author?.display_name || "Usuário"}
               </button>
 
@@ -1701,13 +1676,12 @@ function PostThread({
                   Seu post
                 </span>
               )}
-
-              <span className={`text-[10px] ${isTextOnly && isRichPost ? "text-[#000305]/20" : "text-[#0A4D5C]/25"}`}>·</span>
-              <span className={`text-[10px] ${isTextOnly && isRichPost ? "text-[#000305]/40" : "text-[#0A4D5C]/40"}`}>{timeAgo(post.created_at)}</span>
+              <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/20" : "text-[#0A4D5C]/25"}`}>·</span>
+              <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/40" : "text-[#0A4D5C]/40"}`}>{timeAgo(post.created_at)}</span>
             </div>
 
             {/* Content */}
-            {isTextOnly && isRichPost ? (
+            {isTextOnly ? (
               <FormattedText
                 className={`mt-1.5 text-base sm:text-lg leading-snug whitespace-pre-wrap ${useInlineStyle || (hasPostStyle && post.post_style!.fontColor) ? "" : (postItColor?.text || "text-[#000305]")}`}
                 content={post.content}
@@ -1719,12 +1693,6 @@ function PostThread({
                   textAlign: hasPostStyle && post.post_style!.alignment ? post.post_style!.alignment : undefined,
                   color: hasPostStyle && post.post_style!.fontColor ? post.post_style!.fontColor : (useInlineStyle && postItColorHex ? postItColorHex.text : undefined),
                 }}
-              />
-            ) : isTextOnly ? (
-              <FormattedText
-                className="mt-1.5 text-base sm:text-lg leading-snug whitespace-pre-wrap text-[#000305]"
-                content={post.content}
-                openUserProfile={openUserProfile}
               />
             ) : (
               <FormattedText
@@ -1766,23 +1734,12 @@ function PostThread({
               </div>
             )}
 
-          </div>
-        </div>
-      </div>
+            {/* Media */}
+            {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} />}
+            {hasVideo && <VideoPlayer src={post.video_url!} />}
+            {hasAudio && <AudioPlayer src={post.audio_url!} />}
 
-      {/* ═══════ Media (photos/video) — wide with rounded corners ═══════ */}
-      {hasVisualMedia && (
-        <div className="px-2 sm:px-3">
-          {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} fullWidth />}
-          {hasVideo && <VideoPlayer src={post.video_url!} fullWidth />}
-        </div>
-      )}
-
-      {/* ═══════ Bottom: Audio + Expiration + Actions + Comments ═══════ */}
-      <div className={`px-3 sm:px-4 ${hasVisualMedia ? 'pt-2' : 'pt-0'} pb-3 sm:pb-4`}>
-        {hasAudio && <AudioPlayer src={post.audio_url!} />}
-
-        {/* Expiration */}
+            {/* Expiration */}
             {post.expires_at && expirationLabel && (
               <div className="mt-2.5 flex items-center gap-1.5 text-[10px] font-semibold text-[#000305] bg-[#f7f75e] rounded-full px-2.5 py-1 w-fit">
                 <Clock className="h-3 w-3" />
@@ -1928,6 +1885,8 @@ function PostThread({
                 </div>
               </div>
             )}
+          </div>
+        </div>
       </div>
     </div>
   );
