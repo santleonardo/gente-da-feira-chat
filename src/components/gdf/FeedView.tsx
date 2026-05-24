@@ -34,7 +34,6 @@ import {
   Plus,
   Square,
   Music,
-  PenSquare,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -337,7 +336,7 @@ function VideoPlayer({ src }: { src: string }) {
       <video
         ref={videoRef}
         src={src}
-        className="w-full max-h-96 object-contain"
+        className="w-full max-h-[28rem] object-contain"
         playsInline
         preload="metadata"
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
@@ -426,7 +425,7 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
   if (count === 1) {
     return (
       <button onClick={() => onPhotoClick?.(0)} className="mt-2.5 w-full overflow-hidden rounded-3xl shadow-lg">
-        <img src={photos[0]} alt="Foto do post" className="w-full max-h-80 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+        <img src={photos[0]} alt="Foto do post" className="w-full max-h-[28rem] object-cover hover:opacity-95 transition-opacity" loading="lazy" />
       </button>
     );
   }
@@ -435,7 +434,7 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
       <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
         {photos.map((url, i) => (
           <button key={i} onClick={() => onPhotoClick?.(i)} className="overflow-hidden">
-            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           </button>
         ))}
       </div>
@@ -448,10 +447,10 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
           <img src={photos[0]} alt="Foto 1" className="w-full h-full object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(1)} className="overflow-hidden">
-          <img src={photos[1]} alt="Foto 2" className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[1]} alt="Foto 2" className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(2)} className="overflow-hidden">
-          <img src={photos[2]} alt="Foto 3" className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[2]} alt="Foto 3" className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
       </div>
     );
@@ -460,7 +459,7 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
     <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
       {photos.slice(0, 4).map((url, i) => (
         <button key={i} onClick={() => onPhotoClick?.(i)} className="relative overflow-hidden">
-          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           {i === 3 && count > 4 && (
             <div className="absolute inset-0 flex items-center justify-center bg-[#000305]/50 text-[#f7f9fa] font-bold text-lg">+{count - 4}</div>
           )}
@@ -1681,11 +1680,7 @@ function PostThread({
                   Seu post
                 </span>
               )}
-              {post.post_type === "rich" && (
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-[#0A4D5C]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#0A4D5C]/60">
-                  <PenSquare className="h-2.5 w-2.5" />Editor
-                </span>
-              )}
+
               <span className={`text-[10px] ${isTextOnly && isRichPost ? "text-[#000305]/20" : "text-[#0A4D5C]/25"}`}>·</span>
               <span className={`text-[10px] ${isTextOnly && isRichPost ? "text-[#000305]/40" : "text-[#0A4D5C]/40"}`}>{timeAgo(post.created_at)}</span>
             </div>
