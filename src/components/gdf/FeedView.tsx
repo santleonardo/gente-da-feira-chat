@@ -34,6 +34,7 @@ import {
   Plus,
   Square,
   Music,
+  PenSquare,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -302,6 +303,7 @@ interface PostWithAuthor {
   visibility?: "public" | "followers";
   shared_post_id?: string | null;
   shared_post?: PostWithAuthor | null;
+  post_type?: "simple" | "rich" | null;
   post_style?: {
     font?: string | null;
     bold?: boolean;
@@ -1083,6 +1085,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
           audioDuration,
           videoDuration,
           visibility,
+          postType: "simple",
         }),
       });
       const data = await res.json();
@@ -1194,7 +1197,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
             <textarea
               placeholder="O que está acontecendo no seu bairro?"
               value={content}
-              onChange={(e) => setContent(e.target.value.slice(0, 500))}
+              onChange={(e) => setContent(e.target.value.slice(0, 1500))}
               className="w-full min-h-[72px] resize-none border-0 bg-transparent p-0 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
               rows={2}
             />
@@ -1355,8 +1358,8 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               {/* ═══════ Publish button - ícone apenas, cor viva ═══════ */}
               <div className="flex items-center gap-2">
                 {content.trim().length > 0 && (
-                  <span className={`text-[10px] ${content.length > 450 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>
-                    {content.length}/500
+                  <span className={`text-[10px] ${content.length > 1350 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>
+                    {content.length}/1500
                   </span>
                 )}
                 <button
@@ -1670,6 +1673,11 @@ function PostThread({
               {isOwnPost && (
                 <span className="inline-flex items-center rounded-full bg-[#f7f75e]/30 px-2 py-0.5 text-[10px] font-medium text-[#0A4D5C]">
                   Seu post
+                </span>
+              )}
+              {post.post_type === "rich" && (
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-[#0A4D5C]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#0A4D5C]/60">
+                  <PenSquare className="h-2.5 w-2.5" />Editor
                 </span>
               )}
               <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/20" : "text-[#0A4D5C]/25"}`}>·</span>
