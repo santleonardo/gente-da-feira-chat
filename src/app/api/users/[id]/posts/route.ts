@@ -49,6 +49,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         visibility,
         expires_at,
         shared_post_id,
+        post_type,
+        post_style,
         reactions(user_id, type),
         shared_post:posts!shared_post_id(id, content, image_urls, created_at, author:profiles(id, display_name, username, avatar_url, neighborhood))
       `)
