@@ -318,7 +318,7 @@ interface PostWithAuthor {
 // ═══════════════════════════════════════════════════════════
 // VideoPlayer
 // ═══════════════════════════════════════════════════════════
-function VideoPlayer({ src }: { src: string }) {
+function VideoPlayer({ src, fullWidth }: { src: string; fullWidth?: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -331,12 +331,17 @@ function VideoPlayer({ src }: { src: string }) {
     setPlaying(!playing);
   };
 
+  const wrapClass = fullWidth
+    ? "relative overflow-hidden bg-[#000305] group"
+    : "mt-2.5 relative rounded-3xl overflow-hidden bg-[#000305] shadow-lg group";
+  const videoMaxH = fullWidth ? "max-h-[36rem]" : "max-h-[28rem]";
+
   return (
-    <div className="mt-2.5 relative rounded-3xl overflow-hidden bg-[#000305] shadow-lg group">
+    <div className={wrapClass}>
       <video
         ref={videoRef}
         src={src}
-        className="w-full max-h-[28rem] object-contain"
+        className={`w-full ${videoMaxH} object-contain`}
         playsInline
         preload="metadata"
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
@@ -418,53 +423,68 @@ function AudioPlayer({ src }: { src: string }) {
 // ═══════════════════════════════════════════════════════════
 // PhotoGrid
 // ═══════════════════════════════════════════════════════════
-function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: (index: number) => void }) {
+function PhotoGrid({ photos, onPhotoClick, fullWidth }: { photos: string[]; onPhotoClick?: (index: number) => void; fullWidth?: boolean }) {
   const count = photos.length;
   if (count === 0) return null;
 
+  // Classes comuns para o wrapper do grid/botão
+  const wrapBase = fullWidth
+    ? "w-full"
+    : "mt-2.5 w-full overflow-hidden rounded-3xl shadow-lg";
+  // Altura das imagens no grid
+  const gridImgH = fullWidth ? "h-64 sm:h-72" : "h-56";
+  // Max-height da foto única
+  const singleMaxH = fullWidth ? "max-h-[36rem]" : "max-h-[28rem]";
+
   if (count === 1) {
     return (
-      <button onClick={() => onPhotoClick?.(0)} className="mt-2.5 w-full overflow-hidden rounded-3xl shadow-lg">
-        <img src={photos[0]} alt="Foto do post" className="w-full max-h-[28rem] object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+      <button onClick={() => onPhotoClick?.(0)} className={wrapBase}>
+        <img src={photos[0]} alt="Foto do post" className={`w-full ${singleMaxH} object-cover hover:opacity-95 transition-opacity`} loading="lazy" />
       </button>
     );
   }
   if (count === 2) {
     return (
-      <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
-        {photos.map((url, i) => (
-          <button key={i} onClick={() => onPhotoClick?.(i)} className="overflow-hidden">
-            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
-          </button>
-        ))}
+      <div className={wrapBase}>
+        <div className="grid grid-cols-2 gap-0.5">
+          {photos.map((url, i) => (
+            <button key={i} onClick={() => onPhotoClick?.(i)} className="overflow-hidden">
+              <img src={url} alt={`Foto ${i + 1}`} className={`w-full ${gridImgH} object-cover hover:opacity-95 transition-opacity`} loading="lazy" />
+            </button>
+          ))}
+        </div>
       </div>
     );
   }
   if (count === 3) {
     return (
-      <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
-        <button onClick={() => onPhotoClick?.(0)} className="row-span-2 overflow-hidden">
-          <img src={photos[0]} alt="Foto 1" className="w-full h-full object-cover hover:opacity-95 transition-opacity" loading="lazy" />
-        </button>
-        <button onClick={() => onPhotoClick?.(1)} className="overflow-hidden">
-          <img src={photos[1]} alt="Foto 2" className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
-        </button>
-        <button onClick={() => onPhotoClick?.(2)} className="overflow-hidden">
-          <img src={photos[2]} alt="Foto 3" className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
-        </button>
+      <div className={wrapBase}>
+        <div className="grid grid-cols-2 gap-0.5">
+          <button onClick={() => onPhotoClick?.(0)} className="row-span-2 overflow-hidden">
+            <img src={photos[0]} alt="Foto 1" className={`w-full h-full object-cover hover:opacity-95 transition-opacity`} loading="lazy" />
+          </button>
+          <button onClick={() => onPhotoClick?.(1)} className="overflow-hidden">
+            <img src={photos[1]} alt="Foto 2" className={`w-full ${gridImgH} object-cover hover:opacity-95 transition-opacity`} loading="lazy" />
+          </button>
+          <button onClick={() => onPhotoClick?.(2)} className="overflow-hidden">
+            <img src={photos[2]} alt="Foto 3" className={`w-full ${gridImgH} object-cover hover:opacity-95 transition-opacity`} loading="lazy" />
+          </button>
+        </div>
       </div>
     );
   }
   return (
-    <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
-      {photos.slice(0, 4).map((url, i) => (
-        <button key={i} onClick={() => onPhotoClick?.(i)} className="relative overflow-hidden">
-          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
-          {i === 3 && count > 4 && (
-            <div className="absolute inset-0 flex items-center justify-center bg-[#000305]/50 text-[#f7f9fa] font-bold text-lg">+{count - 4}</div>
-          )}
-        </button>
-      ))}
+    <div className={wrapBase}>
+      <div className="grid grid-cols-2 gap-0.5">
+        {photos.slice(0, 4).map((url, i) => (
+          <button key={i} onClick={() => onPhotoClick?.(i)} className="relative overflow-hidden">
+            <img src={url} alt={`Foto ${i + 1}`} className={`w-full ${gridImgH} object-cover hover:opacity-95 transition-opacity`} loading="lazy" />
+            {i === 3 && count > 4 && (
+              <div className="absolute inset-0 flex items-center justify-center bg-[#000305]/50 text-[#f7f9fa] font-bold text-lg">+{count - 4}</div>
+            )}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1508,6 +1528,7 @@ function PostThread({
   const hasPhotos = post.image_urls && post.image_urls.length > 0;
   const hasVideo = !!post.video_url;
   const hasAudio = !!post.audio_url;
+  const hasVisualMedia = hasPhotos || hasVideo;
   const isOwnPost = post.author_id === profile?.id;
   const isTextOnly = !hasPhotos && !hasVideo && !hasAudio;
 
@@ -1745,12 +1766,23 @@ function PostThread({
               </div>
             )}
 
-            {/* Media */}
-            {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} />}
-            {hasVideo && <VideoPlayer src={post.video_url!} />}
-            {hasAudio && <AudioPlayer src={post.audio_url!} />}
+          </div>
+        </div>
+      </div>
 
-            {/* Expiration */}
+      {/* ═══════ Full-width Media (photos/video) ═══════ */}
+      {hasVisualMedia && (
+        <div className="w-full">
+          {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} fullWidth />}
+          {hasVideo && <VideoPlayer src={post.video_url!} fullWidth />}
+        </div>
+      )}
+
+      {/* ═══════ Bottom: Audio + Expiration + Actions + Comments ═══════ */}
+      <div className={`px-3 sm:px-4 ${hasVisualMedia ? 'pt-2' : 'pt-0'} pb-3 sm:pb-4`}>
+        {hasAudio && <AudioPlayer src={post.audio_url!} />}
+
+        {/* Expiration */}
             {post.expires_at && expirationLabel && (
               <div className="mt-2.5 flex items-center gap-1.5 text-[10px] font-semibold text-[#000305] bg-[#f7f75e] rounded-full px-2.5 py-1 w-fit">
                 <Clock className="h-3 w-3" />
@@ -1896,8 +1928,6 @@ function PostThread({
                 </div>
               </div>
             )}
-          </div>
-        </div>
       </div>
     </div>
   );
