@@ -1513,20 +1513,24 @@ function PostThread({
   const isTextOnly = !hasPhotos && !hasVideo && !hasAudio;
 
   // ═══════ Post-it color for text-only posts ═══════
-  // Se o post tem post_style com cor definida, usar essa cor; senão usar hash
+  // Posts SIMPLES (do FeedView) → card branco com fonte preta
+  // Posts RICH (do Mini Editor) → card colorido com post_style
   const hasPostStyle = post.post_style && typeof post.post_style === "object";
-  const styleColorIdx = hasPostStyle && post.post_style!.postItColor != null ? post.post_style!.postItColor : -1;
-  const postItColor = isTextOnly ? (styleColorIdx >= 0 && styleColorIdx < POST_IT_COLORS.length ? POST_IT_COLORS[styleColorIdx] : getPostItColor(post.id)) : null;
-  const postItColorHex = isTextOnly ? (styleColorIdx >= 0 && styleColorIdx < POST_IT_COLORS_HEX.length ? POST_IT_COLORS_HEX[styleColorIdx] : null) : null;
+  const isRichPost = post.post_type === "rich";
+  const styleColorIdx = isRichPost && hasPostStyle && post.post_style!.postItColor != null ? post.post_style!.postItColor : -1;
+  const postItColor = isTextOnly && isRichPost ? (styleColorIdx >= 0 && styleColorIdx < POST_IT_COLORS.length ? POST_IT_COLORS[styleColorIdx] : getPostItColor(post.id)) : null;
+  const postItColorHex = isTextOnly && isRichPost ? (styleColorIdx >= 0 && styleColorIdx < POST_IT_COLORS_HEX.length ? POST_IT_COLORS_HEX[styleColorIdx] : null) : null;
 
   // Determine card background based on post type
-  // Se tem post_style com cor, usamos inline styles; senão Tailwind classes
-  const useInlineStyle = isTextOnly && styleColorIdx >= 0;
-  const cardBg = isTextOnly
+  // Posts simples do FeedView → sempre branco; Posts rich do Mini Editor → colorido
+  const useInlineStyle = isTextOnly && isRichPost && styleColorIdx >= 0;
+  const cardBg = isTextOnly && isRichPost
     ? (useInlineStyle ? "" : (postItColor?.bg || "bg-[#fdf6b2]"))
-    : hasAudio
-      ? "bg-[#eef1f3]"
-      : "bg-[#eef1f3]";
+    : isTextOnly
+      ? "bg-white"  // Posts simples do FeedView → branco
+      : hasAudio
+        ? "bg-[#eef1f3]"
+        : "bg-[#eef1f3]";
   const commentsBg = isTextOnly
     ? "bg-[#000305]/[0.04]"
     : hasAudio
@@ -1651,7 +1655,7 @@ function PostThread({
 
   return (
     <div
-      className={`rounded-2xl ${cardBg} shadow-md ${shareMenuOpen === post.id ? "overflow-visible" : "overflow-hidden"} transition-shadow hover:shadow-lg cursor-pointer ${isOwnPost ? "border-l-3 border-l-[#f7f75e]" : ""} ${isTextOnly && !useInlineStyle && postItColor ? `border ${postItColor.border}` : ""} ${!useInlineStyle ? "border border-[#0A4D5C]/8" : ""}`}
+      className={`rounded-2xl ${cardBg} shadow-md ${shareMenuOpen === post.id ? "overflow-visible" : "overflow-hidden"} transition-shadow hover:shadow-lg cursor-pointer ${isOwnPost ? "border-l-3 border-l-[#f7f75e]" : ""} ${isTextOnly && isRichPost && !useInlineStyle && postItColor ? `border ${postItColor.border}` : ""} ${!useInlineStyle ? "border border-[#0A4D5C]/8" : ""}`}
       style={useInlineStyle && postItColorHex ? { backgroundColor: postItColorHex.bg, border: `1px solid ${postItColorHex.border}` } : undefined}
       onClick={handleOpenPostDetail}
     >
@@ -1663,7 +1667,7 @@ function PostThread({
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <button onClick={() => post.author?.id && openUserProfile?.(post.author.id)} className={`text-sm font-semibold hover:underline underline-offset-2 transition-all ${isTextOnly && !(hasPostStyle && post.post_style!.fontColor) ? postItColor?.text || "text-[#000305]" : "text-[#000305]"}`} style={hasPostStyle && post.post_style!.fontColor ? { color: post.post_style!.fontColor } : undefined}>
+              <button onClick={() => post.author?.id && openUserProfile?.(post.author.id)} className={`text-sm font-semibold hover:underline underline-offset-2 transition-all ${isTextOnly && isRichPost && !(hasPostStyle && post.post_style!.fontColor) ? postItColor?.text || "text-[#000305]" : "text-[#000305]"}`} style={hasPostStyle && post.post_style!.fontColor ? { color: post.post_style!.fontColor } : undefined}>
                 {post.author?.display_name || "Usuário"}
               </button>
 
@@ -1682,12 +1686,12 @@ function PostThread({
                   <PenSquare className="h-2.5 w-2.5" />Editor
                 </span>
               )}
-              <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/20" : "text-[#0A4D5C]/25"}`}>·</span>
-              <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/40" : "text-[#0A4D5C]/40"}`}>{timeAgo(post.created_at)}</span>
+              <span className={`text-[10px] ${isTextOnly && isRichPost ? "text-[#000305]/20" : "text-[#0A4D5C]/25"}`}>·</span>
+              <span className={`text-[10px] ${isTextOnly && isRichPost ? "text-[#000305]/40" : "text-[#0A4D5C]/40"}`}>{timeAgo(post.created_at)}</span>
             </div>
 
             {/* Content */}
-            {isTextOnly ? (
+            {isTextOnly && isRichPost ? (
               <FormattedText
                 className={`mt-1.5 text-base sm:text-lg leading-snug whitespace-pre-wrap ${useInlineStyle || (hasPostStyle && post.post_style!.fontColor) ? "" : (postItColor?.text || "text-[#000305]")}`}
                 content={post.content}
@@ -1699,6 +1703,12 @@ function PostThread({
                   textAlign: hasPostStyle && post.post_style!.alignment ? post.post_style!.alignment : undefined,
                   color: hasPostStyle && post.post_style!.fontColor ? post.post_style!.fontColor : (useInlineStyle && postItColorHex ? postItColorHex.text : undefined),
                 }}
+              />
+            ) : isTextOnly ? (
+              <FormattedText
+                className="mt-1.5 text-base sm:text-lg leading-snug whitespace-pre-wrap text-[#000305]"
+                content={post.content}
+                openUserProfile={openUserProfile}
               />
             ) : (
               <FormattedText
