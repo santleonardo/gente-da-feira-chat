@@ -16,7 +16,7 @@ const DEFAULT_OPTIONS: CompressionOptions = {
   maxWidth: 800,
   maxHeight: 800,
   quality: 0.55,
-  maxSizeKB: 150,
+  maxSizeKB: 300,
 };
 
 // Tipos MIME que o navegador consegue renderizar no <img>/<canvas>
