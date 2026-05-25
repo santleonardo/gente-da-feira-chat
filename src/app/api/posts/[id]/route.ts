@@ -65,10 +65,10 @@ export async function PATCH(
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    // Fetch the existing post to verify ownership
+    // Fetch the existing post to verify ownership and check for media
     const { data: existingPost, error: fetchError } = await supabase
       .from("posts")
-      .select("id, author_id")
+      .select("id, author_id, image_urls, video_url, audio_url")
       .eq("id", postId)
       .eq("is_deleted", false)
       .single();
@@ -90,17 +90,21 @@ export async function PATCH(
     const body = await req.json();
     const { content, postStyle } = body;
 
-    // Validate content
+    // Validate content — obrigatório APENAS se não houver mídia
     if (content !== undefined) {
-      if (!content || !content.trim()) {
+      const existingHasMedia =
+        (existingPost?.image_urls && existingPost.image_urls.length > 0) ||
+        !!existingPost?.video_url ||
+        !!existingPost?.audio_url;
+      if (!existingHasMedia && (!content || !content.trim())) {
         return NextResponse.json(
           { error: "Conteúdo é obrigatório" },
           { status: 400 }
         );
       }
-      if (content.trim().length > 500) {
+      if (content && content.trim().length > 1000) {
         return NextResponse.json(
-          { error: "Post muito longo (máx 500 chars)" },
+          { error: "Post muito longo (máx 1000 chars)" },
           { status: 400 }
         );
       }
@@ -152,7 +156,7 @@ export async function PATCH(
     // Build update object
     const updateData: Record<string, any> = {};
     if (content !== undefined) {
-      updateData.content = content.trim();
+      updateData.content = content?.trim() || "";
     }
     if (postStyle !== undefined) {
       updateData.post_style = validatedStyle;
