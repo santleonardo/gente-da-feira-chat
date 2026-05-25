@@ -98,9 +98,9 @@ export async function PATCH(
           { status: 400 }
         );
       }
-      if (content.trim().length > 1500) {
+      if (content.trim().length > 500) {
         return NextResponse.json(
-          { error: "Post muito longo (máx 1500 chars)" },
+          { error: "Post muito longo (máx 500 chars)" },
           { status: 400 }
         );
       }
