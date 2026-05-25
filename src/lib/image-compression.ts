@@ -1,9 +1,9 @@
-// ═══════════════════════════════════════════════════════════
-// Image compression utility — mobile-friendly
-// Suporta HEIC/HEIF (iPhone), fallback JPEG se WebP falhar,
-// e usa createObjectURL em vez de readAsDataURL para menor
-// consumo de memória em dispositivos móveis.
-// ═══════════════════════════════════════════════════════════
+// ============================================================
+// Compressão e validação de imagens — compatível com mobile
+// Suporta: HEIC/HEIF (iPhone), JPEG, PNG, WebP, GIF
+// Usa createObjectURL (menos RAM) em vez de readAsDataURL
+// Detecta suporte a WebP no browser; fallback para JPEG
+// ============================================================
 
 interface CompressionOptions {
   maxWidth?: number;
@@ -19,170 +19,194 @@ const DEFAULT_OPTIONS: CompressionOptions = {
   maxSizeKB: 300,
 };
 
-// Tipos MIME que o navegador consegue renderizar no <img>/<canvas>
-const BROWSER_RENDERABLE_TYPES = [
+// Detecta se o browser suporta codificação WebP no canvas
+let _webpSupported: boolean | null = null;
+
+async function detectWebPSupport(): Promise<boolean> {
+  if (_webpSupported !== null) return _webpSupported;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/webp", 0.5);
+    });
+    _webpSupported = blob !== null && blob.type === "image/webp";
+  } catch {
+    _webpSupported = false;
+  }
+  return _webpSupported;
+}
+
+// Tipos aceitos na validação — inclui HEIC/HEIF do iPhone
+const ALLOWED_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/gif",
-  "image/bmp",
-  "image/avif",
-  // iPhone / Safari podem reportar estes tipos:
   "image/heic",
   "image/heif",
-  "image/heic-sequence",
-  "image/heif-sequence",
-];
+]);
 
-// Verifica se o navegador suporta exportar WebP via canvas.toBlob
-let _webpSupported: boolean | null = null;
-async function checkWebPSupport(): Promise<boolean> {
-  if (_webpSupported !== null) return _webpSupported;
-  return new Promise((resolve) => {
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = 1;
-      canvas.height = 1;
-      canvas.toBlob(
-        (blob) => {
-          _webpSupported = blob !== null && blob.type === "image/webp";
-          resolve(_webpSupported);
-        },
-        "image/webp",
-        0.5
-      );
-    } catch {
-      _webpSupported = false;
-      resolve(false);
-    }
-  });
+// Extensões aceitas (fallback quando file.type está vazio, comum no Android)
+const ALLOWED_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif", "heic", "heif"]);
+
+function getExtension(filename: string): string {
+  const parts = filename.split(".");
+  if (parts.length < 2) return "";
+  return parts[parts.length - 1].toLowerCase();
 }
 
-// ═══════════════════════════════════════════════════════════
-// compressImage — comprime uma imagem para WebP (ou JPEG fallback)
-// ═══════════════════════════════════════════════════════════
+export function validateImageFile(file: File): string | null {
+  // 1) Verifica por tipo MIME
+  if (file.type) {
+    if (!ALLOWED_TYPES.has(file.type)) {
+      return "Tipo não suportado. Use JPG, PNG, WebP ou GIF.";
+    }
+  } else {
+    // 2) Fallback: verifica por extensão (Android às vezes não seta file.type)
+    const ext = getExtension(file.name);
+    if (!ext || !ALLOWED_EXTENSIONS.has(ext)) {
+      return "Tipo não suportado. Use JPG, PNG, WebP ou GIF.";
+    }
+  }
+
+  // 3) Tamanho máximo antes da compressão (10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    return "Imagem muito grande. Máximo 10MB antes da compressão.";
+  }
+
+  return null;
+}
+
+/**
+ * Comprime uma imagem para upload.
+ * Usa URL.createObjectURL (menos RAM que readAsDataURL).
+ * Detecta suporte a WebP; faz fallback para JPEG se necessário.
+ */
 export async function compressImage(
   file: File,
   options: CompressionOptions = {}
 ): Promise<Blob> {
   const opts = { ...DEFAULT_OPTIONS, ...options };
-  const useWebP = await checkWebPSupport();
-  const outputType = useWebP ? "image/webp" : "image/jpeg";
-  const outputExt = useWebP ? "webp" : "jpg";
+  const webpSupported = await detectWebPSupport();
 
   return new Promise((resolve, reject) => {
     const img = new Image();
-
-    // Usar createObjectURL em vez de readAsDataURL — muito mais
-    // eficiente em memória para fotos grandes de celular (4-12MB).
-    // O navegador faz decode streaming direto do Blob.
     const objectUrl = URL.createObjectURL(file);
 
     img.onload = () => {
-      // Libera o object URL assim que a imagem carregar
+      // Libera o object URL após carregar
       URL.revokeObjectURL(objectUrl);
 
-      try {
-        const canvas = document.createElement("canvas");
-        let { width, height } = img;
+      const canvas = document.createElement("canvas");
+      let { width, height } = img;
 
-        // Limita dimensões — fotos de celular podem ter 4000+ px
-        if (width > opts.maxWidth! || height > opts.maxHeight!) {
-          const ratio = Math.min(opts.maxWidth! / width, opts.maxHeight! / height);
-          width = Math.round(width * ratio);
-          height = Math.round(height * ratio);
-        }
-
-        // Mínimo 1px para evitar canvas vazio
-        canvas.width = Math.max(1, width);
-        canvas.height = Math.max(1, height);
-
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          reject(new Error("Erro ao criar contexto canvas"));
-          return;
-        }
-
-        // Fundo branco para imagens com transparência (PNG → WebP/JPEG)
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-        // Limpa referência da imagem para liberar memória
-        img.src = "";
-
-        const tryExport = (quality: number, isRetry: boolean = false) => {
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) {
-                // Se WebP falhou, tenta JPEG como fallback
-                if (outputType === "image/webp" && !isRetry) {
-                  canvas.toBlob(
-                    (jpegBlob) => {
-                      if (!jpegBlob) {
-                        reject(new Error("Erro ao comprimir imagem"));
-                        return;
-                      }
-                      if (opts.maxSizeKB && jpegBlob.size > opts.maxSizeKB * 1024) {
-                        compressIteratively(canvas, opts.maxSizeKB, "image/jpeg", resolve, reject);
-                      } else {
-                        resolve(jpegBlob);
-                      }
-                    },
-                    "image/jpeg",
-                    Math.min(quality, 0.8)
-                  );
-                  return;
-                }
-                reject(new Error("Erro ao comprimir imagem"));
-                return;
-              }
-
-              if (opts.maxSizeKB && blob.size > opts.maxSizeKB * 1024) {
-                compressIteratively(canvas, opts.maxSizeKB, outputType, resolve, reject);
-              } else {
-                resolve(blob);
-              }
-            },
-            outputType,
-            quality
-          );
-        };
-
-        tryExport(opts.quality!);
-      } catch (err) {
-        reject(new Error("Erro ao processar imagem no canvas"));
+      if (width > opts.maxWidth! || height > opts.maxHeight!) {
+        const ratio = Math.min(opts.maxWidth! / width, opts.maxHeight! / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
       }
+
+      canvas.width = Math.max(1, width);
+      canvas.height = Math.max(1, height);
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Erro ao criar contexto canvas"));
+        return;
+      }
+
+      // Fundo branco para imagens com transparência (PNG → JPEG)
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Tenta WebP primeiro; se não suportado, usa JPEG
+      const outputType = webpSupported ? "image/webp" : "image/jpeg";
+      const quality = webpSupported ? opts.quality! : Math.min(opts.quality! + 0.1, 0.85);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            // WebP falhou? Tenta JPEG como fallback
+            if (outputType === "image/webp") {
+              canvas.toBlob(
+                (jpegBlob) => {
+                  if (!jpegBlob) {
+                    reject(new Error("Erro ao comprimir imagem"));
+                    return;
+                  }
+                  handleSizeLimit(canvas, jpegBlob, "image/jpeg", opts.maxSizeKB!, resolve, reject);
+                },
+                "image/jpeg",
+                0.75
+              );
+            } else {
+              reject(new Error("Erro ao comprimir imagem"));
+            }
+            return;
+          }
+
+          handleSizeLimit(canvas, blob, outputType, opts.maxSizeKB!, resolve, reject);
+        },
+        outputType,
+        quality
+      );
     };
 
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      reject(new Error("Erro ao carregar imagem"));
+      reject(new Error("Erro ao carregar imagem. Tente outra foto."));
     };
 
-    // Para HEIC/HEIF: alguns navegadores (Safari 17+) conseguem
-    // renderizar nativamente. Se não conseguir, o onerror será
-    // chamado. Não tentamos conversão manual aqui — o fallback
-    // é o usuário escolher formato compatível na câmera.
+    // Usa createObjectURL (muito menos RAM que readAsDataURL)
     img.src = objectUrl;
   });
 }
 
-// ═══════════════════════════════════════════════════════════
-// compressIteratively — reduz qualidade gradativamente até
-// atingir o tamanho desejado
-// ═══════════════════════════════════════════════════════════
-function compressIteratively(
+/**
+ * Verifica se o blob está dentro do limite de tamanho.
+ * Se estiver acima, comprime iterativamente reduzindo a qualidade.
+ */
+function handleSizeLimit(
   canvas: HTMLCanvasElement,
-  maxSizeKB: number,
+  blob: Blob,
   outputType: string,
+  maxSizeKB: number,
   resolve: (blob: Blob) => void,
   reject: (error: Error) => void,
-  currentQuality: number = 0.45
+  currentQuality: number = 0.4
+) {
+  if (blob.size <= maxSizeKB * 1024) {
+    resolve(blob);
+    return;
+  }
+
+  // Se já está na qualidade mínima, aceita o que tiver
+  if (currentQuality < 0.1) {
+    resolve(blob);
+    return;
+  }
+
+  compressIteratively(canvas, outputType, maxSizeKB, resolve, reject, currentQuality);
+}
+
+function compressIteratively(
+  canvas: HTMLCanvasElement,
+  outputType: string,
+  maxSizeKB: number,
+  resolve: (blob: Blob) => void,
+  reject: (error: Error) => void,
+  currentQuality: number = 0.4
 ) {
   if (currentQuality < 0.1) {
+    // Qualidade mínima — aceita o resultado
     canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error("Erro na compressao"))),
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Erro na compressão"));
+      },
       outputType,
       0.1
     );
@@ -192,19 +216,19 @@ function compressIteratively(
   canvas.toBlob(
     (blob) => {
       if (!blob) {
-        // Fallback JPEG se WebP falhar na compressão iterativa
+        // Se WebP falhou nessa iteração, tenta JPEG
         if (outputType === "image/webp") {
-          compressIteratively(canvas, maxSizeKB, "image/jpeg", resolve, reject, currentQuality);
-          return;
+          compressIteratively(canvas, "image/jpeg", maxSizeKB, resolve, reject, currentQuality);
+        } else {
+          reject(new Error("Erro na compressão"));
         }
-        reject(new Error("Erro na compressao"));
         return;
       }
 
       if (blob.size <= maxSizeKB * 1024) {
         resolve(blob);
       } else {
-        compressIteratively(canvas, maxSizeKB, outputType, resolve, reject, currentQuality - 0.15);
+        compressIteratively(canvas, outputType, maxSizeKB, resolve, reject, currentQuality - 0.1);
       }
     },
     outputType,
@@ -212,36 +236,15 @@ function compressIteratively(
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// validateImageFile — aceita HEIC/HEIF e tipos mobile
-// ═══════════════════════════════════════════════════════════
-export function validateImageFile(file: File): string | null {
-  // Alguns celulares (Android) enviam fotos com type vazio ou
-  // tipo não padrão. Verificamos pela extensão também.
-  const ext = file.name.split(".").pop()?.toLowerCase() || "";
-  const heicExtensions = ["heic", "heif", "hif"];
-
-  // Tipo MIME reconhecido
-  if (BROWSER_RENDERABLE_TYPES.includes(file.type)) {
-    // OK — tipo conhecido
-  } else if (file.type === "" || file.type === "application/octet-stream") {
-    // Tipo vazio — tenta reconhecer pela extensão
-    if (!heicExtensions.includes(ext) && !["jpg", "jpeg", "png", "webp", "gif", "bmp", "avif"].includes(ext)) {
-      return "Tipo nao suportado. Use JPG, PNG, WebP, GIF ou HEIC.";
-    }
-  } else if (!BROWSER_RENDERABLE_TYPES.includes(file.type)) {
-    // Tipo MIME desconhecido — verifica extensão
-    if (["jpg", "jpeg", "png", "webp", "gif", "bmp", "avif", ...heicExtensions].includes(ext)) {
-      // Extensão válida — permite (o navegador pode conseguir renderizar)
-    } else {
-      return "Tipo nao suportado. Use JPG, PNG, WebP, GIF ou HEIC.";
-    }
-  }
-
-  if (file.size > 20 * 1024 * 1024) {
-    return "Imagem muito grande. Maximo 20MB antes da compressao.";
-  }
-  return null;
+/**
+ * Retorna a extensão correta para o blob baseada no tipo MIME.
+ */
+export function getExtensionForBlob(blob: Blob): string {
+  if (blob.type === "image/jpeg") return "jpg";
+  if (blob.type === "image/png") return "png";
+  if (blob.type === "image/gif") return "gif";
+  // Default para webp (ou unknown)
+  return "webp";
 }
 
 export function createPreviewUrl(file: File): string {
