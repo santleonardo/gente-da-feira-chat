@@ -157,15 +157,23 @@ export async function POST(req: NextRequest) {
 
     const { content, neighborhood, imageUrls, videoUrl, audioUrl, audioDuration, videoDuration, visibility, sharedPostId, postStyle } = await req.json();
 
-    if (!content || !content.trim()) {
+    const hasPhotos = imageUrls && imageUrls.length > 0;
+    const hasVideo = !!videoUrl;
+    const hasAudio = !!audioUrl;
+    const hasMedia = hasPhotos || hasVideo || hasAudio;
+
+    // Conteúdo é obrigatório APENAS se não houver mídia
+    if (!hasMedia && (!content || !content.trim())) {
       return NextResponse.json({ error: "Conteúdo é obrigatório" }, { status: 400 });
     }
 
     // Strip HTML tags before counting characters for the limit
     // (posts from WYSIWYG editor contain HTML; plain-text posts don't)
-    const plainText = content.replace(/<[^>]*>/g, "").replace(/&\w+;/g, " ");
-    if (plainText.trim().length > 1000) {
-      return NextResponse.json({ error: "Post muito longo (máx 1000 chars)" }, { status: 400 });
+    if (content && content.trim()) {
+      const plainText = content.replace(/<[^>]*>/g, "").replace(/&\w+;/g, " ");
+      if (plainText.trim().length > 1000) {
+        return NextResponse.json({ error: "Post muito longo (máx 1000 chars)" }, { status: 400 });
+      }
     }
 
     // Validate postStyle if provided
@@ -191,10 +199,6 @@ export async function POST(req: NextRequest) {
     const validVisibility = visibility === "followers" ? "followers" : "public";
 
     let expiresAt: string | null = null;
-    const hasPhotos = imageUrls && imageUrls.length > 0;
-    const hasVideo = !!videoUrl;
-    const hasAudio = !!audioUrl;
-    const hasMedia = hasPhotos || hasVideo || hasAudio;
 
     if (hasPhotos && imageUrls.length > MAX_PHOTOS_PER_POST) {
       return NextResponse.json({ error: `Máximo ${MAX_PHOTOS_PER_POST} fotos por post` }, { status: 400 });
@@ -274,7 +278,7 @@ export async function POST(req: NextRequest) {
     }
 
     const insertData: any = {
-      content: content.trim(),
+      content: (content || "").trim(),
       neighborhood: neighborhood || null,
       author_id: user.id,
       image_urls: hasPhotos ? imageUrls : [],
@@ -303,7 +307,7 @@ export async function POST(req: NextRequest) {
 
     // Process @mentions asynchronously — don't block the response
     const mentionRegex = /@(\w+)/g;
-    const mentionMatches = [...content.trim().matchAll(mentionRegex)];
+    const mentionMatches = [...(content || "").trim().matchAll(mentionRegex)];
     const mentionedUsernames = [...new Set(mentionMatches.map((m) => m[1]))];
 
     if (mentionedUsernames.length > 0) {
