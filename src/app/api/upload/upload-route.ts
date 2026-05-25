@@ -1,21 +1,40 @@
 // ============================================================
 // API de upload de fotos e vídeos para o Supabase Storage
 // Bucket: post-photos (público) — images
-// Suporta: images (max 1MB) — WebP ou JPEG
+// Suporta: images (max 1MB) e video thumbnails (max 500KB)
+// Aceita: JPEG, PNG, WebP, GIF (enviados pelo compressImage)
 // Para vídeos, use /api/upload/video
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 
-const ALLOWED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-];
-const MAX_IMAGE_SIZE = 1 * 1024 * 1024; // 1MB — aumentado de 500KB para dar
-// margem caso a compressão cliente não chegue a 150KB em alguns dispositivos
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif"];
+const MAX_IMAGE_SIZE = 1 * 1024 * 1024; // 1MB (aumentado de 500KB para mobile)
+const MAX_VIDEO_THUMB_SIZE = 500 * 1024; // 500KB for thumbnails
+
+function getExtension(filename: string): string {
+  const parts = filename.split(".");
+  if (parts.length < 2) return "";
+  return parts[parts.length - 1].toLowerCase();
+}
+
+function getContentTypeForExt(ext: string): string {
+  switch (ext) {
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+    case "gif":
+      return "image/gif";
+    case "webp":
+      return "image/webp";
+    default:
+      return "image/jpeg";
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,18 +48,25 @@ export async function POST(req: NextRequest) {
 
     if (!file) return NextResponse.json({ error: "Arquivo não enviado" }, { status: 400 });
 
-    // Determina o tipo de conteúdo aceito
-    const allowedTypes = [...ALLOWED_IMAGE_TYPES];
-    if (!allowedTypes.includes(file.type)) {
-      // Alguns navegadores mobile podem enviar com tipo diferente
-      // Verifica pela extensão do nome do arquivo
-      const ext = file.name.split(".").pop()?.toLowerCase() || "";
-      if (!["jpg", "jpeg", "png", "webp", "gif"].includes(ext)) {
-        return NextResponse.json({ error: "Tipo não suportado" }, { status: 400 });
+    // Validação por tipo MIME
+    let isValidType = ALLOWED_IMAGE_TYPES.includes(file.type);
+
+    // Fallback: valida por extensão quando o tipo MIME é incomum
+    // (ex: mobile browsers que enviam tipo vazio ou application/octet-stream)
+    if (!isValidType) {
+      const ext = getExtension(file.name);
+      if (ALLOWED_EXTENSIONS.includes(ext)) {
+        isValidType = true;
       }
     }
 
-    if (file.size > MAX_IMAGE_SIZE) {
+    if (!isValidType) {
+      return NextResponse.json({ error: "Tipo não suportado" }, { status: 400 });
+    }
+
+    // Verifica tamanho
+    const maxSize = folder === "video-thumbs" ? MAX_VIDEO_THUMB_SIZE : MAX_IMAGE_SIZE;
+    if (file.size > maxSize) {
       return NextResponse.json({
         error: "Arquivo muito grande. Comprima antes de enviar."
       }, { status: 400 });
@@ -48,11 +74,11 @@ export async function POST(req: NextRequest) {
 
     const admin = createAdminClient();
 
-    // Determina a extensão e content-type com base no arquivo recebido
-    // O cliente pode enviar WebP (compressão principal) ou JPEG (fallback)
-    const isJpeg = file.type === "image/jpeg" || file.name.endsWith(".jpg") || file.name.endsWith(".jpeg");
-    const ext = isJpeg ? "jpg" : "webp";
-    const contentType = isJpeg ? "image/jpeg" : "image/webp";
+    // Detecta extensão e content-type reais do arquivo
+    const ext = getExtension(file.name) || "jpg";
+    const contentType = file.type && ALLOWED_IMAGE_TYPES.includes(file.type)
+      ? file.type
+      : getContentTypeForExt(ext);
 
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
