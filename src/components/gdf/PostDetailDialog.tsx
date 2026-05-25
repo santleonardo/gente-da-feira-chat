@@ -81,20 +81,22 @@ function getExpirationLabel(expiresAt: string): string {
   if (diff <= 0) return "Expirado";
   const hours = Math.floor(diff / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
-  if (hours > 0) return `${hours}h${mins > 0 ? `${mins}min` : ""}`;
-  return `${mins}min`;
-}
-
-const MEDIA_PLACEHOLDER_EMOJIS = ["\ud83d\udcf7", "\ud83c\udfa5", "\ud83c\udf99\ufe0f"];
-function isMediaPlaceholder(content: string): boolean {
-  const trimmed = content.trim();
-  return MEDIA_PLACEHOLDER_EMOJIS.includes(trimmed);
+  if (hours > 0) return `Expira em ${hours}h${mins > 0 ? ` ${mins}min` : ""}`;
+  return `Expira em ${mins}min`;
 }
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+// Check if content is just a media placeholder emoji (legacy posts) or empty
+const MEDIA_PLACEHOLDER_EMOJIS = ["\ud83d\udcf7", "\ud83c\udfa5", "\ud83c\udf99\ufe0f"];
+function isMediaPlaceholder(content: string | null): boolean {
+  if (!content) return true;
+  const trimmed = content.trim();
+  return MEDIA_PLACEHOLDER_EMOJIS.includes(trimmed) || trimmed === "";
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -314,7 +316,7 @@ function ShareMenu({
   const handleExternalShare = async () => {
     const shareData = {
       title: `Post de ${post.author?.display_name || "Usuário"}`,
-      text: post.content.slice(0, 100) + (post.content.length > 100 ? "..." : ""),
+      text: (post.content || "").slice(0, 100) + ((post.content || "").length > 100 ? "..." : ""),
       url: window.location.href,
     };
     try {
@@ -330,7 +332,7 @@ function ShareMenu({
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(post.content.slice(0, 200));
+      await navigator.clipboard.writeText((post.content || "").slice(0, 200));
       toast.success("Texto copiado!");
     } catch { toast.error("Erro ao copiar"); }
     onClose();
@@ -574,12 +576,15 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
 
   const handleEdit = () => {
     if (!localPost) return;
-    setEditContent(localPost.content);
+    setEditContent(localPost.content || "");
     setIsEditing(true);
   };
 
   const handleSaveEdit = async () => {
-    if (!localPost || !editContent.trim()) return;
+    // Permite conteúdo vazio se o post tem mídia
+    const hasMedia = (localPost?.image_urls && localPost.image_urls.length > 0) || !!localPost?.video_url || !!localPost?.audio_url;
+    if (!localPost) return;
+    if (!editContent.trim() && !hasMedia) return;
     try {
       const res = await fetch(`/api/posts/${localPost.id}`, {
         method: "PATCH",
@@ -588,7 +593,7 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
       });
       const data = await res.json();
       if (data.post) {
-        setLocalPost({ ...localPost, content: editContent.trim() });
+        setLocalPost({ ...localPost, content: editContent.trim() || "" });
         setIsEditing(false);
         setWasEdited(true);
         toast.success("Post editado");
@@ -736,20 +741,14 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
                         <span className="text-[10px] text-[#0A4D5C]/40">{editContent.length}/500</span>
                         <div className="flex gap-1.5">
                           <button onClick={handleCancelEdit} className="rounded-full px-3 py-1 text-xs text-[#0A4D5C]/50 hover:bg-[#0A4D5C]/[0.04] transition-colors">Cancelar</button>
-                          <button onClick={handleSaveEdit} disabled={!editContent.trim()} className="rounded-full px-3 py-1 text-xs bg-[#0A4D5C] text-white hover:bg-[#0A4D5C]/90 transition-colors disabled:opacity-40">Salvar</button>
+                          <button onClick={handleSaveEdit} disabled={!editContent.trim() && !((localPost?.image_urls && localPost.image_urls.length > 0) || localPost?.video_url || localPost?.audio_url)} className="rounded-full px-3 py-1 text-xs bg-[#0A4D5C] text-white hover:bg-[#0A4D5C]/90 transition-colors disabled:opacity-40">Salvar</button>
                         </div>
                       </div>
                     </div>
-                  ) : !isMediaPlaceholder(localPost.content) ? (
-                    isTextOnly ? (
+                  ) : isTextOnly && localPost.content && !isMediaPlaceholder(localPost.content) ? (
                     <p className={`mt-1.5 font-serif text-base sm:text-lg leading-snug whitespace-pre-wrap ${postItColor?.text || "text-[#000305]"}`}>
                       {renderContentWithMentions(localPost.content, navigateToProfile, { isMine: isOwnPost, linkClassName: linkClass })}
                     </p>
-                    ) : (
-                    <p className="mt-1.5 text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]">
-                      {renderContentWithMentions(localPost.content, navigateToProfile, { isMine: isOwnPost, linkClassName: linkClass })}
-                    </p>
-                    )
                   ) : null}
 
                   {/* Shared post (repost) */}
@@ -784,9 +783,29 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
                   )}
 
                   {/* Media */}
-                  {hasPhotos && <PhotoGrid photos={localPost.image_urls!} onPhotoClick={(index) => openPhotoViewer(localPost.image_urls || [], index)} />}
-                  {hasVideo && <VideoPlayer src={localPost.video_url!} />}
-                  {hasAudio && <AudioPlayer src={localPost.audio_url!} />}
+                  {/* Media — full width for non-text-only */}
+                  {!isTextOnly && (hasPhotos || hasVideo || hasAudio) ? (
+                    <div className="-mx-3 sm:-mx-4 mt-1.5">
+                      {hasPhotos && <PhotoGrid photos={localPost.image_urls!} onPhotoClick={(index) => openPhotoViewer(localPost.image_urls || [], index)} />}
+                      {hasVideo && <VideoPlayer src={localPost.video_url!} />}
+                      {hasAudio && <AudioPlayer src={localPost.audio_url!} />}
+                    </div>
+                  ) : (
+                    <>
+                      {hasPhotos && <PhotoGrid photos={localPost.image_urls!} onPhotoClick={(index) => openPhotoViewer(localPost.image_urls || [], index)} />}
+                      {hasVideo && <VideoPlayer src={localPost.video_url!} />}
+                      {hasAudio && <AudioPlayer src={localPost.audio_url!} />}
+                    </>
+                  )}
+
+                  {/* Caption — text below media for media posts */}
+                  {!isTextOnly && localPost.content && localPost.content.trim() && !isMediaPlaceholder(localPost.content) && (
+                    <div className="px-1 sm:px-1.5 mt-2">
+                      <p className="text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]">
+                        {renderContentWithMentions(localPost.content, navigateToProfile, { isMine: isOwnPost, linkClassName: linkClass })}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Expiration */}
                   {localPost.expires_at && expirationLabel && (
