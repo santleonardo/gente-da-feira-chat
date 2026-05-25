@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-    const { content, neighborhood, imageUrls, videoUrl, audioUrl, audioDuration, videoDuration, visibility, sharedPostId, postStyle, postType } = await req.json();
+    const { content, neighborhood, imageUrls, videoUrl, audioUrl, audioDuration, videoDuration, visibility, sharedPostId, postStyle } = await req.json();
 
     if (!content || !content.trim()) {
       return NextResponse.json({ error: "Conteúdo é obrigatório" }, { status: 400 });
@@ -164,8 +164,8 @@ export async function POST(req: NextRequest) {
     // Strip HTML tags before counting characters for the limit
     // (posts from WYSIWYG editor contain HTML; plain-text posts don't)
     const plainText = content.replace(/<[^>]*>/g, "").replace(/&\w+;/g, " ");
-    if (plainText.trim().length > 1500) {
-      return NextResponse.json({ error: "Post muito longo (máx 1500 chars)" }, { status: 400 });
+    if (plainText.trim().length > 1000) {
+      return NextResponse.json({ error: "Post muito longo (máx 1000 chars)" }, { status: 400 });
     }
 
     // Validate postStyle if provided
@@ -273,9 +273,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Validate postType
-    const validPostType = postType === "rich" ? "rich" : "simple";
-
     const insertData: any = {
       content: content.trim(),
       neighborhood: neighborhood || null,
@@ -289,7 +286,6 @@ export async function POST(req: NextRequest) {
       expires_at: expiresAt,
       shared_post_id: validSharedPostId,
       post_style: validatedStyle,
-      post_type: validPostType,
     };
 
     const { data: post, error } = await supabase
