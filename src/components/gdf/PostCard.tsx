@@ -50,15 +50,16 @@ export function PostCard({ post }: PostCardProps) {
   };
 
   const hasPhotos = post.image_urls && post.image_urls.length > 0;
+  const isMediaPlaceholder = ["📷", "🎥", "🎙️"].includes(post.content.trim());
 
   const getExpirationLabel = () => {
     if (!post.expires_at) return null;
     const diff = new Date(post.expires_at).getTime() - Date.now();
-    if (diff <= 0) return "0m";
+    if (diff <= 0) return "Expirado";
     const hours = Math.floor(diff / 3600000);
     const mins = Math.floor((diff % 3600000) / 60000);
     if (hours > 0) return `${hours}h`;
-    return `${mins}m`;
+    return `${mins}min`;
   };
 
   return (
@@ -74,7 +75,7 @@ export function PostCard({ post }: PostCardProps) {
             <p className="text-xs text-muted-foreground">@{post.author.username} · {timeAgo(post.created_at)}</p>
           </div>
         </div>
-        <p className="text-sm leading-relaxed whitespace-pre-wrap mb-3">{renderContentWithMentions(post.content, openUserProfile)}</p>
+        {!isMediaPlaceholder && <p className="text-sm leading-relaxed whitespace-pre-wrap mb-3">{renderContentWithMentions(post.content, openUserProfile)}</p>}
 
         {hasPhotos && (
           <div className="mb-3">

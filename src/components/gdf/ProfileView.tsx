@@ -140,11 +140,11 @@ function getExpirationLabel(expiresAt: string): string {
   const now = Date.now();
   const expires = new Date(expiresAt).getTime();
   const diff = expires - now;
-  if (diff <= 0) return "0m";
+  if (diff <= 0) return "Expirado";
   const hours = Math.floor(diff / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
-  if (hours > 0) return `${hours}h`;
-  return `${mins}m`;
+  if (hours > 0) return `${hours}h${mins > 0 ? `${mins}min` : ""}`;
+  return `${mins}min`;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -931,9 +931,9 @@ export function ProfileView() {
       }
 
       const postContent = textContent.trim() ? editorRef.current!.innerHTML : (
-        selectedFiles.length > 0 ? "📷" :
-        selectedVideo ? "🎥" :
-        selectedAudio ? "🎙️" : ""
+        selectedFiles.length > 0 ? "" :
+        selectedVideo ? "" :
+        selectedAudio ? "" : ""
       );
 
       const styleToSend: PostStyle = { ...postStyle };
@@ -1121,6 +1121,7 @@ export function ProfileView() {
                     }}
                   >
                     {/* Conteúdo textual */}
+                    {!["\ud83d\udcf7", "\ud83c\udfa5", "\ud83c\udf99\ufe0f"].includes(post.content.trim()) && (
                     <FormattedText
                       className={`whitespace-pre-wrap ${isTextOnly ? "text-sm sm:text-base leading-snug" : "text-[13px] sm:text-sm leading-relaxed text-[#000305]"}`}
                       content={post.content}
@@ -1132,6 +1133,7 @@ export function ProfileView() {
                         color: postStyleData?.fontColor || undefined,
                       }}
                     />
+                    )}
 
                     {/* Shared/reposted post */}
                     {post.shared_post && (

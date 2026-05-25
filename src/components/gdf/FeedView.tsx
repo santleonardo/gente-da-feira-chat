@@ -261,11 +261,18 @@ function getExpirationLabel(expiresAt: string): string {
   const now = Date.now();
   const expires = new Date(expiresAt).getTime();
   const diff = expires - now;
-  if (diff <= 0) return "0m";
+  if (diff <= 0) return "Expirado";
   const hours = Math.floor(diff / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
-  if (hours > 0) return `${hours}h`;
-  return `${mins}m`;
+  if (hours > 0) return `${hours}h${mins > 0 ? `${mins}min` : ""}`;
+  return `${mins}min`;
+}
+
+// Check if content is just a media placeholder emoji (legacy posts)
+const MEDIA_PLACEHOLDER_EMOJIS = ["\ud83d\udcf7", "\ud83c\udfa5", "\ud83c\udf99\ufe0f"];
+function isMediaPlaceholder(content: string): boolean {
+  const trimmed = content.trim();
+  return MEDIA_PLACEHOLDER_EMOJIS.includes(trimmed);
 }
 
 function formatDuration(seconds: number): string {
@@ -331,11 +338,11 @@ function VideoPlayer({ src }: { src: string }) {
   };
 
   return (
-    <div className="relative rounded-2xl overflow-hidden bg-[#000305] shadow-lg group">
+    <div className="mt-1.5 relative rounded-2xl overflow-hidden bg-[#000305] shadow-lg group">
       <video
         ref={videoRef}
         src={src}
-        className="w-full max-h-[28rem] sm:max-h-[36rem] object-contain"
+        className="w-full max-h-[36rem] object-contain"
         playsInline
         preload="metadata"
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
@@ -389,7 +396,7 @@ function AudioPlayer({ src }: { src: string }) {
   };
 
   return (
-    <div className="rounded-2xl bg-[#0A4D5C]/[0.06] p-4 shadow-sm border border-[#0A4D5C]/10">
+    <div className="mt-1.5 rounded-2xl bg-[#0A4D5C]/[0.06] p-4 shadow-sm border border-[#0A4D5C]/10">
       <div className="flex items-center gap-3.5">
         <button onClick={toggle} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa] shadow-md hover:bg-[#0A4D5C]/90 transition-all hover:scale-105">
           {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
@@ -423,17 +430,17 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
 
   if (count === 1) {
     return (
-      <button onClick={() => onPhotoClick?.(0)} className="w-full overflow-hidden rounded-2xl shadow-lg">
-        <img src={photos[0]} alt="Foto do post" className="w-full max-h-[28rem] sm:max-h-[36rem] object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+      <button onClick={() => onPhotoClick?.(0)} className="mt-1.5 w-full overflow-hidden rounded-2xl shadow-lg">
+        <img src={photos[0]} alt="Foto do post" className="w-full max-h-[36rem] object-cover hover:opacity-95 transition-opacity" loading="lazy" />
       </button>
     );
   }
   if (count === 2) {
     return (
-      <div className="grid grid-cols-2 gap-0.5 overflow-hidden rounded-2xl shadow-lg">
+      <div className="mt-1.5 grid grid-cols-2 gap-0.5 overflow-hidden rounded-2xl shadow-lg">
         {photos.map((url, i) => (
           <button key={i} onClick={() => onPhotoClick?.(i)} className="overflow-hidden">
-            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-48 sm:h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-64 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           </button>
         ))}
       </div>
@@ -441,24 +448,24 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
   }
   if (count === 3) {
     return (
-      <div className="grid grid-cols-2 gap-0.5 overflow-hidden rounded-2xl shadow-lg">
+      <div className="mt-1.5 grid grid-cols-2 gap-0.5 overflow-hidden rounded-2xl shadow-lg">
         <button onClick={() => onPhotoClick?.(0)} className="row-span-2 overflow-hidden">
           <img src={photos[0]} alt="Foto 1" className="w-full h-full object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(1)} className="overflow-hidden">
-          <img src={photos[1]} alt="Foto 2" className="w-full h-48 sm:h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[1]} alt="Foto 2" className="w-full h-64 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(2)} className="overflow-hidden">
-          <img src={photos[2]} alt="Foto 3" className="w-full h-48 sm:h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[2]} alt="Foto 3" className="w-full h-64 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
       </div>
     );
   }
   return (
-    <div className="grid grid-cols-2 gap-0.5 overflow-hidden rounded-2xl shadow-lg">
+    <div className="mt-1.5 grid grid-cols-2 gap-0.5 overflow-hidden rounded-2xl shadow-lg">
       {photos.slice(0, 4).map((url, i) => (
         <button key={i} onClick={() => onPhotoClick?.(i)} className="relative overflow-hidden">
-          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-48 sm:h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-64 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           {i === 3 && count > 4 && (
             <div className="absolute inset-0 flex items-center justify-center bg-[#000305]/50 text-[#f7f9fa] font-bold text-lg">+{count - 4}</div>
           )}
@@ -1066,9 +1073,9 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 
       // Se não tem texto mas tem mídia, usa placeholder
       const postContent = content.trim() || (
-        selectedFiles.length > 0 ? "📷" :
-        selectedVideo ? "🎥" :
-        selectedAudio ? "🎙️" : ""
+        selectedFiles.length > 0 ? "" :
+        selectedVideo ? "" :
+        selectedAudio ? "" : ""
       );
 
       const res = await fetch("/api/posts", {
@@ -1650,8 +1657,7 @@ function PostThread({
       style={useInlineStyle && postItColorHex ? { backgroundColor: postItColorHex.bg, border: `1px solid ${postItColorHex.border}` } : undefined}
       onClick={handleOpenPostDetail}
     >
-      {/* Top section — header + text (with padding) */}
-      <div className="p-3 sm:p-4">
+      <div className={`${isTextOnly ? "p-3 sm:p-4" : "p-2.5 sm:p-3"}`}>
         {/* Header */}
         <div className="flex items-start gap-2.5">
           <button onClick={() => post.author?.id && openUserProfile?.(post.author.id)} className="shrink-0 group">
@@ -1675,17 +1681,11 @@ function PostThread({
               )}
               <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/20" : "text-[#0A4D5C]/25"}`}>·</span>
               <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/40" : "text-[#0A4D5C]/40"}`}>{timeAgo(post.created_at)}</span>
-
-              {/* Expiration badge — inline with header */}
-              {post.expires_at && expirationLabel && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#000305] bg-[#f7f75e] rounded-full px-2 py-0.5">
-                  <Clock className="h-2.5 w-2.5" />
-                  {expirationLabel}
-                </span>
-              )}
             </div>
 
             {/* Content */}
+            {!isMediaPlaceholder(post.content) && (
+            <>
             {isTextOnly ? (
               <FormattedText
                 className={`mt-1.5 text-base sm:text-lg leading-snug whitespace-pre-wrap ${useInlineStyle || (hasPostStyle && post.post_style!.fontColor) ? "" : (postItColor?.text || "text-[#000305]")}`}
@@ -1705,6 +1705,8 @@ function PostThread({
                 content={post.content}
                 openUserProfile={openUserProfile}
               />
+            )}
+            </>
             )}
 
             {/* Shared post (repost) */}
@@ -1738,23 +1740,22 @@ function PostThread({
                 )}
               </div>
             )}
-          </div>
-        </div>
-      </div>
 
-      {/* Media section — full width, no padding */}
-      {(hasPhotos || hasVideo || hasAudio) && (
-        <div className="px-3 sm:px-4">
-          {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} />}
-          {hasVideo && <VideoPlayer src={post.video_url!} />}
-          {hasAudio && <AudioPlayer src={post.audio_url!} />}
-        </div>
-      )}
+            {/* Media */}
+            {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} />}
+            {hasVideo && <VideoPlayer src={post.video_url!} />}
+            {hasAudio && <AudioPlayer src={post.audio_url!} />}
 
-      {/* Bottom section — actions + comments (with padding) */}
-      <div className="p-3 sm:p-4 pt-2">
+            {/* Expiration */}
+            {post.expires_at && expirationLabel && (
+              <div className="mt-2.5 flex items-center gap-1.5 text-[10px] font-semibold text-[#000305] bg-[#f7f75e] rounded-full px-2.5 py-1 w-fit">
+                <Clock className="h-3 w-3" />
+                <span>{expirationLabel}</span>
+              </div>
+            )}
+
             {/* ═══════ ACTION BAR ═══════ */}
-            <div className="flex items-center gap-0.5">
+            <div className="mt-2 flex items-center gap-0.5">
               {/* Reactions */}
               <div className="relative">
                 <button
@@ -1891,6 +1892,8 @@ function PostThread({
                 </div>
               </div>
             )}
+          </div>
+        </div>
       </div>
     </div>
   );
