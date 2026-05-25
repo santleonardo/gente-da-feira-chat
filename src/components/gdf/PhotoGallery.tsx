@@ -209,7 +209,7 @@ export function PhotoGallery({
         maxWidth: 800,
         maxHeight: 800,
         quality: 0.55,
-        maxSizeKB: 150,
+        maxSizeKB: 300,
       });
 
       const formData = new FormData();

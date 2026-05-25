@@ -828,7 +828,7 @@ export function ProfileView() {
     const urls: string[] = [];
     for (const file of selectedFiles) {
       try {
-        const compressed = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.55, maxSizeKB: 150 });
+        const compressed = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.55, maxSizeKB: 300 });
         const formData = new FormData();
         formData.append("file", compressed, "photo.webp");
         formData.append("folder", "posts");
@@ -957,7 +957,6 @@ export function ProfileView() {
           videoDuration,
           visibility,
           postStyle: styleToSend,
-          postType: "rich",
         }),
       });
       const data = await res.json();
@@ -1189,11 +1188,6 @@ export function ProfileView() {
                     <div className="mt-1 flex items-center gap-2" style={{ color: isTextOnly ? `${postItColor.text}80` : "rgba(1,56,106,0.4)" }}>
                       <span className="text-[10px]">{timeAgo(post.created_at)}</span>
                       {post.neighborhood && <span className="text-[10px]">· {post.neighborhood}</span>}
-                      {post.post_type === "rich" && (
-                        <span className="inline-flex items-center gap-0.5 rounded-full bg-[#0A4D5C]/10 px-1.5 py-0.5 text-[9px] font-medium text-[#0A4D5C]/60">
-                          <PenSquare className="h-2.5 w-2.5" />Editor
-                        </span>
-                      )}
                       {post.visibility === "followers" && (
                         <span className="inline-flex items-center gap-0.5 rounded-full bg-[#f7f75e] px-1.5 py-0.5 text-[9px] font-semibold text-[#000305]">
                           <UsersIcon className="h-2.5 w-2.5" />Seguidores
@@ -1432,7 +1426,7 @@ export function ProfileView() {
                 )}
 
                 {/* Hidden inputs */}
-                <input ref={cameraPhotoRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhoto} className="hidden" />
+                <input ref={cameraPhotoRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" capture="environment" onChange={handleCameraPhoto} className="hidden" />
                 <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handlePhotoSelect} className="hidden" />
                 <input ref={cameraVideoRef} type="file" accept="video/*" capture="environment" onChange={handleVideoSelect} className="hidden" />
                 <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
@@ -1495,8 +1489,8 @@ export function ProfileView() {
 
               {/* Contagem */}
               {textContent.trim().length > 0 && (
-                <span className={`text-[9px] shrink-0 ${textContent.length > 1350 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>
-                  {textContent.length}/1500
+                <span className={`text-[9px] shrink-0 ${textContent.length > 900 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>
+                  {textContent.length}/1000
                 </span>
               )}
 

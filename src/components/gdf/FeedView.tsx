@@ -43,6 +43,7 @@ import {
   validateImageFile,
   createPreviewUrl,
   revokePreviewUrl,
+  getExtensionForBlob,
 } from "@/lib/image-compression";
 import { sanitizeHTMLSync, sanitizeHTMLAsync } from "@/lib/sanitize";
 
@@ -986,19 +987,32 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     const urls: string[] = [];
     for (const file of selectedFiles) {
       try {
+        // Comprime com maxSizeKB=300 (aumentado de 150 para mobile)
         const compressed = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.55, maxSizeKB: 300 });
+        // Determina extensão e nome do arquivo baseado no tipo real do blob
+        const ext = getExtensionForBlob(compressed);
+        const filename = `photo.${ext}`;
         const formData = new FormData();
-        const isJpeg = compressed.type === "image/jpeg";
-        const fileName = isJpeg ? "photo.jpg" : "photo.webp";
-        formData.append("file", compressed, fileName);
+        formData.append("file", compressed, filename);
         formData.append("folder", "posts");
         const res = await fetch("/api/upload", { method: "POST", body: formData });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          try {
+            const data = JSON.parse(text);
+            toast.error(data.error || "Erro ao enviar foto");
+          } catch {
+            toast.error(`Erro no servidor (${res.status})`);
+          }
+          continue;
+        }
         const data = await res.json();
         if (data.url) urls.push(data.url);
         else toast.error(data.error || "Erro ao enviar foto");
-      } catch (err) {
-        console.error("Photo compression error:", err);
-        toast.error("Erro ao processar foto. Tente outra imagem."); }
+      } catch (err: any) {
+        console.error("Erro upload foto:", err);
+        toast.error(err?.message || "Erro ao processar foto. Tente outra imagem");
+      }
     }
     return urls;
   };
@@ -1349,8 +1363,8 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                 )}
 
                 {/* Hidden inputs */}
-                <input ref={cameraPhotoRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhotoSelect} className="hidden" />
-                <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileSelect} className="hidden" />
+                <input ref={cameraPhotoRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" capture="environment" onChange={handleCameraPhotoSelect} className="hidden" />
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
                 <input ref={cameraVideoRef} type="file" accept="video/*" capture="environment" onChange={handleCameraVideoSelect} className="hidden" />
                 <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
                 <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
