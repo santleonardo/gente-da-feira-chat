@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useStore, Profile } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,98 +28,7 @@ import {
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
 import { toast } from "sonner";
-import { renderContentWithMentions, openProfileFromMention } from "@/lib/link-utils";
-import { sanitizeHTMLSync, sanitizeHTMLAsync } from "@/lib/sanitize";
-
-// ═══════════════════════════════════════════════════════════
-// HTML rendering helpers for rich posts
-// ═══════════════════════════════════════════════════════════
-function isHTMLContent(content: string): boolean {
-  return /<\/?[a-z][\s\S]*>/i.test(content);
-}
-
-function useDOMPurify() {
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    sanitizeHTMLAsync("").then(() => setReady(true));
-  }, []);
-  return ready;
-}
-
-function sanitizeHTML(html: string): string {
-  return sanitizeHTMLSync(html);
-}
-
-// Cores hex para uso com inline styles (post_style)
-const POST_IT_COLORS_HEX = [
-  { bg: "#fef9c3", text: "#5c4f1e" },
-  { bg: "#fecdd3", text: "#7c2d35" },
-  { bg: "#bae6fd", text: "#1e5070" },
-  { bg: "#bbf7d0", text: "#2d5a3a" },
-  { bg: "#fed7aa", text: "#6b3a15" },
-  { bg: "#ddd6fe", text: "#4a3580" },
-  { bg: "#fecaca", text: "#6b2020" },
-  { bg: "#a7f3d0", text: "#1a5a3a" },
-  { bg: "#c4b5fd", text: "#3b2d70" },
-  { bg: "#fde68a", text: "#6b4e10" },
-];
-
-const EDITOR_FONTS = ["Nunito", "Quicksand", "Poppins", "Inter", "Comfortaa", "Montserrat", "Lato", "Raleway", "DM Sans", "Work Sans"];
-
-function FormattedText({
-  content,
-  className,
-  style,
-  openUserProfile,
-}: {
-  content: string;
-  className?: string;
-  style?: React.CSSProperties;
-  openUserProfile?: (userId: string) => void;
-}) {
-  // Se o conteúdo é HTML (posts criados com o editor WYSIWYG), renderizar como HTML
-  if (isHTMLContent(content)) {
-    return (
-      <div
-        className={`post-content ${className || ""}`}
-        style={style}
-        dangerouslySetInnerHTML={{ __html: sanitizeHTML(content) }}
-      />
-    );
-  }
-
-  // Posts simples com markdown — parsear **bold**, _italic_, # H1, ## H2
-  const lines = content.split("\n");
-  return (
-    <div className={className} style={style}>
-      {lines.map((line, i) => {
-        let headingLevel = 0;
-        let text = line;
-        if (text.startsWith("### ")) { headingLevel = 3; text = text.slice(4); }
-        else if (text.startsWith("## ")) { headingLevel = 2; text = text.slice(3); }
-        else if (text.startsWith("# ")) { headingLevel = 1; text = text.slice(2); }
-
-        const headingStyle: React.CSSProperties =
-          headingLevel > 0
-            ? {
-                fontSize: headingLevel === 1 ? "1.25rem" : headingLevel === 2 ? "1.1rem" : "1rem",
-                fontWeight: 700,
-                lineHeight: 1.3,
-                display: "block",
-                marginTop: i > 0 ? "0.35em" : undefined,
-              }
-            : {};
-
-        return (
-          <React.Fragment key={i}>
-            {i > 0 && <br />}
-            <span style={headingStyle}>{renderContentWithMentions(text, openUserProfile)}</span>
-          </React.Fragment>
-        );
-      })}
-    </div>
-  );
-}
+import { renderContentWithMentions } from "@/lib/link-utils";
 
 // ═══════════════════════════════════════════════════════════
 // Constants (duplicated from FeedView for self-containment)
@@ -169,11 +78,11 @@ function getExpirationLabel(expiresAt: string): string {
   const now = Date.now();
   const expires = new Date(expiresAt).getTime();
   const diff = expires - now;
-  if (diff <= 0) return "Expirado";
+  if (diff <= 0) return "0m";
   const hours = Math.floor(diff / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
-  if (hours > 0) return `Expira em ${hours}h${mins > 0 ? ` ${mins}min` : ""}`;
-  return `Expira em ${mins}min`;
+  if (hours > 0) return `${hours}h`;
+  return `${mins}m`;
 }
 
 function formatDuration(seconds: number): string {
@@ -209,15 +118,6 @@ interface PostWithAuthor {
   visibility?: "public" | "followers";
   shared_post_id?: string | null;
   shared_post?: PostWithAuthor | null;
-  post_type?: "simple" | "rich" | null;
-  post_style?: {
-    font?: string | null;
-    bold?: boolean;
-    italic?: boolean;
-    alignment?: "left" | "center" | "right" | "justify";
-    postItColor?: number | null;
-    fontColor?: string | null;
-  } | null;
   author: { id: string; display_name: string; username: string; avatar_url?: string | null; neighborhood?: string | null };
   reactions: { user_id: string; type: string }[];
 }
@@ -520,21 +420,6 @@ interface PostDetailDialogProps {
 
 export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogProps) {
   const { profile } = useStore();
-  // Inicializa DOMPurify para que sanitizeHTMLSync funcione corretamente
-  useDOMPurify();
-  // Carregar Google Fonts para post_style
-  useEffect(() => {
-    const fontsParam = EDITOR_FONTS.map(
-      (f) => `family=${f.replace(/ /g, "+")}:wght@400;700`
-    ).join("&");
-    const href = `https://fonts.googleapis.com/css2?${fontsParam}&display=swap`;
-    if (!document.querySelector(`link[href="${href}"]`)) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = href;
-      document.head.appendChild(link);
-    }
-  }, []);
   const [localPost, setLocalPost] = useState<PostWithAuthor | null>(null);
   const [showComments, setShowComments] = useState(true); // Always expanded in detail view
   const [comments, setComments] = useState<Comment[]>([]);
@@ -785,28 +670,6 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
 
   return (
     <>
-      {/* Styles for rendered post content from WYSIWYG editor */}
-      <style>{`
-        .post-content h1 { font-size: 1.25rem; font-weight: 700; line-height: 1.3; margin: 0.35em 0 0.1em; }
-        .post-content h2 { font-size: 1.1rem; font-weight: 700; line-height: 1.3; margin: 0.25em 0 0.1em; }
-        .post-content h3 { font-size: 1rem; font-weight: 700; line-height: 1.3; margin: 0.2em 0 0.1em; }
-        .post-content h4 { font-size: 0.95rem; font-weight: 600; line-height: 1.3; }
-        .post-content b, .post-content strong { font-weight: 700; }
-        .post-content i, .post-content em { font-style: italic; }
-        .post-content u { text-decoration: underline; }
-        .post-content s, .post-content strike { text-decoration: line-through; }
-        .post-content a { color: #0A4D5C; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: #0A4D5C66; }
-        .post-content a:hover { color: #2EC4B6; }
-        .post-content ul { list-style: disc; padding-left: 1.5em; margin: 0.3em 0; }
-        .post-content ol { list-style: decimal; padding-left: 1.5em; margin: 0.3em 0; }
-        .post-content li { margin: 0.1em 0; }
-        .post-content blockquote { border-left: 3px solid #0A4D5C; padding-left: 0.75em; margin: 0.3em 0; font-style: italic; }
-        .post-content pre { background: #f3f4f6; border-radius: 8px; padding: 0.5em 0.75em; margin: 0.3em 0; overflow-x: auto; font-size: 0.85em; }
-        .post-content code { background: #f3f4f6; border-radius: 4px; padding: 0.1em 0.3em; font-size: 0.9em; }
-        .post-content font { /* preserve font face/color/size from WYSIWYG */ }
-        .post-content div { margin: 0; }
-        .post-content hr { border: none; border-top: 1px solid #0A4D5C15; margin: 0.5em 0; }
-      `}</style>
       {/* Full-screen dialog overlay */}
       <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#000305]/50 backdrop-blur-sm overflow-y-auto" onClick={() => onOpenChange(false)}>
         <div
@@ -872,34 +735,13 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
                       </div>
                     </div>
                   ) : isTextOnly ? (
-                    <FormattedText
-                      className={`mt-1.5 text-base sm:text-lg leading-snug whitespace-pre-wrap ${(() => {
-                        const hasPs = localPost.post_style && typeof localPost.post_style === "object";
-                        const useInline = hasPs && (localPost.post_style!.fontColor || localPost.post_style!.postItColor != null);
-                        return useInline ? "" : (postItColor?.text || "text-[#000305]");
-                      })()}`}
-                      content={localPost.content}
-                      openUserProfile={navigateToProfile}
-                      style={{
-                        fontFamily: localPost.post_style?.font ? `'${localPost.post_style.font}', sans-serif` : "serif",
-                        fontWeight: localPost.post_style?.bold ? 700 : undefined,
-                        fontStyle: localPost.post_style?.italic ? "italic" : undefined,
-                        textAlign: localPost.post_style?.alignment || undefined,
-                        color: localPost.post_style?.fontColor || (() => {
-                          const hasPs = localPost.post_style && typeof localPost.post_style === "object";
-                          if (hasPs && localPost.post_style!.postItColor != null && localPost.post_style!.postItColor! >= 0 && localPost.post_style!.postItColor! < POST_IT_COLORS_HEX.length) {
-                            return POST_IT_COLORS_HEX[localPost.post_style!.postItColor!].text;
-                          }
-                          return undefined;
-                        })(),
-                      }}
-                    />
+                    <p className={`mt-1.5 font-serif text-base sm:text-lg leading-snug whitespace-pre-wrap ${postItColor?.text || "text-[#000305]"}`}>
+                      {renderContentWithMentions(localPost.content, navigateToProfile, { isMine: isOwnPost, linkClassName: linkClass })}
+                    </p>
                   ) : (
-                    <FormattedText
-                      className="mt-1.5 text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]"
-                      content={localPost.content}
-                      openUserProfile={navigateToProfile}
-                    />
+                    <p className="mt-1.5 text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]">
+                      {renderContentWithMentions(localPost.content, navigateToProfile, { isMine: isOwnPost, linkClassName: linkClass })}
+                    </p>
                   )}
 
                   {/* Shared post (repost) */}
@@ -917,7 +759,7 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
                           {localPost.shared_post?.author?.display_name || "Usuário"}
                         </button>
                       </div>
-                      <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-4" content={localPost.shared_post.content} openUserProfile={navigateToProfile} />
+                      <p className="text-xs text-[#0A4D5C]/60 leading-relaxed">{renderContentWithMentions(localPost.shared_post.content, navigateToProfile, { linkClassName: linkClass })}</p>
                       {localPost.shared_post.image_urls && localPost.shared_post.image_urls.length > 0 && (
                         <div className="mt-1.5 flex gap-1 overflow-x-auto">
                           {localPost.shared_post.image_urls.slice(0, 2).map((url, i) => (

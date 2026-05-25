@@ -11,7 +11,7 @@ import { UserAvatar } from "./UserAvatar";
 import { timeAgo } from "@/lib/constants";
 import { renderContentWithLinks } from "@/lib/link-utils";
 import { toast } from "sonner";
-import { sanitizeHTMLSync, sanitizeHTMLAsync } from "@/lib/sanitize";
+import { sanitizeHTMLSync } from "@/lib/sanitize";
 
 // ═══════════════════════════════════════════════════════════
 // Post-it colors (Tailwind classes)
@@ -64,11 +64,11 @@ function getExpirationLabel(expiresAt: string): string {
   const now = Date.now();
   const expires = new Date(expiresAt).getTime();
   const diff = expires - now;
-  if (diff <= 0) return "Expirado";
+  if (diff <= 0) return "0m";
   const hours = Math.floor(diff / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
-  if (hours > 0) return `Expira em ${hours}h${mins > 0 ? ` ${mins}min` : ""}`;
-  return `Expira em ${mins}min`;
+  if (hours > 0) return `${hours}h`;
+  return `${mins}m`;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -272,14 +272,6 @@ function isHTMLContent(content: string): boolean {
   return /<\/?[a-z][\s\S]*>/i.test(content);
 }
 
-function useDOMPurify() {
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    sanitizeHTMLAsync("").then(() => setReady(true));
-  }, []);
-  return ready;
-}
-
 function sanitizeHTML(html: string): string {
   return sanitizeHTMLSync(html);
 }
@@ -386,8 +378,6 @@ interface UserProfileDialogProps {
 
 export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDialogProps) {
   const { profile } = useStore();
-  // Inicializa DOMPurify para que sanitizeHTMLSync funcione corretamente
-  useDOMPurify();
   const [userData, setUserData] = useState<any>(null);
   const [followData, setFollowData] = useState<{
     followingCount: number;

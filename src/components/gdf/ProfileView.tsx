@@ -140,11 +140,11 @@ function getExpirationLabel(expiresAt: string): string {
   const now = Date.now();
   const expires = new Date(expiresAt).getTime();
   const diff = expires - now;
-  if (diff <= 0) return "Expirado";
+  if (diff <= 0) return "0m";
   const hours = Math.floor(diff / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
-  if (hours > 0) return `Expira em ${hours}h${mins > 0 ? ` ${mins}min` : ""}`;
-  return `Expira em ${mins}min`;
+  if (hours > 0) return `${hours}h`;
+  return `${mins}m`;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -828,7 +828,7 @@ export function ProfileView() {
     const urls: string[] = [];
     for (const file of selectedFiles) {
       try {
-        const compressed = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.55, maxSizeKB: 300 });
+        const compressed = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.55, maxSizeKB: 150 });
         const formData = new FormData();
         formData.append("file", compressed, "photo.webp");
         formData.append("folder", "posts");
@@ -1426,7 +1426,7 @@ export function ProfileView() {
                 )}
 
                 {/* Hidden inputs */}
-                <input ref={cameraPhotoRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" capture="environment" onChange={handleCameraPhoto} className="hidden" />
+                <input ref={cameraPhotoRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhoto} className="hidden" />
                 <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handlePhotoSelect} className="hidden" />
                 <input ref={cameraVideoRef} type="file" accept="video/*" capture="environment" onChange={handleVideoSelect} className="hidden" />
                 <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />

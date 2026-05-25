@@ -43,7 +43,6 @@ import {
   validateImageFile,
   createPreviewUrl,
   revokePreviewUrl,
-  getExtensionForBlob,
 } from "@/lib/image-compression";
 import { sanitizeHTMLSync, sanitizeHTMLAsync } from "@/lib/sanitize";
 
@@ -262,11 +261,11 @@ function getExpirationLabel(expiresAt: string): string {
   const now = Date.now();
   const expires = new Date(expiresAt).getTime();
   const diff = expires - now;
-  if (diff <= 0) return "Expirado";
+  if (diff <= 0) return "0m";
   const hours = Math.floor(diff / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
-  if (hours > 0) return `Expira em ${hours}h${mins > 0 ? ` ${mins}min` : ""}`;
-  return `Expira em ${mins}min`;
+  if (hours > 0) return `${hours}h`;
+  return `${mins}m`;
 }
 
 function formatDuration(seconds: number): string {
@@ -332,11 +331,11 @@ function VideoPlayer({ src }: { src: string }) {
   };
 
   return (
-    <div className="mt-2.5 relative rounded-3xl overflow-hidden bg-[#000305] shadow-lg group">
+    <div className="relative rounded-2xl overflow-hidden bg-[#000305] shadow-lg group">
       <video
         ref={videoRef}
         src={src}
-        className="w-full max-h-96 object-contain"
+        className="w-full max-h-[28rem] sm:max-h-[36rem] object-contain"
         playsInline
         preload="metadata"
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
@@ -390,7 +389,7 @@ function AudioPlayer({ src }: { src: string }) {
   };
 
   return (
-    <div className="mt-2.5 rounded-3xl bg-[#0A4D5C]/[0.06] p-4 shadow-sm border border-[#0A4D5C]/10">
+    <div className="rounded-2xl bg-[#0A4D5C]/[0.06] p-4 shadow-sm border border-[#0A4D5C]/10">
       <div className="flex items-center gap-3.5">
         <button onClick={toggle} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#0A4D5C] text-[#f7f9fa] shadow-md hover:bg-[#0A4D5C]/90 transition-all hover:scale-105">
           {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
@@ -424,17 +423,17 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
 
   if (count === 1) {
     return (
-      <button onClick={() => onPhotoClick?.(0)} className="mt-2.5 w-full overflow-hidden rounded-3xl shadow-lg">
-        <img src={photos[0]} alt="Foto do post" className="w-full max-h-80 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+      <button onClick={() => onPhotoClick?.(0)} className="w-full overflow-hidden rounded-2xl shadow-lg">
+        <img src={photos[0]} alt="Foto do post" className="w-full max-h-[28rem] sm:max-h-[36rem] object-cover hover:opacity-95 transition-opacity" loading="lazy" />
       </button>
     );
   }
   if (count === 2) {
     return (
-      <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
+      <div className="grid grid-cols-2 gap-0.5 overflow-hidden rounded-2xl shadow-lg">
         {photos.map((url, i) => (
           <button key={i} onClick={() => onPhotoClick?.(i)} className="overflow-hidden">
-            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-48 sm:h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           </button>
         ))}
       </div>
@@ -442,24 +441,24 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
   }
   if (count === 3) {
     return (
-      <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
+      <div className="grid grid-cols-2 gap-0.5 overflow-hidden rounded-2xl shadow-lg">
         <button onClick={() => onPhotoClick?.(0)} className="row-span-2 overflow-hidden">
           <img src={photos[0]} alt="Foto 1" className="w-full h-full object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(1)} className="overflow-hidden">
-          <img src={photos[1]} alt="Foto 2" className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[1]} alt="Foto 2" className="w-full h-48 sm:h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(2)} className="overflow-hidden">
-          <img src={photos[2]} alt="Foto 3" className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[2]} alt="Foto 3" className="w-full h-48 sm:h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
       </div>
     );
   }
   return (
-    <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
+    <div className="grid grid-cols-2 gap-0.5 overflow-hidden rounded-2xl shadow-lg">
       {photos.slice(0, 4).map((url, i) => (
         <button key={i} onClick={() => onPhotoClick?.(i)} className="relative overflow-hidden">
-          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-48 sm:h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           {i === 3 && count > 4 && (
             <div className="absolute inset-0 flex items-center justify-center bg-[#000305]/50 text-[#f7f9fa] font-bold text-lg">+{count - 4}</div>
           )}
@@ -987,32 +986,15 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     const urls: string[] = [];
     for (const file of selectedFiles) {
       try {
-        // Comprime com maxSizeKB=300 (aumentado de 150 para mobile)
-        const compressed = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.55, maxSizeKB: 300 });
-        // Determina extensão e nome do arquivo baseado no tipo real do blob
-        const ext = getExtensionForBlob(compressed);
-        const filename = `photo.${ext}`;
+        const compressed = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.55, maxSizeKB: 150 });
         const formData = new FormData();
-        formData.append("file", compressed, filename);
+        formData.append("file", compressed, "photo.webp");
         formData.append("folder", "posts");
         const res = await fetch("/api/upload", { method: "POST", body: formData });
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          try {
-            const data = JSON.parse(text);
-            toast.error(data.error || "Erro ao enviar foto");
-          } catch {
-            toast.error(`Erro no servidor (${res.status})`);
-          }
-          continue;
-        }
         const data = await res.json();
         if (data.url) urls.push(data.url);
         else toast.error(data.error || "Erro ao enviar foto");
-      } catch (err: any) {
-        console.error("Erro upload foto:", err);
-        toast.error(err?.message || "Erro ao processar foto. Tente outra imagem");
-      }
+      } catch { toast.error("Erro ao processar foto"); }
     }
     return urls;
   };
@@ -1363,7 +1345,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                 )}
 
                 {/* Hidden inputs */}
-                <input ref={cameraPhotoRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" capture="environment" onChange={handleCameraPhotoSelect} className="hidden" />
+                <input ref={cameraPhotoRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhotoSelect} className="hidden" />
                 <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
                 <input ref={cameraVideoRef} type="file" accept="video/*" capture="environment" onChange={handleCameraVideoSelect} className="hidden" />
                 <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
@@ -1668,6 +1650,7 @@ function PostThread({
       style={useInlineStyle && postItColorHex ? { backgroundColor: postItColorHex.bg, border: `1px solid ${postItColorHex.border}` } : undefined}
       onClick={handleOpenPostDetail}
     >
+      {/* Top section — header + text (with padding) */}
       <div className="p-3 sm:p-4">
         {/* Header */}
         <div className="flex items-start gap-2.5">
@@ -1692,6 +1675,14 @@ function PostThread({
               )}
               <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/20" : "text-[#0A4D5C]/25"}`}>·</span>
               <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/40" : "text-[#0A4D5C]/40"}`}>{timeAgo(post.created_at)}</span>
+
+              {/* Expiration badge — inline with header */}
+              {post.expires_at && expirationLabel && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#000305] bg-[#f7f75e] rounded-full px-2 py-0.5">
+                  <Clock className="h-2.5 w-2.5" />
+                  {expirationLabel}
+                </span>
+              )}
             </div>
 
             {/* Content */}
@@ -1747,22 +1738,23 @@ function PostThread({
                 )}
               </div>
             )}
+          </div>
+        </div>
+      </div>
 
-            {/* Media */}
-            {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} />}
-            {hasVideo && <VideoPlayer src={post.video_url!} />}
-            {hasAudio && <AudioPlayer src={post.audio_url!} />}
+      {/* Media section — full width, no padding */}
+      {(hasPhotos || hasVideo || hasAudio) && (
+        <div className="px-3 sm:px-4">
+          {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} />}
+          {hasVideo && <VideoPlayer src={post.video_url!} />}
+          {hasAudio && <AudioPlayer src={post.audio_url!} />}
+        </div>
+      )}
 
-            {/* Expiration */}
-            {post.expires_at && expirationLabel && (
-              <div className="mt-2.5 flex items-center gap-1.5 text-[10px] font-semibold text-[#000305] bg-[#f7f75e] rounded-full px-2.5 py-1 w-fit">
-                <Clock className="h-3 w-3" />
-                <span>{expirationLabel}</span>
-              </div>
-            )}
-
+      {/* Bottom section — actions + comments (with padding) */}
+      <div className="p-3 sm:p-4 pt-2">
             {/* ═══════ ACTION BAR ═══════ */}
-            <div className="mt-2 flex items-center gap-0.5">
+            <div className="flex items-center gap-0.5">
               {/* Reactions */}
               <div className="relative">
                 <button
@@ -1899,8 +1891,6 @@ function PostThread({
                 </div>
               </div>
             )}
-          </div>
-        </div>
       </div>
     </div>
   );
