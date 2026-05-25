@@ -81,8 +81,14 @@ function getExpirationLabel(expiresAt: string): string {
   if (diff <= 0) return "Expirado";
   const hours = Math.floor(diff / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
-  if (hours > 0) return `Expira em ${hours}h${mins > 0 ? ` ${mins}min` : ""}`;
-  return `Expira em ${mins}min`;
+  if (hours > 0) return `${hours}h${mins > 0 ? `${mins}min` : ""}`;
+  return `${mins}min`;
+}
+
+const MEDIA_PLACEHOLDER_EMOJIS = ["\ud83d\udcf7", "\ud83c\udfa5", "\ud83c\udf99\ufe0f"];
+function isMediaPlaceholder(content: string): boolean {
+  const trimmed = content.trim();
+  return MEDIA_PLACEHOLDER_EMOJIS.includes(trimmed);
 }
 
 function formatDuration(seconds: number): string {
@@ -734,15 +740,17 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
                         </div>
                       </div>
                     </div>
-                  ) : isTextOnly ? (
+                  ) : !isMediaPlaceholder(localPost.content) ? (
+                    isTextOnly ? (
                     <p className={`mt-1.5 font-serif text-base sm:text-lg leading-snug whitespace-pre-wrap ${postItColor?.text || "text-[#000305]"}`}>
                       {renderContentWithMentions(localPost.content, navigateToProfile, { isMine: isOwnPost, linkClassName: linkClass })}
                     </p>
-                  ) : (
+                    ) : (
                     <p className="mt-1.5 text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]">
                       {renderContentWithMentions(localPost.content, navigateToProfile, { isMine: isOwnPost, linkClassName: linkClass })}
                     </p>
-                  )}
+                    )
+                  ) : null}
 
                   {/* Shared post (repost) */}
                   {localPost.shared_post && (

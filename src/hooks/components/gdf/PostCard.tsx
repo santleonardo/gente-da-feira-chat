@@ -57,9 +57,11 @@ export function PostCard({ post }: PostCardProps) {
     if (diff <= 0) return "Expirado";
     const hours = Math.floor(diff / 3600000);
     const mins = Math.floor((diff % 3600000) / 60000);
-    if (hours > 0) return `Expira em ${hours}h`;
-    return `Expira em ${mins}min`;
+    if (hours > 0) return `${hours}h`;
+    return `${mins}min`;
   };
+
+  const isMediaPlaceholder = ["\ud83d\udcf7", "\ud83c\udfa5", "\ud83c\udf99\ufe0f"].includes(post.content.trim());
 
   return (
     <>
@@ -74,7 +76,7 @@ export function PostCard({ post }: PostCardProps) {
             <p className="text-xs text-muted-foreground">@{post.author.username} · {timeAgo(post.created_at)}</p>
           </div>
         </div>
-        <p className="text-sm leading-relaxed whitespace-pre-wrap mb-3">{renderContentWithMentions(post.content, openUserProfile)}</p>
+        {!isMediaPlaceholder && <p className="text-sm leading-relaxed whitespace-pre-wrap mb-3">{renderContentWithMentions(post.content, openUserProfile)}</p>}
 
         {hasPhotos && (
           <div className="mb-3">
