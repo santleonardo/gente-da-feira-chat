@@ -535,7 +535,7 @@ function ShareMenu({
   const handleExternalShare = async () => {
     const shareData = {
       title: `Post de ${post.author?.display_name || "Usuário"}`,
-      text: post.content.slice(0, 100) + (post.content.length > 100 ? "..." : ""),
+      text: (post.content || "").slice(0, 100) + ((post.content || "").length > 100 ? "..." : ""),
       url: window.location.href,
     };
     try {
@@ -551,7 +551,7 @@ function ShareMenu({
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(post.content.slice(0, 200));
+      await navigator.clipboard.writeText((post.content || "").slice(0, 200));
       toast.success("Texto copiado!");
     } catch { toast.error("Erro ao copiar"); }
     onClose();
