@@ -114,7 +114,7 @@ interface Comment {
 
 interface PostWithAuthor {
   id: string;
-  content: string;
+  content: string | null;
   neighborhood?: string | null;
   created_at: string;
   author_id: string;

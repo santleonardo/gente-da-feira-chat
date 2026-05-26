@@ -10,7 +10,7 @@ import { renderContentWithMentions, openProfileFromMention } from "@/lib/link-ut
 interface PostCardProps {
   post: {
     id: string;
-    content: string;
+    content: string | null;
     created_at: string;
     image_urls?: string[];
     expires_at?: string | null;

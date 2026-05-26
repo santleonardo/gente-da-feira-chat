@@ -67,14 +67,8 @@ function getExpirationLabel(expiresAt: string): string {
   if (diff <= 0) return "Expirado";
   const hours = Math.floor(diff / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
-  if (hours > 0) return `${hours}h${mins > 0 ? `${mins}min` : ""}`;
-  return `${mins}min`;
-}
-
-const MEDIA_PLACEHOLDER_EMOJIS = ["\ud83d\udcf7", "\ud83c\udfa5", "\ud83c\udf99\ufe0f"];
-function isMediaPlaceholder(content: string): boolean {
-  const trimmed = content.trim();
-  return MEDIA_PLACEHOLDER_EMOJIS.includes(trimmed);
+  if (hours > 0) return `Expira em ${hours}h${mins > 0 ? ` ${mins}min` : ""}`;
+  return `Expira em ${mins}min`;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -321,10 +315,11 @@ function FormattedText({
   className,
   style,
 }: {
-  content: string;
+  content: string | null;
   className?: string;
   style?: React.CSSProperties;
 }) {
+  if (!content) return null;
   if (isHTMLContent(content)) {
     return (
       <div
@@ -774,8 +769,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                               {post.audio_url && <AudioPlayer src={post.audio_url} />}
 
                               {/* Texto com FormattedText + post_style */}
-                              {!isMediaPlaceholder(post.content) && (
-                              <>
                               {isTextOnly ? (
                                 <FormattedText
                                   className={`mt-1 text-sm leading-snug whitespace-pre-wrap ${useInlineStyle ? "" : (postItColor?.text || "text-[#000305]")}`}
@@ -793,8 +786,6 @@ export function UserProfileDialog({ userId, open, onOpenChange }: UserProfileDia
                                   className="mt-1 text-sm leading-relaxed whitespace-pre-wrap text-[#000305]"
                                   content={post.content}
                                 />
-                              )}
-                              </>
                               )}
 
                               {/* Post compartilhado/repostado */}

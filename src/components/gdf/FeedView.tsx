@@ -188,11 +188,12 @@ function FormattedText({
   style,
   openUserProfile,
 }: {
-  content: string;
+  content: string | null;
   className?: string;
   style?: React.CSSProperties;
   openUserProfile?: (userId: string) => void;
 }) {
+  if (!content) return null;
   // Se o conteúdo é HTML (posts criados com o editor WYSIWYG), renderizar como HTML
   if (isHTMLContent(content)) {
     return (
