@@ -99,7 +99,7 @@ export function renderContentWithLinks(text: string, linkClassName?: string): Re
  * Returns an array of React elements.
  */
 export function renderContentWithMentions(
-  text: string,
+  text: string | null,
   openUserProfile?: (userId: string) => void,
   options?: {
     mentionClassName?: string;
@@ -107,7 +107,7 @@ export function renderContentWithMentions(
     isMine?: boolean;
   }
 ): React.ReactNode[] {
-  if (!text) return [text];
+  if (!text) return [];
 
   const { mentionClassName, linkClassName, isMine } = options || {};
 
