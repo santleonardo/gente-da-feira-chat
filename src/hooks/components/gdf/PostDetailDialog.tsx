@@ -568,7 +568,7 @@ export function PostDetailDialog({ post, open, onOpenChange }: PostDetailDialogP
 
   const handleEdit = () => {
     if (!localPost) return;
-    setEditContent(localPost.content);
+    setEditContent(localPost.content || "");
     setIsEditing(true);
   };
 
