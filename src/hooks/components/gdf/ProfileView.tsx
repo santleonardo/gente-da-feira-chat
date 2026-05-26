@@ -384,10 +384,11 @@ function FormattedText({
   className,
   style,
 }: {
-  content: string;
+  content: string | null;
   className?: string;
   style?: React.CSSProperties;
 }) {
+  if (!content) return null;
   // Se o conteúdo é HTML (posts criados com o editor WYSIWYG), renderizar como HTML
   if (isHTMLContent(content)) {
     return (
