@@ -43,12 +43,12 @@
 
 :root {
   --radius: 0.625rem;
-  /* ═══════ GDF Chat - 4 Color Palette ═══════ */
-  /* #0A4D5C (Teal profundo) → Primary */
-  /* #f7f9fa (Branco suave)   → Background */
-  /* #000305 (Quase preto)    → Foreground/Text */
-  /* #f7f75e (Amarelo)        → Accent */
-  /* #2EC4B6 (Teal vivo)      → Botão/Vivo */
+  /* ═══════ Gente da Feira — Paleta de cores ═══════ */
+  /* #0A4D5C (Teal profundo) → Primary              */
+  /* #f7f9fa (Branco suave)  → Background            */
+  /* #000305 (Quase preto)   → Foreground/Text       */
+  /* #f7f75e (Amarelo)       → Accent                */
+  /* #2EC4B6 (Teal vivo)     → Botão/Vivo            */
   --background: #f7f9fa;
   --foreground: #000305;
   --card: #ffffff;
@@ -83,18 +83,54 @@
   --sidebar-ring: #0A4D5C;
 }
 
+/* ═══════ Dark mode ═══════ */
+.dark {
+  --background: #0a0f10;
+  --foreground: #f0f5f6;
+  --card: #111a1c;
+  --card-foreground: #f0f5f6;
+  --popover: #111a1c;
+  --popover-foreground: #f0f5f6;
+  --primary: #2EC4B6;
+  --primary-foreground: #0a0f10;
+  --secondary: #1a2e32;
+  --secondary-foreground: #9dcdd6;
+  --muted: #1a2e32;
+  --muted-foreground: #6ba3ae;
+  --accent: #f7f75e;
+  --accent-foreground: #0a0f10;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #1e3338;
+  --input: #1e3338;
+  --ring: #2EC4B6;
+  --chart-1: #2EC4B6;
+  --chart-2: #f7f75e;
+  --chart-3: #0A4D5C;
+  --chart-4: #3dd9c6;
+  --chart-5: #f59e0b;
+  --sidebar: #0d1a1c;
+  --sidebar-foreground: #f0f5f6;
+  --sidebar-primary: #2EC4B6;
+  --sidebar-primary-foreground: #0a0f10;
+  --sidebar-accent: #f7f75e;
+  --sidebar-accent-foreground: #0a0f10;
+  --sidebar-border: #1e3338;
+  --sidebar-ring: #2EC4B6;
+}
+
 @layer base {
   * {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-nunito), sans-serif;
   }
 }
 
 /* ═══════ Landscape orientation support ═══════ */
 @media (orientation: landscape) and (max-height: 500px) {
-  /* Compact bottom nav in landscape */
   nav.fixed.bottom-0 .mb-3 {
     margin-bottom: 0.5rem;
   }
