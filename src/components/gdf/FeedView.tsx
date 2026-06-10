@@ -1478,7 +1478,18 @@ function PostThread({
 
             {!isTextOnly && post.content && post.content.trim() && !isMediaPlaceholder(post.content) && (
               <div className="px-1 sm:px-1.5 mt-2">
-                <FormattedText className="text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]" content={post.content} openUserProfile={openUserProfile} />
+                <FormattedText
+                  className="text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]"
+                  content={post.content}
+                  openUserProfile={openUserProfile}
+                  style={{
+                    fontFamily:  hasPostStyle && post.post_style!.font      ? `'${post.post_style!.font}', sans-serif` : undefined,
+                    fontWeight:  hasPostStyle && post.post_style!.bold      ? 700                                      : undefined,
+                    fontStyle:   hasPostStyle && post.post_style!.italic    ? "italic"                                 : undefined,
+                    textAlign:   hasPostStyle && post.post_style!.alignment ? post.post_style!.alignment as any        : undefined,
+                    color:       hasPostStyle && post.post_style!.fontColor ? post.post_style!.fontColor               : undefined,
+                  }}
+                />
               </div>
             )}
 
