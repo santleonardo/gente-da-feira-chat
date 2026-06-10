@@ -52,72 +52,60 @@ import { sanitizeHTMLSync, sanitizeHTMLAsync } from "@/lib/sanitize";
 const MAX_PHOTOS_PER_POST = 5;
 const MAX_ACTIVE_MEDIA_POSTS = 5;
 const MAX_VIDEO_POSTS_PER_12H = 5;
-const MAX_VIDEO_DURATION = 30; // seconds
-const MAX_AUDIO_DURATION = 60; // seconds
+const MAX_VIDEO_DURATION = 30;
+const MAX_AUDIO_DURATION = 60;
 
 const REACTION_EMOJIS = [
-  { type: "like", emoji: "❤️", label: "Curtir" },
+  { type: "like",  emoji: "❤️", label: "Curtir"   },
   { type: "laugh", emoji: "😂", label: "Engraçado" },
-  { type: "sad", emoji: "😔", label: "Triste" },
-  { type: "wow", emoji: "😲", label: "Uau" },
-  { type: "angry", emoji: "😡", label: "Bravo" },
-  { type: "love", emoji: "😍", label: "Amei" },
+  { type: "sad",   emoji: "😔", label: "Triste"    },
+  { type: "wow",   emoji: "😲", label: "Uau"       },
+  { type: "angry", emoji: "😡", label: "Bravo"     },
+  { type: "love",  emoji: "😍", label: "Amei"      },
 ] as const;
 
 // ═══════════════════════════════════════════════════════════
-// PALETA GDF - Cores principais
-// #0A4D5C (Teal profundo) → Primary
-// #f7f9fa (Branco suave)  → Background
-// #000305 (Quase preto)   → Texto
-// #f7f75e (Amarelo)       → Acento
-// #2EC4B6 (Teal vivo)     → Cor viva para botões
-// ═══════════════════════════════════════════════════════════
-
-// ═══════════════════════════════════════════════════════════
-// Post-it colors for text-only posts (tons médios)
+// Post-it colors
 // ═══════════════════════════════════════════════════════════
 const POST_IT_COLORS = [
-  { bg: "bg-[#fef9c3]", text: "text-[#854d0e]", border: "border-[#fde68a]" },       // Amarelo
-  { bg: "bg-[#fce7f3]", text: "text-[#9d174d]", border: "border-[#fbcfe8]" },        // Rosa
-  { bg: "bg-[#dbeafe]", text: "text-[#1e40af]", border: "border-[#bfdbfe]" },        // Azul
-  { bg: "bg-[#dcfce7]", text: "text-[#166534]", border: "border-[#bbf7d0]" },        // Verde
-  { bg: "bg-[#ffedd5]", text: "text-[#9a3412]", border: "border-[#fed7aa]" },        // Laranja
-  { bg: "bg-[#ede9fe]", text: "text-[#5b21b6]", border: "border-[#ddd6fe]" },        // Roxo
-  { bg: "bg-[#fee2e2]", text: "text-[#991b1b]", border: "border-[#fecaca]" },        // Coral
-  { bg: "bg-[#d1fae5]", text: "text-[#065f46]", border: "border-[#a7f3d0]" },        // Menta
-  { bg: "bg-[#e0e7ff]", text: "text-[#3730a3]", border: "border-[#c7d2fe]" },        // Lavanda
-  { bg: "bg-[#fef3c7]", text: "text-[#92400e]", border: "border-[#fde68a]" },        // Pêssego
-  { bg: "bg-white", text: "text-[#374151]", border: "border-[#d1d5db]" },              // Branco
-  { bg: "bg-[#f3f4f6]", text: "text-[#4b5563]", border: "border-[#d1d5db]" },        // Cinza
+  { bg: "bg-[#fef9c3]", text: "text-[#854d0e]", border: "border-[#fde68a]" },
+  { bg: "bg-[#fce7f3]", text: "text-[#9d174d]", border: "border-[#fbcfe8]" },
+  { bg: "bg-[#dbeafe]", text: "text-[#1e40af]", border: "border-[#bfdbfe]" },
+  { bg: "bg-[#dcfce7]", text: "text-[#166534]", border: "border-[#bbf7d0]" },
+  { bg: "bg-[#ffedd5]", text: "text-[#9a3412]", border: "border-[#fed7aa]" },
+  { bg: "bg-[#ede9fe]", text: "text-[#5b21b6]", border: "border-[#ddd6fe]" },
+  { bg: "bg-[#fee2e2]", text: "text-[#991b1b]", border: "border-[#fecaca]" },
+  { bg: "bg-[#d1fae5]", text: "text-[#065f46]", border: "border-[#a7f3d0]" },
+  { bg: "bg-[#e0e7ff]", text: "text-[#3730a3]", border: "border-[#c7d2fe]" },
+  { bg: "bg-[#fef3c7]", text: "text-[#92400e]", border: "border-[#fde68a]" },
+  { bg: "bg-white",     text: "text-[#374151]", border: "border-[#d1d5db]" },
+  { bg: "bg-[#f3f4f6]", text: "text-[#4b5563]", border: "border-[#d1d5db]" },
 ] as const;
 
-// Cores em hex para uso com inline styles (post_style)
 const POST_IT_COLORS_HEX = [
-  { bg: "#fef9c3", text: "#854d0e", border: "#fde68a" },       // Amarelo
-  { bg: "#fce7f3", text: "#9d174d", border: "#fbcfe8" },        // Rosa
-  { bg: "#dbeafe", text: "#1e40af", border: "#bfdbfe" },        // Azul
-  { bg: "#dcfce7", text: "#166534", border: "#bbf7d0" },        // Verde
-  { bg: "#ffedd5", text: "#9a3412", border: "#fed7aa" },        // Laranja
-  { bg: "#ede9fe", text: "#5b21b6", border: "#ddd6fe" },        // Roxo
-  { bg: "#fee2e2", text: "#991b1b", border: "#fecaca" },        // Coral
-  { bg: "#d1fae5", text: "#065f46", border: "#a7f3d0" },        // Menta
-  { bg: "#e0e7ff", text: "#3730a3", border: "#c7d2fe" },        // Lavanda
-  { bg: "#fef3c7", text: "#92400e", border: "#fde68a" },        // Pêssego
-  { bg: "#ffffff", text: "#374151", border: "#d1d5db" },        // Branco
-  { bg: "#f3f4f6", text: "#4b5563", border: "#d1d5db" },        // Cinza
+  { bg: "#fef9c3", text: "#854d0e", border: "#fde68a" },
+  { bg: "#fce7f3", text: "#9d174d", border: "#fbcfe8" },
+  { bg: "#dbeafe", text: "#1e40af", border: "#bfdbfe" },
+  { bg: "#dcfce7", text: "#166534", border: "#bbf7d0" },
+  { bg: "#ffedd5", text: "#9a3412", border: "#fed7aa" },
+  { bg: "#ede9fe", text: "#5b21b6", border: "#ddd6fe" },
+  { bg: "#fee2e2", text: "#991b1b", border: "#fecaca" },
+  { bg: "#d1fae5", text: "#065f46", border: "#a7f3d0" },
+  { bg: "#e0e7ff", text: "#3730a3", border: "#c7d2fe" },
+  { bg: "#fef3c7", text: "#92400e", border: "#fde68a" },
+  { bg: "#ffffff", text: "#374151", border: "#d1d5db" },
+  { bg: "#f3f4f6", text: "#4b5563", border: "#d1d5db" },
 ] as const;
 
-// Fontes disponíveis para post_style
-const EDITOR_FONTS = ["Nunito", "Quicksand", "Poppins", "Inter", "Comfortaa", "Montserrat", "Lato", "Raleway", "DM Sans", "Work Sans"] as const;
+const EDITOR_FONTS = ["Nunito","Quicksand","Poppins","Inter","Comfortaa","Montserrat","Lato","Raleway","DM Sans","Work Sans"] as const;
 
 // ═══════════════════════════════════════════════════════════
-// FormattedText — renderiza HTML ou parseia markdown
+// FormattedText helpers
 // ═══════════════════════════════════════════════════════════
 function isHTMLContent(content: string): boolean {
   return /<\/?[a-z][\s\S]*>/i.test(content);
 }
 
-// Pré-carrega DOMPurify no cliente assim que o componente monta
 function useDOMPurify() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
@@ -132,7 +120,6 @@ function sanitizeHTML(html: string): string {
 
 function parseInlineFormatting(text: string, openUserProfile?: (userId: string) => void): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Combined regex: URLs (highest priority), @mentions, bold-italic, bold, italic
   const regex = /(https?:\/\/[^\s<>"')\]]+)|@(\w+)|(\*\*\*(.+?)\*\*\*)|(\*\*(.+?)\*\*)|_(.+?)_/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -143,25 +130,19 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
       parts.push(<Fragment key={`t${key++}`}>{text.slice(lastIndex, match.index)}</Fragment>);
     }
     if (match[1]) {
-      // URL — clickable link
       parts.push(
-        <a key={`url${key++}`} href={match[1]} target="_blank" rel="noopener noreferrer" className="text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors" onClick={(e) => e.stopPropagation()}>
+        <a key={`url${key++}`} href={match[1]} target="_blank" rel="noopener noreferrer"
+          className="text-[#0A4D5C] underline decoration-[#0A4D5C]/40 underline-offset-2 hover:decoration-[#0A4D5C] transition-colors"
+          onClick={(e) => e.stopPropagation()}>
           {match[1]}
         </a>
       );
     } else if (match[2]) {
-      // @mention — clickable profile link
-      // Capture username in local variable to avoid closure over mutable `match`
       const mentionUsername = match[2];
       parts.push(
-        <span
-          key={`mention${key++}`}
+        <span key={`mention${key++}`}
           className="text-[#0A4D5C] font-semibold underline decoration-[#0A4D5C]/30 underline-offset-2 hover:decoration-[#0A4D5C]/60 cursor-pointer transition-colors"
-          onClick={(e) => {
-            e.stopPropagation();
-            openProfileFromMention(mentionUsername, openUserProfile);
-          }}
-        >
+          onClick={(e) => { e.stopPropagation(); openProfileFromMention(mentionUsername, openUserProfile); }}>
           @{mentionUsername}
         </span>
       );
@@ -183,10 +164,7 @@ function parseInlineFormatting(text: string, openUserProfile?: (userId: string) 
 }
 
 function FormattedText({
-  content,
-  className,
-  style,
-  openUserProfile,
+  content, className, style, openUserProfile,
 }: {
   content: string | null;
   className?: string;
@@ -194,39 +172,28 @@ function FormattedText({
   openUserProfile?: (userId: string) => void;
 }) {
   if (!content) return null;
-  // Se o conteúdo é HTML (posts criados com o editor WYSIWYG), renderizar como HTML
   if (isHTMLContent(content)) {
     return (
-      <div
-        className={`post-content ${className || ""}`}
-        style={style}
-        dangerouslySetInnerHTML={{ __html: sanitizeHTML(content) }}
-      />
+      <div className={`post-content ${className || ""}`} style={style}
+        dangerouslySetInnerHTML={{ __html: sanitizeHTML(content) }} />
     );
   }
 
-  // Posts antigos com markdown — parsear **bold**, _italic_, # H1, ## H2
   const lines = content.split("\n");
-
   return (
     <div className={className} style={style}>
       {lines.map((line, i) => {
         let headingLevel = 0;
         let text = line;
-        if (text.startsWith("### ")) { headingLevel = 3; text = text.slice(4); }
+        if (text.startsWith("### "))      { headingLevel = 3; text = text.slice(4); }
         else if (text.startsWith("## ")) { headingLevel = 2; text = text.slice(3); }
-        else if (text.startsWith("# ")) { headingLevel = 1; text = text.slice(2); }
+        else if (text.startsWith("# "))  { headingLevel = 1; text = text.slice(2); }
 
-        const headingStyle: React.CSSProperties =
-          headingLevel > 0
-            ? {
-                fontSize: headingLevel === 1 ? "1.25rem" : headingLevel === 2 ? "1.1rem" : "1rem",
-                fontWeight: 700,
-                lineHeight: 1.3,
-                display: "block",
-                marginTop: i > 0 ? "0.35em" : undefined,
-              }
-            : {};
+        const headingStyle: React.CSSProperties = headingLevel > 0 ? {
+          fontSize: headingLevel === 1 ? "1.25rem" : headingLevel === 2 ? "1.1rem" : "1rem",
+          fontWeight: 700, lineHeight: 1.3, display: "block",
+          marginTop: i > 0 ? "0.35em" : undefined,
+        } : {};
 
         return (
           <Fragment key={i}>
@@ -241,9 +208,7 @@ function FormattedText({
 
 function getPostItColor(postId: string) {
   let hash = 0;
-  for (let i = 0; i < postId.length; i++) {
-    hash = postId.charCodeAt(i) + ((hash << 5) - hash);
-  }
+  for (let i = 0; i < postId.length; i++) hash = postId.charCodeAt(i) + ((hash << 5) - hash);
   return POST_IT_COLORS[Math.abs(hash) % POST_IT_COLORS.length];
 }
 
@@ -276,7 +241,6 @@ function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-// Check if content is just a media placeholder emoji (legacy posts) or empty
 const MEDIA_PLACEHOLDER_EMOJIS = ["\ud83d\udcf7", "\ud83c\udfa5", "\ud83c\udf99\ufe0f"];
 function isMediaPlaceholder(content: string | null): boolean {
   if (!content) return true;
@@ -341,17 +305,10 @@ function VideoPlayer({ src }: { src: string }) {
 
   return (
     <div className="mt-2.5 relative rounded-3xl overflow-hidden bg-[#000305] shadow-lg group">
-      <video
-        ref={videoRef}
-        src={src}
-        className="w-full max-h-96 object-contain"
-        playsInline
-        preload="metadata"
+      <video ref={videoRef} src={src} className="w-full max-h-96 object-contain" playsInline preload="metadata"
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
         onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
-        onEnded={() => setPlaying(false)}
-        onClick={toggle}
-      />
+        onEnded={() => setPlaying(false)} onClick={toggle} />
       {!playing && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#000305]/30 cursor-pointer" onClick={toggle}>
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#0A4D5C] shadow-lg transition-transform hover:scale-110">
@@ -418,7 +375,10 @@ function AudioPlayer({ src }: { src: string }) {
           </div>
         </div>
       </div>
-      <audio ref={audioRef} src={src} preload="metadata" onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)} onLoadedMetadata={() => { const d = audioRef.current?.duration; setDuration(d && isFinite(d) ? d : 0); }} onEnded={() => setPlaying(false)} />
+      <audio ref={audioRef} src={src} preload="metadata"
+        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
+        onLoadedMetadata={() => { const d = audioRef.current?.duration; setDuration(d && isFinite(d) ? d : 0); }}
+        onEnded={() => setPlaying(false)} />
     </div>
   );
 }
@@ -484,7 +444,9 @@ function PhotoViewer({ photos, initialIndex, onClose }: { photos: string[]; init
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#000305]/90 backdrop-blur-sm" onClick={onClose}>
-      <button onClick={onClose} className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-[#f7f9fa]/10 text-[#f7f9fa] hover:bg-[#f7f75e] hover:text-[#000305] transition-colors"><X className="h-5 w-5" /></button>
+      <button onClick={onClose} className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-[#f7f9fa]/10 text-[#f7f9fa] hover:bg-[#f7f75e] hover:text-[#000305] transition-colors">
+        <X className="h-5 w-5" />
+      </button>
       {photos.length > 1 && (
         <>
           <button onClick={(e) => { e.stopPropagation(); setCurrentIndex((i) => (i > 0 ? i - 1 : photos.length - 1)); }} className="absolute left-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-[#f7f9fa]/10 text-[#f7f9fa] hover:bg-[#f7f75e] hover:text-[#000305] transition-colors">&#8249;</button>
@@ -500,15 +462,7 @@ function PhotoViewer({ photos, initialIndex, onClose }: { photos: string[]; init
 // ═══════════════════════════════════════════════════════════
 // ShareMenu
 // ═══════════════════════════════════════════════════════════
-function ShareMenu({
-  post,
-  onClose,
-  onRepost,
-}: {
-  post: PostWithAuthor;
-  onClose: () => void;
-  onRepost: (post: PostWithAuthor) => void;
-}) {
+function ShareMenu({ post, onClose, onRepost }: { post: PostWithAuthor; onClose: () => void; onRepost: (post: PostWithAuthor) => void }) {
   const handleExternalShare = async () => {
     const shareData = {
       title: `Post de ${post.author?.display_name || "Usuário"}`,
@@ -516,45 +470,27 @@ function ShareMenu({
       url: window.location.href,
     };
     try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(`${shareData.text}\n\n--- GDF Chat`);
-        toast.success("Texto copiado!");
-      }
+      if (navigator.share) await navigator.share(shareData);
+      else { await navigator.clipboard.writeText(`${shareData.text}\n\n— Gente da Feira`); toast.success("Texto copiado!"); }
     } catch { /* cancelled */ }
     onClose();
   };
 
   const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText((post.content || "").slice(0, 200));
-      toast.success("Texto copiado!");
-    } catch { toast.error("Erro ao copiar"); }
+    try { await navigator.clipboard.writeText((post.content || "").slice(0, 200)); toast.success("Texto copiado!"); }
+    catch { toast.error("Erro ao copiar"); }
     onClose();
   };
 
   return (
     <div className="absolute right-0 bottom-full mb-2 w-12 rounded-2xl bg-[#f7f9fa] p-1 shadow-xl border border-[#0A4D5C]/10 z-50 animate-in fade-in-0 zoom-in-95 flex flex-col items-center gap-0.5">
-      <button
-        onClick={() => { onRepost(post); onClose(); }}
-        className="flex items-center justify-center rounded-xl p-2.5 text-[#000305] transition-colors hover:bg-[#f7f75e]/20"
-        title="Compartilhar no feed"
-      >
+      <button onClick={() => { onRepost(post); onClose(); }} className="flex items-center justify-center rounded-xl p-2.5 text-[#000305] transition-colors hover:bg-[#f7f75e]/20" title="Compartilhar no feed">
         <Repeat2 className="h-4 w-4 text-[#0A4D5C]" />
       </button>
-      <button
-        onClick={handleExternalShare}
-        className="flex items-center justify-center rounded-xl p-2.5 text-[#000305] transition-colors hover:bg-[#f7f75e]/20"
-        title="Compartilhar fora"
-      >
+      <button onClick={handleExternalShare} className="flex items-center justify-center rounded-xl p-2.5 text-[#000305] transition-colors hover:bg-[#f7f75e]/20" title="Compartilhar fora">
         <ExternalLink className="h-4 w-4 text-[#0A4D5C]/50" />
       </button>
-      <button
-        onClick={handleCopyLink}
-        className="flex items-center justify-center rounded-xl p-2.5 text-[#000305] transition-colors hover:bg-[#f7f75e]/20"
-        title="Copiar texto"
-      >
+      <button onClick={handleCopyLink} className="flex items-center justify-center rounded-xl p-2.5 text-[#000305] transition-colors hover:bg-[#f7f75e]/20" title="Copiar texto">
         <Copy className="h-4 w-4 text-[#0A4D5C]/50" />
       </button>
     </div>
@@ -562,11 +498,14 @@ function ShareMenu({
 }
 
 // ═══════════════════════════════════════════════════════════
-// FeedSkeleton
+// FeedSkeleton — imita o layout masonry real
 // ═══════════════════════════════════════════════════════════
 function FeedSkeleton() {
+  const leftHeights  = [130, 180, 120];
+  const rightHeights = [160, 110, 200];
   return (
     <div className="space-y-4 animate-pulse">
+      {/* Composer skeleton */}
       <div className="rounded-3xl bg-[#eef1f3] p-5 shadow-lg border border-[#0A4D5C]/8">
         <div className="flex items-start gap-3.5">
           <div className="h-12 w-12 rounded-full bg-[#0A4D5C]/10 shrink-0" />
@@ -576,21 +515,19 @@ function FeedSkeleton() {
           </div>
         </div>
       </div>
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="rounded-3xl bg-[#eef1f3] p-4 shadow-lg border border-[#0A4D5C]/8">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="h-11 w-11 rounded-full bg-[#0A4D5C]/10" />
-            <div className="flex-1 space-y-1.5">
-              <div className="h-3 bg-[#0A4D5C]/8 rounded w-1/3" />
-              <div className="h-2.5 bg-[#0A4D5C]/5 rounded w-1/4" />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <div className="h-3 bg-[#0A4D5C]/8 rounded w-full" />
-            <div className="h-3 bg-[#0A4D5C]/8 rounded w-4/5" />
-          </div>
+      {/* Masonry skeleton */}
+      <div className="flex gap-3.5 mt-4">
+        <div className="flex flex-1 flex-col gap-3.5">
+          {leftHeights.map((h, i) => (
+            <div key={i} className="rounded-2xl bg-[#0A4D5C]/8" style={{ height: h }} />
+          ))}
         </div>
-      ))}
+        <div className="flex flex-1 flex-col gap-3.5">
+          {rightHeights.map((h, i) => (
+            <div key={i} className="rounded-2xl bg-[#0A4D5C]/8" style={{ height: h }} />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -607,9 +544,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 
   // Carregar Google Fonts para post_style
   useEffect(() => {
-    const fontsParam = EDITOR_FONTS.map(
-      (f) => `family=${f.replace(/ /g, "+")}:wght@400;700`
-    ).join("&");
+    const fontsParam = EDITOR_FONTS.map((f) => `family=${f.replace(/ /g, "+")}:wght@400;700`).join("&");
     const href = `https://fonts.googleapis.com/css2?${fontsParam}&display=swap`;
     if (!document.querySelector(`link[href="${href}"]`)) {
       const link = document.createElement("link");
@@ -619,57 +554,54 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     }
   }, []);
 
-  const [posts, setPosts] = useState<PostWithAuthor[]>([]);
-  const [content, setContent] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [activeMediaCount, setActiveMediaCount] = useState(0);
+  // ─── State principal ───────────────────────────────────
+  const [posts,       setPosts]       = useState<PostWithAuthor[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [nextCursor,  setNextCursor]  = useState<string | null>(null);
+  const [hasMore,     setHasMore]     = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // ─── Composer state ────────────────────────────────────
+  const [content,            setContent]            = useState("");
+  const [selectedFiles,      setSelectedFiles]      = useState<File[]>([]);
+  const [previewUrls,        setPreviewUrls]        = useState<string[]>([]);
+  const [uploading,          setUploading]          = useState(false);
+  const [activeMediaCount,   setActiveMediaCount]   = useState(0);
   const [videoPostsInWindow, setVideoPostsInWindow] = useState(0);
+  const [selectedVideo,      setSelectedVideo]      = useState<File | null>(null);
+  const [selectedAudio,      setSelectedAudio]      = useState<File | null>(null);
+  const [videoPreview,       setVideoPreview]       = useState<string | null>(null);
+  const [audioPreview,       setAudioPreview]       = useState<string | null>(null);
+  const [videoDuration,      setVideoDuration]      = useState<number>(0);
+  const [audioDuration,      setAudioDuration]      = useState<number>(0);
+  const [visibility,         setVisibility]         = useState<"public" | "followers">("public");
+  const [menuOpen,           setMenuOpen]           = useState(false);
 
   // Input refs
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
-  const audioInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef   = useRef<HTMLInputElement>(null);
+  const videoInputRef  = useRef<HTMLInputElement>(null);
+  const audioInputRef  = useRef<HTMLInputElement>(null);
   const cameraPhotoRef = useRef<HTMLInputElement>(null);
   const cameraVideoRef = useRef<HTMLInputElement>(null);
+  const menuRef        = useRef<HTMLDivElement>(null);
 
-  // Composer state
-  const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
-  const [selectedAudio, setSelectedAudio] = useState<File | null>(null);
-  const [videoPreview, setVideoPreview] = useState<string | null>(null);
-  const [audioPreview, setAudioPreview] = useState<string | null>(null);
-  const [videoDuration, setVideoDuration] = useState<number>(0);
-  const [audioDuration, setAudioDuration] = useState<number>(0);
-  const [visibility, setVisibility] = useState<"public" | "followers">("public");
-
-  // Menu state
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Audio recording state (direct in-app recording)
-  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [isPausedRecording, setIsPausedRecording] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
+  // ─── Audio recording state ────────────────────────────
+  const [isRecordingAudio,   setIsRecordingAudio]   = useState(false);
+  const [recordingSeconds,   setRecordingSeconds]   = useState(0);
+  const [isPausedRecording,  setIsPausedRecording]  = useState(false);
+  const mediaRecorderRef  = useRef<MediaRecorder | null>(null);
+  const audioChunksRef    = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaStreamRef    = useRef<MediaStream | null>(null);
 
-  // Viewer state
-  const [viewerPhotos, setViewerPhotos] = useState<string[]>([]);
-  const [viewerIndex, setViewerIndex] = useState(0);
-  const [viewerOpen, setViewerOpen] = useState(false);
-
-  // Share state
+  // ─── Viewer / share / repost ──────────────────────────
+  const [viewerPhotos,  setViewerPhotos]  = useState<string[]>([]);
+  const [viewerIndex,   setViewerIndex]   = useState(0);
+  const [viewerOpen,    setViewerOpen]    = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState<string | null>(null);
-
-  // Repost state
   const [repostingPost, setRepostingPost] = useState<PostWithAuthor | null>(null);
   const [repostContent, setRepostContent] = useState("");
 
-  // ═══════ Can post check ═══════
   const hasMediaInComposer = selectedFiles.length > 0 || selectedVideo || selectedAudio;
   const canPost = !!profile && (content.trim().length > 0 || hasMediaInComposer);
 
@@ -677,35 +609,53 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   useEffect(() => {
     if (!menuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
 
-  // Cleanup recording on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-      }
-      // Revoke any pending object URLs to prevent memory leaks
+      if (mediaStreamRef.current) mediaStreamRef.current.getTracks().forEach((t) => t.stop());
       previewUrls.forEach((url) => { try { URL.revokeObjectURL(url); } catch { /* ignore */ } });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ─── Fetch inicial ────────────────────────────────────
   useEffect(() => {
+    setLoading(true);
+    setNextCursor(null);
+    setHasMore(false);
     const nb = profile?.neighborhood || "all";
-    fetch(`/api/posts?neighborhood=${nb}&limit=30`)
+    fetch(`/api/posts?neighborhood=${nb}&limit=20`)
       .then((r) => r.json())
-      .then((data) => setPosts(data.posts || []))
+      .then((data) => {
+        setPosts(data.posts || []);
+        setNextCursor(data.nextCursor ?? null);
+        setHasMore(data.hasMore ?? false);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [profile?.neighborhood]);
+
+  // ─── Load more (cursor pagination) ───────────────────
+  const loadMorePosts = async () => {
+    if (!hasMore || loadingMore || !nextCursor) return;
+    setLoadingMore(true);
+    const nb = profile?.neighborhood || "all";
+    try {
+      const res  = await fetch(`/api/posts?neighborhood=${nb}&limit=20&cursor=${encodeURIComponent(nextCursor)}`);
+      const data = await res.json();
+      setPosts((prev) => [...prev, ...(data.posts || [])]);
+      setNextCursor(data.nextCursor ?? null);
+      setHasMore(data.hasMore ?? false);
+    } catch { /* silent */ }
+    finally { setLoadingMore(false); }
+  };
 
   useEffect(() => {
     if (!profile) return;
@@ -718,15 +668,10 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       const now = new Date().toISOString();
       const res = await fetch(`/api/posts?authorId=${profile.id}&limit=50`);
       const data = await res.json();
-      const active = (data.posts || []).filter(
-        (p: PostWithAuthor) => p.expires_at && p.expires_at > now
-      );
+      const active = (data.posts || []).filter((p: PostWithAuthor) => p.expires_at && p.expires_at > now);
       setActiveMediaCount(active.length);
-
       const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-      const recentVideos = (data.posts || []).filter(
-        (p: PostWithAuthor) => p.video_url && p.created_at > twelveHoursAgo
-      );
+      const recentVideos = (data.posts || []).filter((p: PostWithAuthor) => p.video_url && p.created_at > twelveHoursAgo);
       setVideoPostsInWindow(recentVideos.length);
     } catch { /* silent */ }
   };
@@ -759,18 +704,11 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const handleCameraVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error("Vídeo muito grande (máx 50MB)");
-      return;
-    }
+    if (file.size > 50 * 1024 * 1024) { toast.error("Vídeo muito grande (máx 50MB)"); return; }
     const video = document.createElement("video");
     video.preload = "metadata";
     video.onloadedmetadata = () => {
-      if (video.duration > MAX_VIDEO_DURATION) {
-        toast.error(`Vídeo muito longo (máx ${MAX_VIDEO_DURATION}s)`);
-        URL.revokeObjectURL(video.src);
-        return;
-      }
+      if (video.duration > MAX_VIDEO_DURATION) { toast.error(`Vídeo muito longo (máx ${MAX_VIDEO_DURATION}s)`); URL.revokeObjectURL(video.src); return; }
       setVideoDuration(video.duration);
       setSelectedVideo(file);
       setVideoPreview(URL.createObjectURL(file));
@@ -790,22 +728,12 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!["video/mp4", "video/webm", "video/quicktime"].includes(file.type)) {
-      toast.error("Tipo não suportado. Use MP4, WebM ou MOV.");
-      return;
-    }
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error("Vídeo muito grande (máx 50MB)");
-      return;
-    }
+    if (!["video/mp4","video/webm","video/quicktime"].includes(file.type)) { toast.error("Tipo não suportado. Use MP4, WebM ou MOV."); return; }
+    if (file.size > 50 * 1024 * 1024) { toast.error("Vídeo muito grande (máx 50MB)"); return; }
     const video = document.createElement("video");
     video.preload = "metadata";
     video.onloadedmetadata = () => {
-      if (video.duration > MAX_VIDEO_DURATION) {
-        toast.error(`Vídeo muito longo (máx ${MAX_VIDEO_DURATION}s)`);
-        URL.revokeObjectURL(video.src);
-        return;
-      }
+      if (video.duration > MAX_VIDEO_DURATION) { toast.error(`Vídeo muito longo (máx ${MAX_VIDEO_DURATION}s)`); URL.revokeObjectURL(video.src); return; }
       setVideoDuration(video.duration);
       setSelectedVideo(file);
       setVideoPreview(URL.createObjectURL(file));
@@ -819,22 +747,12 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!["audio/mpeg", "audio/mp4", "audio/webm", "audio/ogg", "audio/wav", "audio/x-m4a"].includes(file.type)) {
-      toast.error("Tipo não suportado. Use MP3, M4A, WebM, OGG ou WAV.");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Áudio muito grande (máx 10MB)");
-      return;
-    }
+    if (!["audio/mpeg","audio/mp4","audio/webm","audio/ogg","audio/wav","audio/x-m4a"].includes(file.type)) { toast.error("Tipo não suportado. Use MP3, M4A, WebM, OGG ou WAV."); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error("Áudio muito grande (máx 10MB)"); return; }
     const audio = document.createElement("audio");
     audio.preload = "metadata";
     audio.onloadedmetadata = () => {
-      if (audio.duration > MAX_AUDIO_DURATION) {
-        toast.error(`Áudio muito longo (máx ${MAX_AUDIO_DURATION}s)`);
-        URL.revokeObjectURL(audio.src);
-        return;
-      }
+      if (audio.duration > MAX_AUDIO_DURATION) { toast.error(`Áudio muito longo (máx ${MAX_AUDIO_DURATION}s)`); URL.revokeObjectURL(audio.src); return; }
       setAudioDuration(audio.duration);
       setSelectedAudio(file);
       setAudioPreview(URL.createObjectURL(file));
@@ -845,70 +763,38 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     setMenuOpen(false);
   };
 
-  // ═══════ Direct audio recording ═══════
+  // ─── Audio recording ──────────────────────────────────
   const startAudioRecording = async () => {
     setMenuOpen(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
-
-      // Choose best supported mimeType
       let mimeType = "audio/webm";
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = "audio/webm;codecs=opus";
-      }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = "audio/mp4";
-      }
-
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "audio/webm;codecs=opus";
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "audio/mp4";
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
       mediaRecorder.onstop = () => {
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
-        const ext = mimeType.includes("mp4") ? "m4a" : "webm";
+        const ext  = mimeType.includes("mp4") ? "m4a" : "webm";
         const file = new File([blob], `gravação.${ext}`, { type: mimeType });
-        const url = URL.createObjectURL(file);
-
-        // Get duration
+        const url  = URL.createObjectURL(file);
         const tempAudio = document.createElement("audio");
         tempAudio.preload = "metadata";
-        tempAudio.onloadedmetadata = () => {
-          const dur = tempAudio.duration;
-          setAudioDuration(dur);
-          setSelectedAudio(file);
-          setAudioPreview(url);
-          URL.revokeObjectURL(tempAudio.src);
-        };
+        tempAudio.onloadedmetadata = () => { setAudioDuration(tempAudio.duration); setSelectedAudio(file); setAudioPreview(url); URL.revokeObjectURL(tempAudio.src); };
         tempAudio.src = url;
-
-        // Stop all tracks
-        if (mediaStreamRef.current) {
-          mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-          mediaStreamRef.current = null;
-        }
+        if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach((t) => t.stop()); mediaStreamRef.current = null; }
         mediaRecorderRef.current = null;
         setIsRecordingAudio(false);
         setIsPausedRecording(false);
       };
-
       mediaRecorder.start(1000);
       setIsRecordingAudio(true);
       setRecordingSeconds(0);
-
-      // Timer
       recordingTimerRef.current = setInterval(() => {
-        setRecordingSeconds((prev) => {
-          if (prev + 1 >= MAX_AUDIO_DURATION) {
-            return MAX_AUDIO_DURATION;
-          }
-          return prev + 1;
-        });
+        setRecordingSeconds((prev) => prev + 1 >= MAX_AUDIO_DURATION ? MAX_AUDIO_DURATION : prev + 1);
       }, 1000);
     } catch {
       toast.error("Não foi possível acessar o microfone. Verifique as permissões.");
@@ -916,36 +802,19 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   };
 
   const stopAudioRecording = () => {
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
+    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") mediaRecorderRef.current.stop();
   };
 
-  // Auto-stop recording when max duration is reached
   useEffect(() => {
-    if (isRecordingAudio && recordingSeconds >= MAX_AUDIO_DURATION) {
-      stopAudioRecording();
-    }
+    if (isRecordingAudio && recordingSeconds >= MAX_AUDIO_DURATION) stopAudioRecording();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recordingSeconds, isRecordingAudio]);
 
   const cancelAudioRecording = () => {
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.onstop = null;
-      mediaRecorderRef.current.stop();
-    }
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-      mediaStreamRef.current = null;
-    }
+    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") { mediaRecorderRef.current.onstop = null; mediaRecorderRef.current.stop(); }
+    if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach((t) => t.stop()); mediaStreamRef.current = null; }
     mediaRecorderRef.current = null;
     audioChunksRef.current = [];
     setIsRecordingAudio(false);
@@ -959,20 +828,12 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       mediaRecorderRef.current.resume();
       setIsPausedRecording(false);
       recordingTimerRef.current = setInterval(() => {
-        setRecordingSeconds((prev) => {
-          if (prev + 1 >= MAX_AUDIO_DURATION) {
-            return MAX_AUDIO_DURATION;
-          }
-          return prev + 1;
-        });
+        setRecordingSeconds((prev) => prev + 1 >= MAX_AUDIO_DURATION ? MAX_AUDIO_DURATION : prev + 1);
       }, 1000);
     } else {
       mediaRecorderRef.current.pause();
       setIsPausedRecording(true);
-      if (recordingTimerRef.current) {
-        clearInterval(recordingTimerRef.current);
-        recordingTimerRef.current = null;
-      }
+      if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
     }
   };
 
@@ -982,12 +843,10 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
     setPreviewUrls([]);
     setSelectedVideo(null);
     if (videoPreview) URL.revokeObjectURL(videoPreview);
-    setVideoPreview(null);
-    setVideoDuration(0);
+    setVideoPreview(null); setVideoDuration(0);
     setSelectedAudio(null);
     if (audioPreview) URL.revokeObjectURL(audioPreview);
-    setAudioPreview(null);
-    setAudioDuration(0);
+    setAudioPreview(null); setAudioDuration(0);
     cancelAudioRecording();
   };
 
@@ -1035,60 +894,26 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   };
 
   const handlePost = async () => {
-    // ═══════ Permite postar mídia sem texto ═══════
     if (!profile) return;
     if (!content.trim() && !hasMediaInComposer) return;
-
     const hasMedia = selectedFiles.length > 0 || selectedVideo || selectedAudio;
-
-    if (hasMedia && activeMediaCount >= MAX_ACTIVE_MEDIA_POSTS) {
-      toast.error(`Você já tem ${MAX_ACTIVE_MEDIA_POSTS} posts com mídia ativos. Aguarde a expiração.`);
-      return;
-    }
-    if (selectedVideo && videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H) {
-      toast.error(`Você já postou ${MAX_VIDEO_POSTS_PER_12H} vídeos nas últimas 12h.`);
-      return;
-    }
-
+    if (hasMedia && activeMediaCount >= MAX_ACTIVE_MEDIA_POSTS) { toast.error(`Você já tem ${MAX_ACTIVE_MEDIA_POSTS} posts com mídia ativos. Aguarde a expiração.`); return; }
+    if (selectedVideo && videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H) { toast.error(`Você já postou ${MAX_VIDEO_POSTS_PER_12H} vídeos nas últimas 12h.`); return; }
     setUploading(true);
     try {
       let imageUrls: string[] = [];
       let videoUrl: string | null = null;
       let audioUrl: string | null = null;
-
       if (selectedFiles.length > 0) {
         imageUrls = await uploadPhotos();
-        if (imageUrls.length === 0 && selectedFiles.length > 0) {
-          toast.error("Falha ao enviar fotos.");
-          setUploading(false);
-          return;
-        }
+        if (imageUrls.length === 0 && selectedFiles.length > 0) { toast.error("Falha ao enviar fotos."); setUploading(false); return; }
       }
-      if (selectedVideo) {
-        videoUrl = await uploadVideo(selectedVideo);
-        if (!videoUrl) { setUploading(false); return; }
-      }
-      if (selectedAudio) {
-        audioUrl = await uploadAudio(selectedAudio);
-        if (!audioUrl) { setUploading(false); return; }
-      }
-
-      // Mídia sem texto é permitido — envia string vazia
-      const postContent = content.trim();
-
+      if (selectedVideo) { videoUrl = await uploadVideo(selectedVideo); if (!videoUrl) { setUploading(false); return; } }
+      if (selectedAudio) { audioUrl = await uploadAudio(selectedAudio); if (!audioUrl) { setUploading(false); return; } }
       const res = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: postContent,
-          neighborhood: profile.neighborhood,
-          imageUrls,
-          videoUrl,
-          audioUrl,
-          audioDuration,
-          videoDuration,
-          visibility,
-        }),
+        body: JSON.stringify({ content: content.trim(), neighborhood: profile.neighborhood, imageUrls, videoUrl, audioUrl, audioDuration, videoDuration, visibility }),
       });
       const data = await res.json();
       if (data.post) {
@@ -1108,15 +933,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
       const res = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: repostContent.trim() || `Compartilhado de @${post.author.username}`,
-          neighborhood: profile.neighborhood,
-          imageUrls: [],
-          videoUrl: null,
-          audioUrl: null,
-          visibility: "public",
-          sharedPostId: post.id,
-        }),
+        body: JSON.stringify({ content: repostContent.trim() || `Compartilhado de @${post.author.username}`, neighborhood: profile.neighborhood, imageUrls: [], videoUrl: null, audioUrl: null, visibility: "public", sharedPostId: post.id }),
       });
       const data = await res.json();
       if (data.post) {
@@ -1153,44 +970,40 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
   };
 
   const openPhotoViewer = (photos: string[], index: number) => {
-    setViewerPhotos(photos);
-    setViewerIndex(index);
-    setViewerOpen(true);
+    setViewerPhotos(photos); setViewerIndex(index); setViewerOpen(true);
   };
 
   const hasPhotosInComposer = selectedFiles.length > 0;
-  const hasVideoInComposer = !!selectedVideo;
-  const hasAudioInComposer = !!selectedAudio;
+  const hasVideoInComposer  = !!selectedVideo;
+  const hasAudioInComposer  = !!selectedAudio;
   const canAddPhotos = !hasVideoInComposer && !hasAudioInComposer && selectedFiles.length < MAX_PHOTOS_PER_POST;
-  const canAddVideo = !hasPhotosInComposer && !hasAudioInComposer && !hasVideoInComposer;
-  const canAddAudio = !hasPhotosInComposer && !hasVideoInComposer && !hasAudioInComposer;
+  const canAddVideo  = !hasPhotosInComposer && !hasAudioInComposer && !hasVideoInComposer;
+  const canAddAudio  = !hasPhotosInComposer && !hasVideoInComposer && !hasAudioInComposer;
 
   if (loading) return <FeedSkeleton />;
 
   return (
     <div className="space-y-0">
-      {/* Styles for HTML post content */}
       <style>{`
-        .post-content h1 { font-size: 1.25rem; font-weight: 700; line-height: 1.3; margin: 0.35em 0 0.1em; }
-        .post-content h2 { font-size: 1.1rem; font-weight: 700; line-height: 1.3; margin: 0.25em 0 0.1em; }
-        .post-content h3 { font-size: 1rem; font-weight: 700; line-height: 1.3; margin: 0.2em 0 0.1em; }
-        .post-content h4 { font-size: 0.95rem; font-weight: 600; line-height: 1.3; }
-        .post-content b, .post-content strong { font-weight: 700; }
-        .post-content i, .post-content em { font-style: italic; }
-        .post-content u { text-decoration: underline; }
-        .post-content s, .post-content strike { text-decoration: line-through; }
-        .post-content a { color: #0A4D5C; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: #0A4D5C66; }
-        .post-content a:hover { color: #2EC4B6; }
-        .post-content ul { list-style: disc; padding-left: 1.5em; margin: 0.3em 0; }
-        .post-content ol { list-style: decimal; padding-left: 1.5em; margin: 0.3em 0; }
-        .post-content li { margin: 0.1em 0; }
-        .post-content blockquote { border-left: 3px solid #0A4D5C; padding-left: 0.75em; margin: 0.3em 0; color: #000305/70; font-style: italic; }
-        .post-content pre { background: #f3f4f6; border-radius: 8px; padding: 0.5em 0.75em; margin: 0.3em 0; overflow-x: auto; font-size: 0.85em; }
-        .post-content code { background: #f3f4f6; border-radius: 4px; padding: 0.1em 0.3em; font-size: 0.9em; }
-        .post-content font { /* preserve font face/color/size from WYSIWYG */ }
-        .post-content div { margin: 0; }
-        .post-content hr { border: none; border-top: 1px solid #0A4D5C/15; margin: 0.5em 0; }
+        .post-content h1 { font-size:1.25rem;font-weight:700;line-height:1.3;margin:0.35em 0 0.1em; }
+        .post-content h2 { font-size:1.1rem;font-weight:700;line-height:1.3;margin:0.25em 0 0.1em; }
+        .post-content h3 { font-size:1rem;font-weight:700;line-height:1.3;margin:0.2em 0 0.1em; }
+        .post-content b,.post-content strong { font-weight:700; }
+        .post-content i,.post-content em { font-style:italic; }
+        .post-content u { text-decoration:underline; }
+        .post-content s,.post-content strike { text-decoration:line-through; }
+        .post-content a { color:#0A4D5C;text-decoration:underline;text-underline-offset:2px;text-decoration-color:#0A4D5C66; }
+        .post-content a:hover { color:#2EC4B6; }
+        .post-content ul { list-style:disc;padding-left:1.5em;margin:0.3em 0; }
+        .post-content ol { list-style:decimal;padding-left:1.5em;margin:0.3em 0; }
+        .post-content li { margin:0.1em 0; }
+        .post-content blockquote { border-left:3px solid #0A4D5C;padding-left:0.75em;margin:0.3em 0;font-style:italic; }
+        .post-content pre { background:#f3f4f6;border-radius:8px;padding:0.5em 0.75em;margin:0.3em 0;overflow-x:auto;font-size:0.85em; }
+        .post-content code { background:#f3f4f6;border-radius:4px;padding:0.1em 0.3em;font-size:0.9em; }
+        .post-content div { margin:0; }
+        .post-content hr { border:none;border-top:1px solid rgba(10,77,92,.15);margin:0.5em 0; }
       `}</style>
+
       {/* ═══════ COMPOSER ═══════ */}
       <div className="relative z-10 rounded-3xl bg-[#eef1f3] p-5 shadow-lg border border-[#0A4D5C]/8">
         <div className="flex items-start gap-3.5">
@@ -1204,7 +1017,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               rows={2}
             />
 
-            {/* Photo previews */}
             {hasPhotosInComposer && previewUrls.length > 0 && (
               <div className="flex gap-2 flex-wrap">
                 {previewUrls.map((url, i) => (
@@ -1218,7 +1030,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               </div>
             )}
 
-            {/* Video preview */}
             {hasVideoInComposer && videoPreview && (
               <div className="relative">
                 <video src={videoPreview} className="w-full max-h-48 rounded-2xl object-cover" playsInline muted />
@@ -1231,7 +1042,6 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               </div>
             )}
 
-            {/* Audio preview */}
             {hasAudioInComposer && audioPreview && (
               <div className="relative rounded-2xl bg-[#0A4D5C]/[0.06] p-3 border border-[#0A4D5C]/10">
                 <div className="flex items-center gap-2">
@@ -1250,11 +1060,8 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               </div>
             )}
 
-
-
-            {/* ═══════ ACTION BAR ═══════ */}
+            {/* ACTION BAR */}
             <div className="flex items-center justify-between pt-1">
-              {/* Menu button */}
               <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setMenuOpen(!menuOpen)}
@@ -1265,111 +1072,56 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
                   <ChevronDown className={`h-3 w-3 transition-transform ${menuOpen ? "rotate-180" : ""}`} />
                 </button>
 
-                {/* Dropdown menu - opens DOWN, icons only */}
                 {menuOpen && (
                   <div className="absolute left-0 top-full mt-1 flex flex-col items-center gap-0.5 rounded-2xl bg-[#f7f9fa] p-1.5 shadow-lg border border-[#0A4D5C]/10 z-50 animate-in fade-in-0 zoom-in-95">
-                    {/* Camera photo */}
-                    <button
-                      onClick={() => { if (canAddPhotos) cameraPhotoRef.current?.click(); }}
-                      disabled={!canAddPhotos}
-                      title="Tirar foto"
-                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddPhotos ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
-                    >
+                    <button onClick={() => { if (canAddPhotos) cameraPhotoRef.current?.click(); }} disabled={!canAddPhotos} title="Tirar foto"
+                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddPhotos ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}>
                       <Camera className="h-4 w-4" />
                     </button>
-
-                    {/* Gallery photos */}
-                    <button
-                      onClick={() => { if (canAddPhotos) fileInputRef.current?.click(); }}
-                      disabled={!canAddPhotos}
-                      title="Escolher fotos"
-                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddPhotos ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
-                    >
+                    <button onClick={() => { if (canAddPhotos) fileInputRef.current?.click(); }} disabled={!canAddPhotos} title="Escolher fotos"
+                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddPhotos ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}>
                       <ImagePlus className="h-4 w-4" />
                     </button>
-
                     <div className="w-8 h-px bg-[#0A4D5C]/10" />
-
-                    {/* Camera video */}
-                    <button
-                      onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) cameraVideoRef.current?.click(); }}
-                      disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
-                      title="Gravar vídeo"
-                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
-                    >
+                    <button onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) cameraVideoRef.current?.click(); }} disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H} title="Gravar vídeo"
+                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}>
                       <Video className="h-4 w-4" />
                     </button>
-
-                    {/* Video from file */}
-                    <button
-                      onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) videoInputRef.current?.click(); }}
-                      disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H}
-                      title="Escolher vídeo"
-                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#0A4D5C]/70 hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
-                    >
+                    <button onClick={() => { if (canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H) videoInputRef.current?.click(); }} disabled={!canAddVideo || videoPostsInWindow >= MAX_VIDEO_POSTS_PER_12H} title="Escolher vídeo"
+                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddVideo && videoPostsInWindow < MAX_VIDEO_POSTS_PER_12H ? "text-[#0A4D5C]/70 hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}>
                       <Video className="h-4 w-4" />
                     </button>
-
                     <div className="w-8 h-px bg-[#0A4D5C]/10" />
-
-                    {/* Record audio (direct) */}
-                    <button
-                      onClick={() => { if (canAddAudio && !isRecordingAudio) startAudioRecording(); }}
-                      disabled={!canAddAudio || isRecordingAudio}
-                      title="Gravar áudio"
-                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddAudio && !isRecordingAudio ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
-                    >
+                    <button onClick={() => { if (canAddAudio && !isRecordingAudio) startAudioRecording(); }} disabled={!canAddAudio || isRecordingAudio} title="Gravar áudio"
+                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddAudio && !isRecordingAudio ? "text-[#0A4D5C] hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}>
                       <Mic className="h-4 w-4" />
                     </button>
-
-                    {/* Audio from file */}
-                    <button
-                      onClick={() => { if (canAddAudio) audioInputRef.current?.click(); }}
-                      disabled={!canAddAudio}
-                      title="Escolher áudio"
-                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddAudio ? "text-[#0A4D5C]/70 hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}
-                    >
+                    <button onClick={() => { if (canAddAudio) audioInputRef.current?.click(); }} disabled={!canAddAudio} title="Escolher áudio"
+                      className={`flex items-center justify-center rounded-full p-2 transition-colors ${canAddAudio ? "text-[#0A4D5C]/70 hover:bg-[#f7f75e]/30" : "text-[#0A4D5C]/25 cursor-not-allowed"}`}>
                       <Music className="h-4 w-4" />
                     </button>
-
                     <div className="w-8 h-px bg-[#0A4D5C]/10" />
-
-                    {/* Visibility toggle */}
-                    <button
-                      onClick={() => setVisibility((v) => v === "public" ? "followers" : "public")}
-                      title={visibility === "public" ? "Público" : "Seguidores"}
-                      className="flex items-center justify-center rounded-full p-2 text-[#0A4D5C] transition-colors hover:bg-[#f7f75e]/30"
-                    >
-                      {visibility === "public" ? (
-                        <Globe className="h-4 w-4" />
-                      ) : (
-                        <UsersIcon className="h-4 w-4" />
-                      )}
+                    <button onClick={() => setVisibility((v) => v === "public" ? "followers" : "public")} title={visibility === "public" ? "Público" : "Seguidores"}
+                      className="flex items-center justify-center rounded-full p-2 text-[#0A4D5C] transition-colors hover:bg-[#f7f75e]/30">
+                      {visibility === "public" ? <Globe className="h-4 w-4" /> : <UsersIcon className="h-4 w-4" />}
                     </button>
                   </div>
                 )}
 
-                {/* Hidden inputs */}
                 <input ref={cameraPhotoRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhotoSelect} className="hidden" />
-                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
+                <input ref={fileInputRef}   type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFileSelect} className="hidden" />
                 <input ref={cameraVideoRef} type="file" accept="video/*" capture="environment" onChange={handleCameraVideoSelect} className="hidden" />
-                <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
-                <input ref={audioInputRef} type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
+                <input ref={videoInputRef}  type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoSelect} className="hidden" />
+                <input ref={audioInputRef}  type="file" accept="audio/mpeg,audio/mp4,audio/webm,audio/ogg,audio/wav,audio/x-m4a" onChange={handleAudioSelect} className="hidden" />
               </div>
 
-              {/* ═══════ Publish button - ícone apenas, cor viva ═══════ */}
               <div className="flex items-center gap-2">
                 {content.trim().length > 0 && (
-                  <span className={`text-[10px] ${content.length > 450 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>
-                    {content.length}/500
-                  </span>
+                  <span className={`text-[10px] ${content.length > 450 ? "text-red-500" : "text-[#0A4D5C]/30"}`}>{content.length}/500</span>
                 )}
-                <button
-                  disabled={!canPost || uploading}
-                  onClick={handlePost}
+                <button disabled={!canPost || uploading} onClick={handlePost}
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] shadow-md hover:bg-[#25b0a3] active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
-                  title="Publicar"
-                >
+                  title="Publicar">
                   {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="text-base">💬</span>}
                 </button>
               </div>
@@ -1397,13 +1149,9 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
               </div>
               <FormattedText className="text-xs text-[#0A4D5C]/60 line-clamp-3" content={repostingPost.content} />
             </div>
-            <textarea
-              placeholder="Adicione um comentário (opcional)..."
-              value={repostContent}
+            <textarea placeholder="Adicione um comentário (opcional)..." value={repostContent}
               onChange={(e) => setRepostContent(e.target.value.slice(0, 200))}
-              className="w-full min-h-[60px] resize-none border-0 bg-transparent p-3 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30"
-              rows={2}
-            />
+              className="w-full min-h-[60px] resize-none border-0 bg-transparent p-3 text-sm text-[#000305] focus:outline-none placeholder:text-[#0A4D5C]/30" rows={2} />
             <div className="flex items-center gap-2 mt-3">
               <Button variant="outline" size="sm" onClick={() => { setRepostingPost(null); setRepostContent(""); }} className="rounded-full border-[#0A4D5C]/10 text-[#0A4D5C]">Cancelar</Button>
               <Button size="sm" onClick={() => handleRepost(repostingPost)} className="rounded-full gap-1.5 bg-[#0A4D5C] text-[#f7f9fa] hover:bg-[#0A4D5C]/90 border-0">
@@ -1414,12 +1162,14 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
         </div>
       )}
 
+      {/* Empty state */}
       {posts.length === 0 && (
         <div className="py-16 text-center">
           <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-[#0A4D5C]/[0.04]">
             <MessageCircle className="h-8 w-8 text-[#0A4D5C]/30" />
           </div>
-          <p className="text-sm text-[#0A4D5C]/40">Nenhum post ainda. Seja o primeiro a publicar!</p>
+          <p className="text-sm font-medium text-[#000305]">Nenhum post por aqui ainda</p>
+          <p className="text-xs text-[#0A4D5C]/40 mt-1">Seja o primeiro a publicar no seu bairro!</p>
         </div>
       )}
 
@@ -1442,6 +1192,23 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
           </div>
         ))}
       </div>
+
+      {/* ─── Carregar mais ─────────────────────────────── */}
+      {hasMore && (
+        <div className="mt-5 flex justify-center pb-2">
+          <button
+            onClick={loadMorePosts}
+            disabled={loadingMore}
+            className="flex items-center gap-2 rounded-full border border-[#0A4D5C]/20 bg-[#f7f9fa] px-6 py-2.5 text-sm font-medium text-[#0A4D5C] shadow-sm transition-all hover:border-[#0A4D5C]/40 hover:shadow-md active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+          >
+            {loadingMore ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</>
+            ) : (
+              "Carregar mais posts"
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Recording overlay */}
       {isRecordingAudio && (
@@ -1483,8 +1250,7 @@ export function FeedView({ openUserProfile }: { openUserProfile?: (userId: strin
 function PostThread({
   post, profile, onReaction, onDelete, onUpdateCommentCount, openUserProfile, onPhotoClick, onRepost, shareMenuOpen, setShareMenuOpen,
 }: {
-  post: PostWithAuthor;
-  profile: Profile | null;
+  post: PostWithAuthor; profile: Profile | null;
   onReaction: (postId: string, type: string) => void;
   onDelete: (postId: string) => void;
   onUpdateCommentCount: (postId: string, delta: number) => void;
@@ -1494,44 +1260,32 @@ function PostThread({
   shareMenuOpen: string | null;
   setShareMenuOpen: (id: string | null) => void;
 }) {
-  const [showComments, setShowComments] = useState(false);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [commentInput, setCommentInput] = useState("");
+  const [showComments,    setShowComments]    = useState(false);
+  const [comments,        setComments]        = useState<Comment[]>([]);
+  const [commentInput,    setCommentInput]    = useState("");
   const [commentsLoading, setCommentsLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [replyTo, setReplyTo] = useState<Comment | null>(null);
-  const [showReactions, setShowReactions] = useState(false);
+  const [submitting,      setSubmitting]      = useState(false);
+  const [replyTo,         setReplyTo]         = useState<Comment | null>(null);
+  const [showReactions,   setShowReactions]   = useState(false);
   const commentInputRef = useRef<HTMLInputElement>(null);
-  const shareRef = useRef<HTMLDivElement>(null);
+  const shareRef        = useRef<HTMLDivElement>(null);
 
   const reactionGroups = buildReactionGroups(post.reactions || []);
-  const commentCount = post.comment_count || 0;
-  const hasPhotos = post.image_urls && post.image_urls.length > 0;
-  const hasVideo = !!post.video_url;
-  const hasAudio = !!post.audio_url;
-  const isOwnPost = post.author_id === profile?.id;
-  const isTextOnly = !hasPhotos && !hasVideo && !hasAudio;
+  const commentCount   = post.comment_count || 0;
+  const hasPhotos      = post.image_urls && post.image_urls.length > 0;
+  const hasVideo       = !!post.video_url;
+  const hasAudio       = !!post.audio_url;
+  const isOwnPost      = post.author_id === profile?.id;
+  const isTextOnly     = !hasPhotos && !hasVideo && !hasAudio;
 
-  // ═══════ Post-it color for text-only posts ═══════
-  // Se o post tem post_style com cor definida, usar essa cor; senão usar hash
-  const hasPostStyle = post.post_style && typeof post.post_style === "object";
-  const styleColorIdx = hasPostStyle && post.post_style!.postItColor != null ? post.post_style!.postItColor : -1;
-  const postItColor = isTextOnly ? (styleColorIdx >= 0 && styleColorIdx < POST_IT_COLORS.length ? POST_IT_COLORS[styleColorIdx] : getPostItColor(post.id)) : null;
+  const hasPostStyle   = post.post_style && typeof post.post_style === "object";
+  const styleColorIdx  = hasPostStyle && post.post_style!.postItColor != null ? post.post_style!.postItColor : -1;
+  const postItColor    = isTextOnly ? (styleColorIdx >= 0 && styleColorIdx < POST_IT_COLORS.length ? POST_IT_COLORS[styleColorIdx] : getPostItColor(post.id)) : null;
   const postItColorHex = isTextOnly ? (styleColorIdx >= 0 && styleColorIdx < POST_IT_COLORS_HEX.length ? POST_IT_COLORS_HEX[styleColorIdx] : null) : null;
-
-  // Determine card background based on post type
-  // Se tem post_style com cor, usamos inline styles; senão Tailwind classes
   const useInlineStyle = isTextOnly && styleColorIdx >= 0;
-  const cardBg = isTextOnly
-    ? (useInlineStyle ? "" : (postItColor?.bg || "bg-[#fdf6b2]"))
-    : hasAudio
-      ? "bg-[#eef1f3]"
-      : "bg-[#eef1f3]";
-  const commentsBg = isTextOnly
-    ? "bg-[#000305]/[0.04]"
-    : hasAudio
-      ? "bg-[#0A4D5C]/[0.04]"
-      : "bg-[#0A4D5C]/[0.04]";
+
+  const cardBg     = isTextOnly ? (useInlineStyle ? "" : (postItColor?.bg || "bg-[#fdf6b2]")) : "bg-[#eef1f3]";
+  const commentsBg = "bg-[#0A4D5C]/[0.04]";
 
   const [expirationLabel, setExpirationLabel] = useState<string>("");
   useEffect(() => {
@@ -1542,13 +1296,10 @@ function PostThread({
     return () => clearInterval(interval);
   }, [post.expires_at]);
 
-  // Close share menu on outside click
   useEffect(() => {
     if (shareMenuOpen !== post.id) return;
     const handler = (e: MouseEvent) => {
-      if (shareRef.current && !shareRef.current.contains(e.target as Node)) {
-        setShareMenuOpen(null);
-      }
+      if (shareRef.current && !shareRef.current.contains(e.target as Node)) setShareMenuOpen(null);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -1570,19 +1321,13 @@ function PostThread({
   };
 
   const openAndFocus = () => {
-    if (!showComments) {
-      if (comments.length === 0) fetchComments();
-      setShowComments(true);
-    }
+    if (!showComments) { if (comments.length === 0) fetchComments(); setShowComments(true); }
     setTimeout(() => commentInputRef.current?.focus(), 100);
   };
 
   const handleReply = (comment: Comment) => {
     setReplyTo(comment);
-    if (!showComments) {
-      if (comments.length === 0) fetchComments();
-      setShowComments(true);
-    }
+    if (!showComments) { if (comments.length === 0) fetchComments(); setShowComments(true); }
     setTimeout(() => commentInputRef.current?.focus(), 100);
   };
 
@@ -1596,8 +1341,7 @@ function PostThread({
       const data = await res.json();
       if (data.comment) {
         setComments((prev) => [...prev, data.comment]);
-        setCommentInput("");
-        setReplyTo(null);
+        setCommentInput(""); setReplyTo(null);
         onUpdateCommentCount(post.id, 1);
         if (!showComments) setShowComments(true);
       } else if (data.error) toast.error(data.error);
@@ -1609,10 +1353,7 @@ function PostThread({
     try {
       const res = await fetch(`/api/posts/${post.id}/comments?commentId=${commentId}`, { method: "DELETE" });
       const data = await res.json();
-      if (data.success) {
-        setComments((prev) => prev.filter((c) => c.id !== commentId));
-        onUpdateCommentCount(post.id, -1);
-      }
+      if (data.success) { setComments((prev) => prev.filter((c) => c.id !== commentId)); onUpdateCommentCount(post.id, -1); }
     } catch { toast.error("Erro ao excluir comentário"); }
   };
 
@@ -1645,7 +1386,7 @@ function PostThread({
 
   const handleOpenPostDetail = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('textarea') || target.closest('[contenteditable]')) return;
+    if (target.closest("button") || target.closest("a") || target.closest("input") || target.closest("textarea") || target.closest("[contenteditable]")) return;
     window.dispatchEvent(new CustomEvent("openPostDetail", { detail: { post } }));
   };
 
@@ -1656,48 +1397,44 @@ function PostThread({
       onClick={handleOpenPostDetail}
     >
       <div className="p-3 sm:p-4">
-        {/* Header */}
         <div className="flex items-start gap-2.5">
           <button onClick={() => post.author?.id && openUserProfile?.(post.author.id)} className="shrink-0 group">
             <UserAvatar user={post.author || { id: "", display_name: "Usuário", username: "usuario" }} className="h-9 w-9 sm:h-11 sm:w-11 hover:opacity-80 transition-opacity ring-2 ring-[#f7f9fa] shadow-sm" />
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <button onClick={() => post.author?.id && openUserProfile?.(post.author.id)} className={`text-sm font-semibold hover:underline underline-offset-2 transition-all ${isTextOnly && !(hasPostStyle && post.post_style!.fontColor) ? postItColor?.text || "text-[#000305]" : "text-[#000305]"}`} style={hasPostStyle && post.post_style!.fontColor ? { color: post.post_style!.fontColor } : undefined}>
+              <button onClick={() => post.author?.id && openUserProfile?.(post.author.id)}
+                className={`text-sm font-semibold hover:underline underline-offset-2 transition-all ${isTextOnly && !(hasPostStyle && post.post_style!.fontColor) ? postItColor?.text || "text-[#000305]" : "text-[#000305]"}`}
+                style={hasPostStyle && post.post_style!.fontColor ? { color: post.post_style!.fontColor } : undefined}>
                 {post.author?.display_name || "Usuário"}
               </button>
-
               {post.visibility === "followers" && (
                 <span className="inline-flex items-center gap-0.5 rounded-full bg-[#f7f75e] px-2 py-0.5 text-[10px] font-semibold text-[#000305]">
                   <UsersIcon className="h-2.5 w-2.5" />Seguidores
                 </span>
               )}
               {isOwnPost && (
-                <span className="inline-flex items-center rounded-full bg-[#f7f75e]/30 px-2 py-0.5 text-[10px] font-medium text-[#0A4D5C]">
-                  Seu post
-                </span>
+                <span className="inline-flex items-center rounded-full bg-[#f7f75e]/30 px-2 py-0.5 text-[10px] font-medium text-[#0A4D5C]">Seu post</span>
               )}
               <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/20" : "text-[#0A4D5C]/25"}`}>·</span>
               <span className={`text-[10px] ${isTextOnly ? "text-[#000305]/40" : "text-[#0A4D5C]/40"}`}>{timeAgo(post.created_at)}</span>
             </div>
 
-            {/* Content — text-only posts show content here */}
             {isTextOnly && post.content && !isMediaPlaceholder(post.content) && (
               <FormattedText
                 className={`mt-1.5 text-base sm:text-lg leading-snug whitespace-pre-wrap ${useInlineStyle || (hasPostStyle && post.post_style!.fontColor) ? "" : (postItColor?.text || "text-[#000305]")}`}
                 content={post.content}
                 openUserProfile={openUserProfile}
                 style={{
-                  fontFamily: hasPostStyle && post.post_style!.font ? `'${post.post_style!.font}', sans-serif` : "serif",
-                  fontWeight: hasPostStyle && post.post_style!.bold ? 700 : undefined,
-                  fontStyle: hasPostStyle && post.post_style!.italic ? "italic" : undefined,
-                  textAlign: hasPostStyle && post.post_style!.alignment ? post.post_style!.alignment : undefined,
-                  color: hasPostStyle && post.post_style!.fontColor ? post.post_style!.fontColor : (useInlineStyle && postItColorHex ? postItColorHex.text : undefined),
+                  fontFamily:  hasPostStyle && post.post_style!.font ? `'${post.post_style!.font}', sans-serif` : "serif",
+                  fontWeight:  hasPostStyle && post.post_style!.bold ? 700 : undefined,
+                  fontStyle:   hasPostStyle && post.post_style!.italic ? "italic" : undefined,
+                  textAlign:   hasPostStyle && post.post_style!.alignment ? post.post_style!.alignment : undefined,
+                  color:       hasPostStyle && post.post_style!.fontColor ? post.post_style!.fontColor : (useInlineStyle && postItColorHex ? postItColorHex.text : undefined),
                 }}
               />
             )}
 
-            {/* Shared post (repost) */}
             {post.shared_post && (
               <div className="mt-2.5 rounded-2xl bg-[#0A4D5C]/[0.04] p-3 border border-[#0A4D5C]/8">
                 <div className="flex items-center gap-2 mb-1.5">
@@ -1711,7 +1448,6 @@ function PostThread({
                   <button onClick={() => post.shared_post?.author?.id && openUserProfile?.(post.shared_post.author.id)} className="text-xs font-semibold text-[#000305] hover:underline">
                     {post.shared_post?.author?.display_name || "Usuário"}
                   </button>
-
                 </div>
                 <FormattedText className="text-xs text-[#0A4D5C]/60 leading-relaxed line-clamp-4" content={post.shared_post.content} openUserProfile={openUserProfile} />
                 {post.shared_post.image_urls && post.shared_post.image_urls.length > 0 && (
@@ -1729,45 +1465,35 @@ function PostThread({
               </div>
             )}
 
-            {/* Media — full width, breaks out of padding */}
             {!isTextOnly && (hasPhotos || hasVideo || hasAudio) && (
               <div className="-mx-2 sm:-mx-2.5 mt-1.5">
                 {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} />}
-                {hasVideo && <VideoPlayer src={post.video_url!} />}
-                {hasAudio && <AudioPlayer src={post.audio_url!} />}
+                {hasVideo  && <VideoPlayer src={post.video_url!} />}
+                {hasAudio  && <AudioPlayer src={post.audio_url!} />}
               </div>
             )}
             {isTextOnly && hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} />}
-            {isTextOnly && hasVideo && <VideoPlayer src={post.video_url!} />}
-            {isTextOnly && hasAudio && <AudioPlayer src={post.audio_url!} />}
+            {isTextOnly && hasVideo  && <VideoPlayer src={post.video_url!} />}
+            {isTextOnly && hasAudio  && <AudioPlayer src={post.audio_url!} />}
 
-            {/* Caption — text below media for media posts */}
             {!isTextOnly && post.content && post.content.trim() && !isMediaPlaceholder(post.content) && (
               <div className="px-1 sm:px-1.5 mt-2">
-                <FormattedText
-                  className="text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]"
-                  content={post.content}
-                  openUserProfile={openUserProfile}
-                />
+                <FormattedText className="text-[13px] sm:text-sm leading-relaxed whitespace-pre-wrap text-[#000305]" content={post.content} openUserProfile={openUserProfile} />
               </div>
             )}
 
-            {/* Expiration */}
             {post.expires_at && expirationLabel && (
               <div className="mt-2.5 flex items-center gap-1.5 text-[10px] font-semibold text-[#000305] bg-[#f7f75e] rounded-full px-2.5 py-1 w-fit">
-                <Clock className="h-3 w-3" />
-                <span>{expirationLabel}</span>
+                <Clock className="h-3 w-3" /><span>{expirationLabel}</span>
               </div>
             )}
 
-            {/* ═══════ ACTION BAR ═══════ */}
+            {/* ACTION BAR */}
             <div className="mt-2 flex items-center gap-0.5">
-              {/* Reactions */}
               <div className="relative">
                 <button
                   onClick={() => setShowReactions(!showReactions)}
-                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs transition-colors ${post.reactions?.some((r) => r.user_id === profile?.id) ? "text-[#0A4D5C] bg-[#0A4D5C]/10 font-medium" : "text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C]"}`}
-                >
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs transition-colors ${post.reactions?.some((r) => r.user_id === profile?.id) ? "text-[#0A4D5C] bg-[#0A4D5C]/10 font-medium" : "text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C]"}`}>
                   <Heart className="h-4 w-4" />
                   {post.reactions?.length > 0 && <span>{post.reactions.length}</span>}
                 </button>
@@ -1776,12 +1502,8 @@ function PostThread({
                     {REACTION_EMOJIS.map(({ type, emoji, label }) => {
                       const isActive = post.reactions?.some((r) => r.user_id === profile?.id && r.type === type);
                       return (
-                        <button
-                          key={type}
-                          onClick={() => { onReaction(post.id, type); setShowReactions(false); }}
-                          className={`rounded-xl p-1.5 text-lg transition-all hover:scale-125 ${isActive ? "bg-[#0A4D5C]/10 ring-1 ring-[#0A4D5C]" : ""}`}
-                          title={label}
-                        >
+                        <button key={type} onClick={() => { onReaction(post.id, type); setShowReactions(false); }}
+                          className={`rounded-xl p-1.5 text-lg transition-all hover:scale-125 ${isActive ? "bg-[#0A4D5C]/10 ring-1 ring-[#0A4D5C]" : ""}`} title={label}>
                           {emoji}
                         </button>
                       );
@@ -1790,51 +1512,37 @@ function PostThread({
                 )}
               </div>
 
-              {/* Reaction summary pills */}
               {reactionGroups.length > 0 && (
                 <div className="flex gap-0.5 ml-0.5">
                   {reactionGroups.slice(0, 3).map((g, i) => (
-                    <span key={i} className="inline-flex items-center gap-0.5 rounded-full bg-[#0A4D5C]/[0.06] px-1.5 py-0.5 text-[10px]">
-                      {g.emoji} {g.count}
-                    </span>
+                    <span key={i} className="inline-flex items-center gap-0.5 rounded-full bg-[#0A4D5C]/[0.06] px-1.5 py-0.5 text-[10px]">{g.emoji} {g.count}</span>
                   ))}
                 </div>
               )}
 
-              {/* Comments */}
-              <button
-                onClick={openAndFocus}
-                className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs transition-colors ${showComments ? "text-[#0A4D5C] bg-[#0A4D5C]/10 font-medium" : "text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C]"}`}
-              >
+              <button onClick={openAndFocus}
+                className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs transition-colors ${showComments ? "text-[#0A4D5C] bg-[#0A4D5C]/10 font-medium" : "text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C]"}`}>
                 <MessageCircle className="h-4 w-4" />
                 {commentCount > 0 && <span>{commentCount}</span>}
               </button>
 
-              {/* Share */}
               <div className="relative" ref={shareRef}>
-                <button
-                  onClick={() => setShareMenuOpen(shareMenuOpen === post.id ? null : post.id)}
-                  className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C] transition-colors"
-                >
+                <button onClick={() => setShareMenuOpen(shareMenuOpen === post.id ? null : post.id)}
+                  className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C] transition-colors">
                   <Share2 className="h-4 w-4" />
                 </button>
-                {shareMenuOpen === post.id && (
-                  <ShareMenu post={post} onClose={() => setShareMenuOpen(null)} onRepost={onRepost} />
-                )}
+                {shareMenuOpen === post.id && <ShareMenu post={post} onClose={() => setShareMenuOpen(null)} onRepost={onRepost} />}
               </div>
 
-              {/* Delete (own posts) */}
               {isOwnPost && (
-                <button
-                  onClick={() => onDelete(post.id)}
-                  className="ml-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-[#0A4D5C]/25 hover:text-red-500 hover:bg-red-50 transition-colors"
-                >
+                <button onClick={() => onDelete(post.id)}
+                  className="ml-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-[#0A4D5C]/25 hover:text-red-500 hover:bg-red-50 transition-colors">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
 
-            {/* ═══════ COMMENTS SECTION ═══════ */}
+            {/* COMMENTS */}
             {showComments && (
               <div className={`mt-2 rounded-xl ${commentsBg} p-2.5 space-y-1.5`}>
                 {commentsLoading ? (
@@ -1849,24 +1557,12 @@ function PostThread({
                 ) : (
                   <>
                     {commentRoots.map((comment) => (
-                      <CommentItem
-                        key={comment.id}
-                        comment={comment}
-                        replies={commentMap.get(comment.id) || []}
-                        profile={profile}
-                        onReply={handleReply}
-                        onDelete={deleteComment}
-                        onReaction={handleCommentReaction}
-                        openUserProfile={openUserProfile}
-                      />
+                      <CommentItem key={comment.id} comment={comment} replies={commentMap.get(comment.id) || []} profile={profile}
+                        onReply={handleReply} onDelete={deleteComment} onReaction={handleCommentReaction} openUserProfile={openUserProfile} />
                     ))}
-                    {comments.length === 0 && (
-                      <p className="text-xs text-[#0A4D5C]/30 text-center py-2">Nenhum comentário ainda</p>
-                    )}
+                    {comments.length === 0 && <p className="text-xs text-[#0A4D5C]/30 text-center py-2">Nenhum comentário ainda</p>}
                   </>
                 )}
-
-                {/* Comment input */}
                 <div className="flex items-center gap-1.5 mt-1.5">
                   <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-5 w-5 shrink-0" />
                   <div className="flex-1 relative">
@@ -1878,19 +1574,12 @@ function PostThread({
                       </div>
                     )}
                     <div className="flex items-center gap-1">
-                      <input
-                        ref={commentInputRef}
-                        placeholder="Comentar..."
-                        value={commentInput}
+                      <input ref={commentInputRef} placeholder="Comentar..." value={commentInput}
                         onChange={(e) => setCommentInput(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && submitComment()}
-                        className="flex-1 min-w-0 rounded-full border border-[#0A4D5C]/10 bg-[#f7f9fa] px-2.5 py-1 text-[11px] sm:text-xs text-[#000305] focus:outline-none focus:border-[#2EC4B6] placeholder:text-[#0A4D5C]/30"
-                      />
-                      <button
-                        onClick={submitComment}
-                        disabled={!commentInput.trim() || submitting}
-                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] hover:bg-[#25b0a3] transition-colors disabled:opacity-30"
-                      >
+                        className="flex-1 min-w-0 rounded-full border border-[#0A4D5C]/10 bg-[#f7f9fa] px-2.5 py-1 text-[11px] sm:text-xs text-[#000305] focus:outline-none focus:border-[#2EC4B6] placeholder:text-[#0A4D5C]/30" />
+                      <button onClick={submitComment} disabled={!commentInput.trim() || submitting}
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] hover:bg-[#25b0a3] transition-colors disabled:opacity-30">
                         {submitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <span className="text-xs">💬</span>}
                       </button>
                     </div>
@@ -1911,9 +1600,7 @@ function PostThread({
 function CommentItem({
   comment, replies, profile, onReply, onDelete, onReaction, openUserProfile,
 }: {
-  comment: Comment;
-  replies: Comment[];
-  profile: Profile | null;
+  comment: Comment; replies: Comment[]; profile: Profile | null;
   onReply: (comment: Comment) => void;
   onDelete: (commentId: string) => void;
   onReaction: (commentId: string, type: string) => void;
@@ -1938,10 +1625,7 @@ function CommentItem({
           <FormattedText className="text-[11px] sm:text-xs text-[#000305]/80 leading-relaxed" content={comment.content} />
           <div className="flex items-center gap-1.5 mt-0.5">
             <div className="relative">
-              <button
-                onClick={() => setShowCommentReactions(!showCommentReactions)}
-                className="text-[10px] text-[#0A4D5C]/30 hover:text-[#0A4D5C] transition-colors"
-              >
+              <button onClick={() => setShowCommentReactions(!showCommentReactions)} className="text-[10px] text-[#0A4D5C]/30 hover:text-[#0A4D5C] transition-colors">
                 {comment.reactions?.length > 0 ? `❤️ ${comment.reactions.length}` : "❤️"}
               </button>
               {showCommentReactions && (
@@ -1955,13 +1639,10 @@ function CommentItem({
               )}
             </div>
             <button onClick={() => onReply(comment)} className="text-[10px] text-[#0A4D5C]/30 hover:text-[#0A4D5C] transition-colors">Responder</button>
-            {isOwn && (
-              <button onClick={() => onDelete(comment.id)} className="text-[10px] text-[#0A4D5C]/20 hover:text-red-500 transition-colors">Excluir</button>
-            )}
+            {isOwn && <button onClick={() => onDelete(comment.id)} className="text-[10px] text-[#0A4D5C]/20 hover:text-red-500 transition-colors">Excluir</button>}
           </div>
         </div>
       </div>
-      {/* Nested replies */}
       {replies.length > 0 && (
         <div className="ml-6 mt-1 space-y-1 border-l-2 border-[#0A4D5C]/8 pl-2">
           {replies.map((reply) => (
