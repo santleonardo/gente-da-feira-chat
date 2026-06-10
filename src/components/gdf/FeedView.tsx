@@ -171,11 +171,21 @@ function FormattedText({
   style?: React.CSSProperties;
   openUserProfile?: (userId: string) => void;
 }) {
+  const domPurifyReady = useDOMPurify();
+  const [safeHTML, setSafeHTML] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!content || !isHTMLContent(content)) return;
+    sanitizeHTMLAsync(content).then(setSafeHTML);
+  }, [content, domPurifyReady]);
+
   if (!content) return null;
   if (isHTMLContent(content)) {
+    // Enquanto DOMPurify não está pronto, renderiza sem formatação para evitar flash
+    const html = safeHTML ?? sanitizeHTML(content);
     return (
       <div className={`post-content ${className || ""}`} style={style}
-        dangerouslySetInnerHTML={{ __html: sanitizeHTML(content) }} />
+        dangerouslySetInnerHTML={{ __html: html }} />
     );
   }
 
