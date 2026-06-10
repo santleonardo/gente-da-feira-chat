@@ -958,6 +958,7 @@ export function ProfileView() {
           videoDuration,
           visibility,
           postStyle: styleToSend,
+          postType: "rich",
         }),
       });
       const data = await res.json();
