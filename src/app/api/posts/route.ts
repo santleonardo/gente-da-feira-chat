@@ -350,9 +350,13 @@ export async function DELETE(req: NextRequest) {
     if (!postId) return NextResponse.json({ error: "ID necessário" }, { status: 400 });
 
     const admin = createAdminClient();
-    const { data: post } = await admin
+    const { data: post, error: fetchError } = await admin
       .from("posts").select("image_urls, video_url, audio_url")
       .eq("id", postId).eq("author_id", user.id).single();
+
+    if (fetchError || !post) {
+      return NextResponse.json({ error: "Post não encontrado" }, { status: 404 });
+    }
 
     const { error } = await admin
       .from("posts").update({ is_deleted: true })
@@ -360,15 +364,15 @@ export async function DELETE(req: NextRequest) {
 
     if (error) throw error;
 
-    if (post && post.image_urls && post.image_urls.length > 0) {
+    if (post.image_urls && post.image_urls.length > 0) {
       const paths = extractStoragePaths(post.image_urls, "post-photos");
       if (paths.length > 0) await admin.storage.from("post-photos").remove(paths).catch(() => {});
     }
-    if (post && post.video_url) {
+    if (post.video_url) {
       const paths = extractStoragePaths([post.video_url], "post-videos");
       if (paths.length > 0) await admin.storage.from("post-videos").remove(paths).catch(() => {});
     }
-    if (post && post.audio_url) {
+    if (post.audio_url) {
       const paths = extractStoragePaths([post.audio_url], "post-audios");
       if (paths.length > 0) await admin.storage.from("post-audios").remove(paths).catch(() => {});
     }
