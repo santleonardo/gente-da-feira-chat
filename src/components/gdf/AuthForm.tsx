@@ -9,12 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { BAIRROS } from "@/lib/constants";
 import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
 
 export function AuthForm() {
   const { setProfile } = useStore();
   const supabase = createClient();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [loading, setLoading] = useState(false);
+  const [showLoginPass, setShowLoginPass] = useState(false);
+  const [showRegPass, setShowRegPass] = useState(false);
 
   const [loginData, setLoginData] = useState({ email: "", password: "" });
   const [regData, setRegData] = useState({
@@ -111,12 +114,13 @@ export function AuthForm() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md border-2 border-primary/20">
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-2xl font-bold text-primary-foreground">
-            G
+          {/* Logo — texto com identidade local */}
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-md">
+            <span className="text-2xl font-bold leading-none text-primary-foreground">GF</span>
           </div>
-          <CardTitle className="text-2xl font-bold">GDF Chat</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight">Gente da Feira</CardTitle>
           <p className="text-sm text-muted-foreground">
-            A rede social de Feira de Santana
+            A rede social do seu bairro em Feira de Santana
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -153,14 +157,25 @@ export function AuthForm() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="login-pass">Senha</Label>
-                <Input
-                  id="login-pass"
-                  type="password"
-                  placeholder="••••••"
-                  value={loginData.password}
-                  onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                  onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                />
+                <div className="relative">
+                  <Input
+                    id="login-pass"
+                    type={showLoginPass ? "text" : "password"}
+                    placeholder="••••••"
+                    className="pr-10"
+                    value={loginData.password}
+                    onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPass((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                    aria-label={showLoginPass ? "Ocultar senha" : "Mostrar senha"}
+                  >
+                    {showLoginPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
               <Button onClick={handleLogin} disabled={loading} className="w-full">
                 {loading ? "Entrando..." : "Entrar"}
@@ -198,13 +213,24 @@ export function AuthForm() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="reg-pass">Senha</Label>
-                <Input
-                  id="reg-pass"
-                  type="password"
-                  placeholder="Mínimo 6 caracteres"
-                  value={regData.password}
-                  onChange={(e) => setRegData({ ...regData, password: e.target.value })}
-                />
+                <div className="relative">
+                  <Input
+                    id="reg-pass"
+                    type={showRegPass ? "text" : "password"}
+                    placeholder="Mínimo 6 caracteres"
+                    className="pr-10"
+                    value={regData.password}
+                    onChange={(e) => setRegData({ ...regData, password: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRegPass((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                    aria-label={showRegPass ? "Ocultar senha" : "Mostrar senha"}
+                  >
+                    {showRegPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="reg-neighborhood">Bairro</Label>
