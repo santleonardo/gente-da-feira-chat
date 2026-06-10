@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,12 +28,16 @@ import {
   Ban,
   Trash2,
   Loader2,
+  Moon,
+  Sun,
+  Monitor,
 } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 import { toast } from "sonner";
 
 export function SettingsView({ embedded }: { embedded?: boolean }) {
   const { profile, updateProfile, setProfileSubView } = useStore();
+  const { theme, setTheme } = useTheme();
 
   const [isPrivate, setIsPrivate] = useState(profile?.is_private || false);
   const [hideFollowing, setHideFollowing] = useState(profile?.hide_following || false);
@@ -71,9 +76,7 @@ export function SettingsView({ embedded }: { embedded?: boolean }) {
     const fetchRequests = () => {
       fetch("/api/follows/requests")
         .then((r) => r.json())
-        .then((data) => {
-          if (data.requests) setPendingRequests(data.requests);
-        })
+        .then((data) => { if (data.requests) setPendingRequests(data.requests); })
         .catch(() => {});
     };
     fetchRequests();
@@ -85,13 +88,14 @@ export function SettingsView({ embedded }: { embedded?: boolean }) {
     if (!profile) return;
     fetch("/api/notifications")
       .then((r) => r.json())
-      .then((data) => {
-        if (data.notifications) setNotifications(data.notifications);
-      })
+      .then((data) => { if (data.notifications) setNotifications(data.notifications); })
       .catch(() => {});
   }, [profile]);
 
-  const handlePrivacyChange = async (field: "is_private" | "hide_following" | "hide_followers" | "hide_neighborhood" | "approve_followers", value: boolean) => {
+  const handlePrivacyChange = async (
+    field: "is_private" | "hide_following" | "hide_followers" | "hide_neighborhood" | "approve_followers",
+    value: boolean
+  ) => {
     if (!profile) return;
     setPrivacyLoading(true);
     if (field === "is_private") setIsPrivate(value);
@@ -110,17 +114,15 @@ export function SettingsView({ embedded }: { embedded?: boolean }) {
       if (data.user) {
         updateProfile(data.user);
         const messages: Record<string, { on: string; off: string }> = {
-          is_private: { on: "Perfil agora é privado", off: "Perfil agora é público" },
-          hide_following: { on: "Lista de seguindo oculta", off: "Lista de seguindo visível" },
-          hide_followers: { on: "Lista de seguidores oculta", off: "Lista de seguidores visível" },
-          hide_neighborhood: { on: "Bairro oculto no perfil público", off: "Bairro visível no perfil público" },
-          approve_followers: { on: "Aprovação de seguidores ativada", off: "Solicitações pendentes foram aceitas automaticamente" },
+          is_private:         { on: "Perfil agora é privado",                              off: "Perfil agora é público" },
+          hide_following:     { on: "Lista de seguindo oculta",                            off: "Lista de seguindo visível" },
+          hide_followers:     { on: "Lista de seguidores oculta",                          off: "Lista de seguidores visível" },
+          hide_neighborhood:  { on: "Bairro oculto no perfil público",                     off: "Bairro visível no perfil público" },
+          approve_followers:  { on: "Aprovação de seguidores ativada",                     off: "Solicitações pendentes foram aceitas automaticamente" },
         };
         const msg = messages[field];
         toast.success(value ? msg.on : msg.off);
-        if (field === "approve_followers" && !value) {
-          setPendingRequests([]);
-        }
+        if (field === "approve_followers" && !value) setPendingRequests([]);
       } else {
         if (field === "is_private") setIsPrivate(!value);
         if (field === "hide_following") setHideFollowing(!value);
@@ -171,9 +173,7 @@ export function SettingsView({ embedded }: { embedded?: boolean }) {
     try {
       const res = await fetch(`/api/follows?userId=${profile.id}`);
       const data = await res.json();
-      if (data.followers) {
-        setFollowers(data.followers.map((f: any) => f.follower).filter(Boolean));
-      }
+      if (data.followers) setFollowers(data.followers.map((f: any) => f.follower).filter(Boolean));
     } catch {
       setFollowers([]);
     }
@@ -270,6 +270,39 @@ export function SettingsView({ embedded }: { embedded?: boolean }) {
         </div>
       )}
 
+      {/* APARÊNCIA */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Sun className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold">Aparência</h3>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5">
+                <Moon className="h-3.5 w-3.5 text-muted-foreground" />
+                <p className="text-sm font-medium">Tema escuro</p>
+              </div>
+              <Switch
+                checked={theme === "dark"}
+                onCheckedChange={(v) => setTheme(v ? "dark" : "light")}
+              />
+            </div>
+            <div className="border-t" />
+            <button
+              onClick={() => setTheme("system")}
+              className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Monitor className="h-3.5 w-3.5" />
+              Usar tema do sistema
+              {theme === "system" && (
+                <Badge variant="secondary" className="ml-auto text-[10px] px-1.5">Ativo</Badge>
+              )}
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* PRIVACIDADE */}
       <Card>
         <CardContent className="pt-6">
@@ -306,7 +339,7 @@ export function SettingsView({ embedded }: { embedded?: boolean }) {
                   <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
                   <p className="text-sm font-medium">Esconder seguindo</p>
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">Ninguém verá quem você está seguindo, inclusive seus seguidores</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Ninguém verá quem você está seguindo</p>
               </div>
               <Switch checked={hideFollowing} onCheckedChange={(v) => handlePrivacyChange("hide_following", v)} disabled={privacyLoading} />
             </div>
@@ -317,7 +350,7 @@ export function SettingsView({ embedded }: { embedded?: boolean }) {
                   <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
                   <p className="text-sm font-medium">Esconder seguidores</p>
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">Ninguém verá seus seguidores, inclusive quem já te segue</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Ninguém verá sua lista de seguidores</p>
               </div>
               <Switch checked={hideFollowers} onCheckedChange={(v) => handlePrivacyChange("hide_followers", v)} disabled={privacyLoading} />
             </div>
@@ -398,32 +431,33 @@ export function SettingsView({ embedded }: { embedded?: boolean }) {
               <h3 className="text-sm font-semibold">Notificações recentes</h3>
             </div>
             <div className="space-y-2">
-                           {notifications.slice(0, 5).map((notif: any) => {
+              {notifications.slice(0, 5).map((notif: any) => {
                 const notifText: Record<string, string> = {
-                  follow: "começou a te seguir",
-                  follow_request: "solicitou te seguir",
+                  follow:          "começou a te seguir",
+                  follow_request:  "solicitou te seguir",
                   follow_accepted: "aceitou sua solicitação",
-                  reaction: "reagiu ao seu post",
-                  comment: "comentou no seu post",
+                  reaction:        "reagiu ao seu post",
+                  comment:         "comentou no seu post",
                 };
                 return (
-                <div key={notif.id} className={`flex items-center gap-3 rounded-lg border p-2.5 ${!notif.is_read ? "bg-primary/5 border-primary/20" : ""}`}>
-                  <UserAvatar
-                    user={{ id: notif.actor?.id || "", display_name: notif.actor?.display_name || "?", avatar_url: notif.actor?.avatar }}
-                    className="h-8 w-8"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm">
-                      <span className="font-medium">{notif.actor?.display_name}</span>{" "}
-                      <span className="text-muted-foreground">{notifText[notif.type] || notif.type}</span>
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {new Date(notif.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                    </p>
+                  <div key={notif.id} className={`flex items-center gap-3 rounded-lg border p-2.5 ${!notif.is_read ? "bg-primary/5 border-primary/20" : ""}`}>
+                    <UserAvatar
+                      user={{ id: notif.actor?.id || "", display_name: notif.actor?.display_name || "?", avatar_url: notif.actor?.avatar }}
+                      className="h-8 w-8"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm">
+                        <span className="font-medium">{notif.actor?.display_name}</span>{" "}
+                        <span className="text-muted-foreground">{notifText[notif.type] || notif.type}</span>
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {new Date(notif.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                      </p>
+                    </div>
+                    {!notif.is_read && <div className="h-2 w-2 rounded-full bg-primary shrink-0" />}
                   </div>
-                  {!notif.is_read && <div className="h-2 w-2 rounded-full bg-primary shrink-0" />}
-                </div>
-              );})}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -458,7 +492,7 @@ export function SettingsView({ embedded }: { embedded?: boolean }) {
               <UserX className="h-4 w-4" /> Remover seguidores
             </DialogTitle>
           </DialogHeader>
-          <div className="max-h-80 overflow-y-auto custom-scrollbar">
+          <div className="max-h-80 overflow-y-auto">
             {followersLoading ? (
               <div className="space-y-2 py-4">
                 {[1, 2, 3].map((i) => (
@@ -501,7 +535,7 @@ export function SettingsView({ embedded }: { embedded?: boolean }) {
               <Ban className="h-4 w-4" /> Usuários bloqueados
             </DialogTitle>
           </DialogHeader>
-          <div className="max-h-80 overflow-y-auto custom-scrollbar">
+          <div className="max-h-80 overflow-y-auto">
             {blockedLoading ? (
               <div className="space-y-2 py-4">
                 {[1, 2, 3].map((i) => (
