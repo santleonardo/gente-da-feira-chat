@@ -1,7 +1,16 @@
 import type { Metadata, Viewport } from "next";
+import { Nunito } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 import { PWARegister } from "@/components/gdf/PWARegister";
 import "./globals.css";
+
+const nunito = Nunito({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-nunito",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Gente da Feira",
@@ -42,15 +51,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning className={nunito.variable}>
       <head>
         <link rel="icon" href="/icon.png" />
         <link rel="apple-touch-icon" href="/icon.png" />
       </head>
       <body className="antialiased">
-        {children}
-        <Toaster position="top-center" richColors />
-        <PWARegister />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          {children}
+          <Toaster position="top-center" richColors />
+          <PWARegister />
+        </ThemeProvider>
       </body>
     </html>
   );
