@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { dispatchPushForNotification } from "@/lib/push-dispatch";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: postId } = await params;
@@ -11,7 +12,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         id, content, created_at, author_id, parent_id,
         author:profiles(id, display_name, username, avatar_url, neighborhood)
       `)
-      .eq("post_id", postId).eq("is_deleted", false)
+      .eq("post_id", postId)
+      .eq("is_deleted", false)
       .order("created_at", { ascending: true });
 
     if (error) throw error;
@@ -32,7 +34,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!content || !content.trim()) return NextResponse.json({ error: "Comentário não pode estar vazio" }, { status: 400 });
     if (content.trim().length > 300) return NextResponse.json({ error: "Comentário muito longo (máx 300 chars)" }, { status: 400 });
 
-    const { data: post } = await supabase.from("posts").select("id").eq("id", postId).eq("is_deleted", false).single();
+    const { data: post } = await supabase
+      .from("posts").select("id").eq("id", postId).eq("is_deleted", false).single();
     if (!post) return NextResponse.json({ error: "Post não encontrado" }, { status: 404 });
 
     const insertData: Record<string, any> = { content: content.trim(), post_id: postId, author_id: user.id };
@@ -44,7 +47,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .single();
 
     if (error) throw error;
-    // Contagem de comentários é feita dinamicamente via comments(count) no GET /api/posts
+
+    // Busca notificação criada pelo trigger para disparar push
+    const notifType = parentId ? "reply" : "comment";
+    const { data: notif } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("type", notifType)
+      .eq("actor_id", user.id)
+      .eq("post_id", postId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (notif?.id) {
+      dispatchPushForNotification(notif.id).catch(() => {});
+    }
+
     return NextResponse.json({ comment });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -62,9 +81,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const commentId = searchParams.get("commentId");
     if (!commentId) return NextResponse.json({ error: "ID do comentário necessário" }, { status: 400 });
 
-    const { error } = await supabase.from("comments").update({ is_deleted: true }).eq("id", commentId).eq("author_id", user.id);
+    const { error } = await supabase
+      .from("comments").update({ is_deleted: true })
+      .eq("id", commentId).eq("author_id", user.id);
     if (error) throw error;
-    // Contagem de comentários é feita dinamicamente via comments(count) no GET /api/posts
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
