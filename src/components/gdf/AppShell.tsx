@@ -13,15 +13,16 @@ import { DiscoverView } from "@/components/gdf/DiscoverView";
 import { UserProfileDialog } from "@/components/gdf/UserProfileDialog";
 import { PostDetailDialog } from "@/components/gdf/PostDetailDialog";
 import { createClient } from "@/lib/supabase/client";
-import { Home, Users, MessageSquare, Compass, User, Loader2 } from "lucide-react";
+import { Home, Users, MessageSquare, Compass, User, Loader2, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AnimatePresence, motion } from "framer-motion";
 
 const tabs = [
-  { id: "feed" as const, icon: Home },
-  { id: "rooms" as const, icon: Users },
-  { id: "dms" as const, icon: MessageSquare },
-  { id: "discover" as const, icon: Compass },
-  { id: "profile" as const, icon: User },
+  { id: "feed"     as const, icon: Home,          label: "Feed"      },
+  { id: "rooms"    as const, icon: Users,         label: "Salas"     },
+  { id: "dms"      as const, icon: MessageSquare, label: "Mensagens" },
+  { id: "discover" as const, icon: Compass,       label: "Descobrir" },
+  { id: "profile"  as const, icon: User,          label: "Perfil"    },
 ];
 
 export function AppShell() {
@@ -31,7 +32,23 @@ export function AppShell() {
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [postDetailPost, setPostDetailPost] = useState<any>(null);
   const [postDetailOpen, setPostDetailOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true
+  );
 
+  // ── Online/offline listener ──────────────────────────────
+  useEffect(() => {
+    const handleOnline  = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online",  handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online",  handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  // ── Custom events ────────────────────────────────────────
   useEffect(() => {
     const handler = (e: any) => {
       const userId = e.detail?.userId;
@@ -61,6 +78,7 @@ export function AppShell() {
     setProfileDialogOpen(true);
   }, []);
 
+  // ── Auth ─────────────────────────────────────────────────
   useEffect(() => {
     const supabase = createClient();
     const initAuth = async () => {
@@ -81,6 +99,7 @@ export function AppShell() {
     return () => subscription.unsubscribe();
   }, [setProfile, logout]);
 
+  // ── Notificações não lidas ───────────────────────────────
   useEffect(() => {
     if (!profile) return;
     const fetchUnread = () => {
@@ -98,16 +117,17 @@ export function AppShell() {
     return () => clearInterval(interval);
   }, [profile]);
 
+  // ── Loading ──────────────────────────────────────────────
   if (!checkedAuth) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f7f9fa]">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0A4D5C] animate-pulse">
-            <span className="text-xl font-bold text-[#f7f9fa]">G</span>
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary animate-pulse shadow-md">
+            <span className="text-xl font-bold text-primary-foreground">GF</span>
           </div>
           <div className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin text-[#0A4D5C]/40" />
-            <p className="text-sm text-[#0A4D5C]/40">Carregando...</p>
+            <Loader2 className="h-4 w-4 animate-spin text-primary/40" />
+            <p className="text-sm text-primary/40">Carregando...</p>
           </div>
         </div>
       </div>
@@ -124,77 +144,111 @@ export function AppShell() {
     return <ProfileView />;
   };
 
+  const handleTabClick = (id: typeof tabs[number]["id"]) => {
+    if (id === "rooms") setSelectedRoom(null);
+    if (id === "dms") setSelectedDM(null);
+    if (id === "profile") useStore.getState().setProfileSubView("profile");
+    setTab(id);
+  };
+
   return (
-    <div className="flex min-h-screen flex-col bg-[#f7f9fa]">
-      <header className="sticky top-0 z-40 hidden md:flex items-center justify-between border-b border-[#0A4D5C]/10 px-6 py-2.5 bg-[#f7f9fa]/90 backdrop-blur-xl">
+    <div className="flex min-h-screen flex-col bg-background">
+
+      {/* ── Banner offline ─────────────────────────────────── */}
+      {!isOnline && (
+        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-2 bg-amber-400 py-1.5 text-xs font-medium text-amber-900">
+          <WifiOff className="h-3.5 w-3.5" />
+          Sem conexão — você está offline
+        </div>
+      )}
+
+      {/* ── Header desktop ─────────────────────────────────── */}
+      <header
+        className={cn(
+          "sticky z-40 hidden md:flex items-center justify-between border-b border-primary/10 px-6 py-2.5 bg-background/90 backdrop-blur-xl",
+          !isOnline ? "top-7" : "top-0"
+        )}
+      >
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0A4D5C] shadow-sm">
-            <span className="text-sm font-bold text-[#f7f9fa]">G</span>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-sm">
+            <span className="text-sm font-bold text-primary-foreground">GF</span>
           </div>
           <div>
-            <h1 className="text-base font-bold leading-tight tracking-tight text-[#000305]">GDF Chat</h1>
-            <p className="text-[10px] text-[#0A4D5C]/40 leading-none">Feira de Santana</p>
+            <h1 className="text-base font-bold leading-tight tracking-tight text-foreground">Gente da Feira</h1>
+            <p className="text-[10px] text-primary/40 leading-none">Feira de Santana · BA</p>
           </div>
         </div>
-        <nav className="flex items-center gap-1 bg-[#0A4D5C]/[0.04] rounded-full p-1">
+
+        <nav className="flex items-center gap-1 bg-primary/[0.04] rounded-full p-1">
           {tabs.map((t) => (
             <button
               key={t.id}
-              onClick={() => {
-                if (t.id === "rooms") setSelectedRoom(null);
-                if (t.id === "dms") setSelectedDM(null);
-                if (t.id === "profile") useStore.getState().setProfileSubView("profile");
-                setTab(t.id);
-              }}
+              onClick={() => handleTabClick(t.id)}
               className={cn(
-                "flex items-center justify-center rounded-full p-2.5 transition-all duration-200",
-                tab === t.id ? "bg-[#0A4D5C] text-[#f7f9fa] shadow-sm" : "text-[#0A4D5C]/50 hover:text-[#000305]"
+                "flex flex-col items-center gap-0.5 rounded-full px-3 py-2 transition-all duration-200",
+                tab === t.id
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-primary/50 hover:text-foreground"
               )}
-              title={t.id.charAt(0).toUpperCase() + t.id.slice(1)}
+              title={t.label}
             >
-              <t.icon className="h-5 w-5" />
+              <t.icon className="h-4 w-4" />
+              <span className="text-[10px] font-medium leading-none">{t.label}</span>
             </button>
           ))}
         </nav>
+
         <div className="flex items-center gap-2.5">
           <div className="h-7 w-7 rounded-full bg-[#2EC4B6]/30 flex items-center justify-center">
-            <span className="text-[10px] font-bold text-[#0A4D5C]">{profile?.display_name?.charAt(0)?.toUpperCase()}</span>
+            <span className="text-[10px] font-bold text-primary">
+              {profile?.display_name?.charAt(0)?.toUpperCase()}
+            </span>
           </div>
-          <span className="text-sm font-medium text-[#000305]">{profile?.display_name || ""}</span>
+          <span className="text-sm font-medium text-foreground">{profile?.display_name || ""}</span>
         </div>
       </header>
 
-      <main className="flex-1 pb-20 md:pb-6">
+      {/* ── Main content com animação ──────────────────────── */}
+      <main className={cn("flex-1 pb-20 md:pb-6", !isOnline && "mt-7 md:mt-0")}>
         <div className={cn("mx-auto px-4 py-4 md:py-6", inChat ? "max-w-2xl" : "max-w-lg")}>
-          {tab === "feed" && <FeedView openUserProfile={openUserProfile} />}
-          {tab === "rooms" && <RoomsView openUserProfile={openUserProfile} />}
-          {tab === "dms" && <DMsView openUserProfile={openUserProfile} />}
-          {tab === "discover" && <DiscoverView openUserProfile={openUserProfile} />}
-          {tab === "profile" && renderProfileContent()}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={inChat ? `${tab}-chat` : tab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
+            >
+              {tab === "feed"     && <FeedView    openUserProfile={openUserProfile} />}
+              {tab === "rooms"    && <RoomsView   openUserProfile={openUserProfile} />}
+              {tab === "dms"      && <DMsView     openUserProfile={openUserProfile} />}
+              {tab === "discover" && <DiscoverView openUserProfile={openUserProfile} />}
+              {tab === "profile"  && renderProfileContent()}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </main>
 
+      {/* ── Dialogs ────────────────────────────────────────── */}
       <UserProfileDialog userId={profileDialogUserId} open={profileDialogOpen} onOpenChange={setProfileDialogOpen} />
-
       <PostDetailDialog post={postDetailPost} open={postDetailOpen} onOpenChange={setPostDetailOpen} />
 
+      {/* ── Nav mobile ─────────────────────────────────────── */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden">
-        <div className="mx-3 mb-3 flex items-center justify-around rounded-2xl border border-[#0A4D5C]/10 bg-[#f7f9fa]/95 backdrop-blur-xl shadow-lg px-2 py-1.5">
+        <div className="mx-3 mb-3 flex items-center justify-around rounded-2xl border border-primary/10 bg-background/95 backdrop-blur-xl shadow-lg px-1 py-1.5">
           {tabs.map((t) => (
             <button
               key={t.id}
-              onClick={() => {
-                if (t.id === "rooms") setSelectedRoom(null);
-                if (t.id === "dms") setSelectedDM(null);
-                if (t.id === "profile") useStore.getState().setProfileSubView("profile");
-                setTab(t.id);
-              }}
+              onClick={() => handleTabClick(t.id)}
               className={cn(
-                "flex items-center justify-center rounded-xl p-2.5 transition-all duration-200",
-                tab === t.id ? "bg-[#0A4D5C] text-[#f7f9fa]" : "text-[#0A4D5C]/40 active:scale-95"
+                "flex min-w-[56px] flex-col items-center gap-1 rounded-xl px-2 py-1.5 transition-all duration-200",
+                tab === t.id
+                  ? "bg-primary text-primary-foreground"
+                  : "text-primary/40 active:scale-95"
               )}
             >
               <t.icon className={cn("h-5 w-5", tab === t.id && "stroke-[2.5px]")} />
+              <span className="text-[10px] font-medium leading-none">{t.label}</span>
             </button>
           ))}
         </div>
