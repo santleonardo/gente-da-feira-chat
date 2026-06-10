@@ -61,7 +61,7 @@ import {
   createPreviewUrl,
   revokePreviewUrl,
 } from "@/lib/image-compression";
-import { sanitizeHTMLSync } from "@/lib/sanitize";
+import { sanitizeHTMLSync, sanitizeHTMLAsync } from "@/lib/sanitize";
 
 // ═══════════════════════════════════════════════════════════
 // Post-it colors — TONS MÉDIOS (nem forte nem fraco)
@@ -405,14 +405,23 @@ function FormattedText({
   className?: string;
   style?: React.CSSProperties;
 }) {
+  const domPurifyReady = useDOMPurify();
+  const [safeHTML, setSafeHTML] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!content || !isHTMLContent(content)) return;
+    sanitizeHTMLAsync(content).then(setSafeHTML);
+  }, [content, domPurifyReady]);
+
   if (!content) return null;
   // Se o conteúdo é HTML (posts criados com o editor WYSIWYG), renderizar como HTML
   if (isHTMLContent(content)) {
+    const html = safeHTML ?? sanitizeHTML(content);
     return (
       <div
         className={`post-content ${className || ""}`}
         style={style}
-        dangerouslySetInnerHTML={{ __html: sanitizeHTML(content) }}
+        dangerouslySetInnerHTML={{ __html: html }}
       />
     );
   }
