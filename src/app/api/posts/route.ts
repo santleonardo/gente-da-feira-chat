@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
     const {
-      content, neighborhood, imageUrls, videoUrl, audioUrl,
+      content, neighborhood, imageUrls, videoUrl, audioUrl, postType,
       audioDuration, videoDuration, visibility, sharedPostId, postStyle,
     } = await req.json();
 
@@ -288,6 +288,7 @@ export async function POST(req: NextRequest) {
         expires_at: expiresAt,
         shared_post_id: validSharedPostId,
         post_style: validatedStyle,
+        post_type: postType === "rich" ? "rich" : "simple",
       })
       .select(`
         *,
