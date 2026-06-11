@@ -396,6 +396,14 @@ function parseInlineFormatting(text: string): React.ReactNode[] {
   return parts.length > 0 ? parts : [<Fragment key="empty">{text}</Fragment>];
 }
 
+function useDOMPurify() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    sanitizeHTMLAsync("").then(() => setReady(true));
+  }, []);
+  return ready;
+}
+
 function FormattedText({
   content,
   className,
