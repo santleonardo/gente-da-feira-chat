@@ -1,16 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Nunito } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 import { PWARegister } from "@/components/gdf/PWARegister";
 import "./globals.css";
 
-const nunito = Nunito({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  variable: "--font-nunito",
-  display: "swap",
-});
+// Nunito carregada via CSS para evitar fetch em build
+const nunito = { variable: "--font-nunito" };
 
 export const metadata: Metadata = {
   title: "Gente da Feira",
