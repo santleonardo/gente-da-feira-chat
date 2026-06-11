@@ -314,8 +314,8 @@ function VideoPlayer({ src }: { src: string }) {
   };
 
   return (
-    <div className="mt-2.5 relative rounded-3xl overflow-hidden bg-[#000305] shadow-lg group">
-      <video ref={videoRef} src={src} className="w-full max-h-96 object-contain" playsInline preload="metadata"
+    <div className="mt-2 relative overflow-hidden bg-[#000305] shadow-lg group">
+      <video ref={videoRef} src={src} className="w-full max-h-[32rem] object-contain" playsInline preload="metadata"
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
         onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
         onEnded={() => setPlaying(false)} onClick={toggle} />
@@ -402,17 +402,17 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
 
   if (count === 1) {
     return (
-      <button onClick={() => onPhotoClick?.(0)} className="mt-2.5 w-full overflow-hidden rounded-3xl shadow-lg">
-        <img src={photos[0]} alt="Foto do post" className="w-full max-h-80 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+      <button onClick={() => onPhotoClick?.(0)} className="mt-2 w-full overflow-hidden">
+        <img src={photos[0]} alt="Foto do post" className="w-full max-h-[32rem] object-cover hover:opacity-95 transition-opacity" loading="lazy" />
       </button>
     );
   }
   if (count === 2) {
     return (
-      <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
+      <div className="mt-2 grid grid-cols-2 gap-0.5 overflow-hidden">
         {photos.map((url, i) => (
           <button key={i} onClick={() => onPhotoClick?.(i)} className="overflow-hidden">
-            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           </button>
         ))}
       </div>
@@ -420,24 +420,24 @@ function PhotoGrid({ photos, onPhotoClick }: { photos: string[]; onPhotoClick?: 
   }
   if (count === 3) {
     return (
-      <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
+      <div className="mt-2 grid grid-cols-2 gap-0.5 overflow-hidden">
         <button onClick={() => onPhotoClick?.(0)} className="row-span-2 overflow-hidden">
           <img src={photos[0]} alt="Foto 1" className="w-full h-full object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(1)} className="overflow-hidden">
-          <img src={photos[1]} alt="Foto 2" className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[1]} alt="Foto 2" className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
         <button onClick={() => onPhotoClick?.(2)} className="overflow-hidden">
-          <img src={photos[2]} alt="Foto 3" className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={photos[2]} alt="Foto 3" className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
         </button>
       </div>
     );
   }
   return (
-    <div className="mt-2.5 grid grid-cols-2 gap-1 overflow-hidden rounded-3xl shadow-lg">
+    <div className="mt-2 grid grid-cols-2 gap-0.5 overflow-hidden">
       {photos.slice(0, 4).map((url, i) => (
         <button key={i} onClick={() => onPhotoClick?.(i)} className="relative overflow-hidden">
-          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-44 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
+          <img src={url} alt={`Foto ${i + 1}`} className="w-full h-56 object-cover hover:opacity-95 transition-opacity" loading="lazy" />
           {i === 3 && count > 4 && (
             <div className="absolute inset-0 flex items-center justify-center bg-[#000305]/50 text-[#f7f9fa] font-bold text-lg">+{count - 4}</div>
           )}
@@ -1475,17 +1475,6 @@ function PostThread({
               </div>
             )}
 
-            {!isTextOnly && (hasPhotos || hasVideo || hasAudio) && (
-              <div className="-mx-2 sm:-mx-2.5 mt-1.5">
-                {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} />}
-                {hasVideo  && <VideoPlayer src={post.video_url!} />}
-                {hasAudio  && <AudioPlayer src={post.audio_url!} />}
-              </div>
-            )}
-            {isTextOnly && hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} />}
-            {isTextOnly && hasVideo  && <VideoPlayer src={post.video_url!} />}
-            {isTextOnly && hasAudio  && <AudioPlayer src={post.audio_url!} />}
-
             {!isTextOnly && post.content && post.content.trim() && !isMediaPlaceholder(post.content) && (
               <div className="px-1 sm:px-1.5 mt-2">
                 <FormattedText
@@ -1508,108 +1497,117 @@ function PostThread({
                 <Clock className="h-3 w-3" /><span>{expirationLabel}</span>
               </div>
             )}
+          </div>
+        </div>
 
-            {/* ACTION BAR */}
-            <div className="mt-2 flex items-center gap-0.5">
-              <div className="relative">
-                <button
-                  onClick={() => setShowReactions(!showReactions)}
-                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs transition-colors ${post.reactions?.some((r) => r.user_id === profile?.id) ? "text-[#0A4D5C] bg-[#0A4D5C]/10 font-medium" : "text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C]"}`}>
-                  <Heart className="h-4 w-4" />
-                  {post.reactions?.length > 0 && <span>{post.reactions.length}</span>}
-                </button>
-                {showReactions && (
-                  <div className="absolute bottom-full left-0 mb-1.5 flex gap-0.5 rounded-2xl bg-[#f7f9fa] p-1.5 shadow-lg border border-[#0A4D5C]/10 z-20">
-                    {REACTION_EMOJIS.map(({ type, emoji, label }) => {
-                      const isActive = post.reactions?.some((r) => r.user_id === profile?.id && r.type === type);
-                      return (
-                        <button key={type} onClick={() => { onReaction(post.id, type); setShowReactions(false); }}
-                          className={`rounded-xl p-1.5 text-lg transition-all hover:scale-125 ${isActive ? "bg-[#0A4D5C]/10 ring-1 ring-[#0A4D5C]" : ""}`} title={label}>
-                          {emoji}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+        {/* FULL-BLEED MEDIA — outside the avatar flex row */}
+        {(hasPhotos || hasVideo || hasAudio) && (
+          <div className="-mx-3 sm:-mx-4">
+            {hasPhotos && <PhotoGrid photos={post.image_urls!} onPhotoClick={onPhotoClick} />}
+            {hasVideo  && <VideoPlayer src={post.video_url!} />}
+            {hasAudio  && <AudioPlayer src={post.audio_url!} />}
+          </div>
+        )}
 
-              {reactionGroups.length > 0 && (
-                <div className="flex gap-0.5 ml-0.5">
-                  {reactionGroups.slice(0, 3).map((g, i) => (
-                    <span key={i} className="inline-flex items-center gap-0.5 rounded-full bg-[#0A4D5C]/[0.06] px-1.5 py-0.5 text-[10px]">{g.emoji} {g.count}</span>
-                  ))}
-                </div>
-              )}
-
-              <button onClick={openAndFocus}
-                className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs transition-colors ${showComments ? "text-[#0A4D5C] bg-[#0A4D5C]/10 font-medium" : "text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C]"}`}>
-                <MessageCircle className="h-4 w-4" />
-                {commentCount > 0 && <span>{commentCount}</span>}
-              </button>
-
-              <div className="relative" ref={shareRef}>
-                <button onClick={() => setShareMenuOpen(shareMenuOpen === post.id ? null : post.id)}
-                  className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C] transition-colors">
-                  <Share2 className="h-4 w-4" />
-                </button>
-                {shareMenuOpen === post.id && <ShareMenu post={post} onClose={() => setShareMenuOpen(null)} onRepost={onRepost} />}
-              </div>
-
-              {isOwnPost && (
-                <button onClick={() => onDelete(post.id)}
-                  className="ml-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-[#0A4D5C]/25 hover:text-red-500 hover:bg-red-50 transition-colors">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* COMMENTS */}
-            {showComments && (
-              <div className={`mt-2 rounded-xl ${commentsBg} p-2.5 space-y-1.5`}>
-                {commentsLoading ? (
-                  <div className="space-y-2 py-2">
-                    {[1, 2].map((i) => (
-                      <div key={i} className="flex items-center gap-2 animate-pulse">
-                        <div className="h-6 w-6 rounded-full bg-[#0A4D5C]/10" />
-                        <div className="flex-1 h-3 bg-[#0A4D5C]/8 rounded" />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <>
-                    {commentRoots.map((comment) => (
-                      <CommentItem key={comment.id} comment={comment} replies={commentMap.get(comment.id) || []} profile={profile}
-                        onReply={handleReply} onDelete={deleteComment} onReaction={handleCommentReaction} openUserProfile={openUserProfile} />
-                    ))}
-                    {comments.length === 0 && <p className="text-xs text-[#0A4D5C]/30 text-center py-2">Nenhum comentário ainda</p>}
-                  </>
-                )}
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-5 w-5 shrink-0" />
-                  <div className="flex-1 relative">
-                    {replyTo && (
-                      <div className="absolute -top-3.5 left-0 flex items-center gap-1 text-[9px] text-[#0A4D5C]/40">
-                        <Reply className="h-2 w-2" />
-                        <span>Respondendo a {replyTo?.author?.display_name || "Usuário"}</span>
-                        <button onClick={() => setReplyTo(null)} className="text-[#0A4D5C]/60 hover:text-[#0A4D5C] ml-1">✕</button>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1">
-                      <input ref={commentInputRef} placeholder="Comentar..." value={commentInput}
-                        onChange={(e) => setCommentInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && submitComment()}
-                        className="flex-1 min-w-0 rounded-full border border-[#0A4D5C]/10 bg-[#f7f9fa] px-2.5 py-1 text-[11px] sm:text-xs text-[#000305] focus:outline-none focus:border-[#2EC4B6] placeholder:text-[#0A4D5C]/30" />
-                      <button onClick={submitComment} disabled={!commentInput.trim() || submitting}
-                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] hover:bg-[#25b0a3] transition-colors disabled:opacity-30">
-                        {submitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <span className="text-xs">💬</span>}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+        {/* ACTION BAR */}
+        <div className="mt-2 flex items-center gap-0.5">
+          <div className="relative">
+            <button
+              onClick={() => setShowReactions(!showReactions)}
+              className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs transition-colors ${post.reactions?.some((r) => r.user_id === profile?.id) ? "text-[#0A4D5C] bg-[#0A4D5C]/10 font-medium" : "text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C]"}`}>
+              <Heart className="h-4 w-4" />
+              {post.reactions?.length > 0 && <span>{post.reactions.length}</span>}
+            </button>
+            {showReactions && (
+              <div className="absolute bottom-full left-0 mb-1.5 flex gap-0.5 rounded-2xl bg-[#f7f9fa] p-1.5 shadow-lg border border-[#0A4D5C]/10 z-20">
+                {REACTION_EMOJIS.map(({ type, emoji, label }) => {
+                  const isActive = post.reactions?.some((r) => r.user_id === profile?.id && r.type === type);
+                  return (
+                    <button key={type} onClick={() => { onReaction(post.id, type); setShowReactions(false); }}
+                      className={`rounded-xl p-1.5 text-lg transition-all hover:scale-125 ${isActive ? "bg-[#0A4D5C]/10 ring-1 ring-[#0A4D5C]" : ""}`} title={label}>
+                      {emoji}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
+
+          {reactionGroups.length > 0 && (
+            <div className="flex gap-0.5 ml-0.5">
+              {reactionGroups.slice(0, 3).map((g, i) => (
+                <span key={i} className="inline-flex items-center gap-0.5 rounded-full bg-[#0A4D5C]/[0.06] px-1.5 py-0.5 text-[10px]">{g.emoji} {g.count}</span>
+              ))}
+            </div>
+          )}
+
+          <button onClick={openAndFocus}
+            className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs transition-colors ${showComments ? "text-[#0A4D5C] bg-[#0A4D5C]/10 font-medium" : "text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C]"}`}>
+            <MessageCircle className="h-4 w-4" />
+            {commentCount > 0 && <span>{commentCount}</span>}
+          </button>
+
+          <div className="relative" ref={shareRef}>
+            <button onClick={() => setShareMenuOpen(shareMenuOpen === post.id ? null : post.id)}
+              className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-[#0A4D5C]/40 hover:bg-[#0A4D5C]/[0.04] hover:text-[#0A4D5C] transition-colors">
+              <Share2 className="h-4 w-4" />
+            </button>
+            {shareMenuOpen === post.id && <ShareMenu post={post} onClose={() => setShareMenuOpen(null)} onRepost={onRepost} />}
+          </div>
+
+          {isOwnPost && (
+            <button onClick={() => onDelete(post.id)}
+              className="ml-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-[#0A4D5C]/25 hover:text-red-500 hover:bg-red-50 transition-colors">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
+
+        {/* COMMENTS */}
+        {showComments && (
+          <div className={`mt-2 rounded-xl ${commentsBg} p-2.5 space-y-1.5`}>
+            {commentsLoading ? (
+              <div className="space-y-2 py-2">
+                {[1, 2].map((i) => (
+                  <div key={i} className="flex items-center gap-2 animate-pulse">
+                    <div className="h-6 w-6 rounded-full bg-[#0A4D5C]/10" />
+                    <div className="flex-1 h-3 bg-[#0A4D5C]/8 rounded" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                {commentRoots.map((comment) => (
+                  <CommentItem key={comment.id} comment={comment} replies={commentMap.get(comment.id) || []} profile={profile}
+                    onReply={handleReply} onDelete={deleteComment} onReaction={handleCommentReaction} openUserProfile={openUserProfile} />
+                ))}
+                {comments.length === 0 && <p className="text-xs text-[#0A4D5C]/30 text-center py-2">Nenhum comentário ainda</p>}
+              </>
+            )}
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <UserAvatar user={{ id: profile?.id || "", display_name: profile?.display_name || "?", avatar_url: profile?.avatar_url }} className="h-5 w-5 shrink-0" />
+              <div className="flex-1 relative">
+                {replyTo && (
+                  <div className="absolute -top-3.5 left-0 flex items-center gap-1 text-[9px] text-[#0A4D5C]/40">
+                    <Reply className="h-2 w-2" />
+                    <span>Respondendo a {replyTo?.author?.display_name || "Usuário"}</span>
+                    <button onClick={() => setReplyTo(null)} className="text-[#0A4D5C]/60 hover:text-[#0A4D5C] ml-1">✕</button>
+                  </div>
+                )}
+                <div className="flex items-center gap-1">
+                  <input ref={commentInputRef} placeholder="Comentar..." value={commentInput}
+                    onChange={(e) => setCommentInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && submitComment()}
+                    className="flex-1 min-w-0 rounded-full border border-[#0A4D5C]/10 bg-[#f7f9fa] px-2.5 py-1 text-[11px] sm:text-xs text-[#000305] focus:outline-none focus:border-[#2EC4B6] placeholder:text-[#0A4D5C]/30" />
+                  <button onClick={submitComment} disabled={!commentInput.trim() || submitting}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#2EC4B6] text-[#f7f9fa] hover:bg-[#25b0a3] transition-colors disabled:opacity-30">
+                    {submitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <span className="text-xs">💬</span>}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
