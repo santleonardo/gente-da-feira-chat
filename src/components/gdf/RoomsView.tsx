@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
   ArrowLeft, Users, Plus, LogOut, UserPlus, UserCheck,
-  ChevronUp, X, MoreVertical, Hash, Crown,
+  ChevronUp, X, MoreVertical, Hash, Crown, Shield,
   Camera, Video, Mic, StopCircle, ImagePlus, Music,
-  Play, Pause, Volume2, Loader2, Send,
+  Play, Pause, Volume2, Loader2, Send, Lock, Unlock,
+  Ban, UserMinus, ShieldCheck, ShieldOff, Eye, EyeOff,
+  Sliders,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
