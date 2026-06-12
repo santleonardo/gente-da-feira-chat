@@ -3,8 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 
 // POST /api/rooms/[id]/kick
 // Body: { user_id }
-// Apenas moderadores e criadores podem expulsar membros comuns.
-// Criadores podem expulsar moderadores.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -19,7 +17,6 @@ export async function POST(
     if (!targetId) return NextResponse.json({ error: "user_id obrigatório" }, { status: 400 });
     if (targetId === user.id) return NextResponse.json({ error: "Você não pode expulsar a si mesmo" }, { status: 400 });
 
-    // Busca papel do solicitante
     const { data: actorMember } = await supabase
       .from("room_members")
       .select("role")
@@ -31,7 +28,6 @@ export async function POST(
       return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
     }
 
-    // Busca papel do alvo
     const { data: targetMember } = await supabase
       .from("room_members")
       .select("role")
@@ -41,7 +37,6 @@ export async function POST(
 
     if (!targetMember) return NextResponse.json({ error: "Usuário não é membro desta sala" }, { status: 404 });
 
-    // Moderador não pode expulsar outro moderador ou o criador
     if (actorMember.role === "moderator" && targetMember.role !== "member") {
       return NextResponse.json({ error: "Moderadores só podem expulsar membros comuns" }, { status: 403 });
     }

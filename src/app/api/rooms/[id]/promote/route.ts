@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 
 // POST /api/rooms/[id]/promote
 // Body: { user_id, role: 'moderator' | 'member' }
-// Apenas o CRIADOR pode promover/rebaixar moderadores.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -21,7 +20,6 @@ export async function POST(
     }
     if (targetId === user.id) return NextResponse.json({ error: "Ação inválida sobre si mesmo" }, { status: 400 });
 
-    // Apenas criador pode promover
     const { data: actorMember } = await supabase
       .from("room_members")
       .select("role")

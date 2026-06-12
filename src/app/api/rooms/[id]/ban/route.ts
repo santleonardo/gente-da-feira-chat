@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 
 // POST /api/rooms/[id]/ban
 // Body: { user_id, duration_days? }
-// duration_days: número de dias, ou null/omitido = banimento permanente
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,7 +17,6 @@ export async function POST(
     if (!targetId) return NextResponse.json({ error: "user_id obrigatório" }, { status: 400 });
     if (targetId === user.id) return NextResponse.json({ error: "Você não pode banir a si mesmo" }, { status: 400 });
 
-    // Papel do solicitante
     const { data: actorMember } = await supabase
       .from("room_members")
       .select("role")
@@ -30,7 +28,6 @@ export async function POST(
       return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
     }
 
-    // Papel do alvo
     const { data: targetMember } = await supabase
       .from("room_members")
       .select("id, role")
@@ -45,7 +42,6 @@ export async function POST(
       return NextResponse.json({ error: "Moderadores não podem banir outros moderadores" }, { status: 403 });
     }
 
-    // Calcula expiração
     let bannedUntil: string | null = null;
     if (duration_days && Number.isFinite(Number(duration_days)) && Number(duration_days) > 0) {
       const expires = new Date();
@@ -54,14 +50,12 @@ export async function POST(
     }
 
     if (targetMember) {
-      // Já é membro: marca como banido (mantém linha para histórico)
       await supabase
         .from("room_members")
         .update({ is_banned: true, banned_until: bannedUntil })
         .eq("room_id", roomId)
         .eq("user_id", targetId);
     } else {
-      // Nunca foi membro: insere linha de ban para bloquear entrada futura
       await supabase.from("room_members").insert({
         room_id: roomId,
         user_id: targetId,
@@ -81,7 +75,7 @@ export async function POST(
   }
 }
 
-// DELETE /api/rooms/[id]/ban  → remover banimento
+// DELETE /api/rooms/[id]/ban → remover banimento
 // Body: { user_id }
 export async function DELETE(
   req: NextRequest,

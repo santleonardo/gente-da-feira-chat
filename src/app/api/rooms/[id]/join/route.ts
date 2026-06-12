@@ -14,7 +14,6 @@ export async function POST(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-    // Busca sala
     const { data: room } = await supabase
       .from("rooms")
       .select("id, is_active, is_open, max_members, member_count, password_hash")
@@ -33,7 +32,6 @@ export async function POST(
       .maybeSingle();
 
     if (existing) {
-      // Se estava banido mas o tempo expirou, remove o ban
       if (existing.is_banned && existing.banned_until && new Date(existing.banned_until) < new Date()) {
         await supabase
           .from("room_members")
@@ -49,12 +47,10 @@ export async function POST(
       return NextResponse.json({ joined: true });
     }
 
-    // Sala fechada
     if (!room.is_open) {
       return NextResponse.json({ error: "Esta sala está fechada para novos membros." }, { status: 403 });
     }
 
-    // Limite de membros
     if (room.member_count >= room.max_members) {
       return NextResponse.json({ error: `Sala lotada (máx ${room.max_members} membros).` }, { status: 403 });
     }

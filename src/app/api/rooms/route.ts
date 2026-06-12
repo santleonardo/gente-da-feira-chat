@@ -18,9 +18,10 @@ export async function GET() {
 
     const formatted = (rooms || []).map((r: any) => ({
       ...r,
-      password_hash: undefined, // nunca expor o hash
+      password_hash: undefined,
       _count: { members: r.room_members?.[0]?.count || 0 },
       memberCount: r.member_count,
+      has_password: !!r.password_hash,
       room_members: undefined,
     }));
 
@@ -44,13 +45,12 @@ export async function POST(req: NextRequest) {
     const icon        = body.icon || "💬";
     const rules       = (body.rules || "").trim() || null;
     const maxMembers  = Math.min(50, Math.max(10, parseInt(body.max_members) || 50));
-    const isOpen      = body.is_open !== false; // default true
+    const isOpen      = body.is_open !== false;
     const rawPassword = (body.password || "").trim();
 
     if (!name) return NextResponse.json({ error: "Nome da sala é obrigatório" }, { status: 400 });
     if (name.length > 50) return NextResponse.json({ error: "Nome muito longo" }, { status: 400 });
 
-    // Hash da senha, se fornecida
     let passwordHash: string | null = null;
     if (rawPassword) {
       passwordHash = await bcrypt.hash(rawPassword, 10);
@@ -83,7 +83,6 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
 
-    // Inserir criador como membro com papel 'creator'
     await supabase.from("room_members").insert({
       room_id: room.id,
       user_id: user.id,

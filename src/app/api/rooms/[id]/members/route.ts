@@ -19,7 +19,7 @@ export async function GET(
         .select("id, user_id, role, created_at")
         .eq("room_id", roomId)
         .eq("is_banned", false)
-        .order("role", { ascending: true }) // creator > moderator > member alfabeticamente
+        .order("role", { ascending: true })
         .order("created_at", { ascending: true });
 
       if (error || !rawMembers?.length) return null;
@@ -32,7 +32,6 @@ export async function GET(
 
       const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
 
-      // Ordenar: creator primeiro, depois moderators, depois members
       const roleOrder: Record<string, number> = { creator: 0, moderator: 1, member: 2 };
       return rawMembers
         .map((m: any) => ({

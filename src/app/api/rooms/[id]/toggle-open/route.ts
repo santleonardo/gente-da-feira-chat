@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 
 // POST /api/rooms/[id]/toggle-open
 // Body: { is_open: boolean }
-// Apenas moderadores e criador podem abrir/fechar a sala.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
