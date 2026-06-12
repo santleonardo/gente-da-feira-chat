@@ -7,13 +7,24 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   ArrowLeft, Users, Plus, LogOut, UserPlus, UserCheck,
   ChevronUp, X, MoreVertical, Hash, Crown, Shield,
   Camera, Video, Mic, StopCircle, ImagePlus, Music,
-  Play, Pause, Volume2, Loader2, Send, Lock, Unlock,
-  Ban, UserMinus, ShieldCheck, ShieldOff, Eye, EyeOff,
-  Sliders,
+  Play, Pause, Volume2, Loader2, Send, Lock, Ban,
+  Eye, EyeOff, ShieldAlert, Settings, Search, UserX,
+  DoorOpen, DoorClosed, KeyRound,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -26,11 +37,14 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -49,6 +63,9 @@ function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+// ═══════════════════════════════════════════════════════════
+// RoomsView (main component)
+// ═══════════════════════════════════════════════════════════
 export function RoomsView({ openUserProfile }: { openUserProfile?: (userId: string) => void }) {
   const { profile, selectedRoom, setSelectedRoom } = useStore();
   const navigateToProfile = (uid: string) => {
@@ -61,6 +78,7 @@ export function RoomsView({ openUserProfile }: { openUserProfile?: (userId: stri
   const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [preEntryRoom, setPreEntryRoom] = useState<any>(null);
 
   const fetchRooms = useCallback(async () => {
     try {
@@ -73,7 +91,11 @@ export function RoomsView({ openUserProfile }: { openUserProfile?: (userId: stri
 
   useEffect(() => { fetchRooms(); }, [fetchRooms]);
 
+  // If a room is selected (user has entered), show RoomChat
   if (selectedRoom) return <RoomChat room={selectedRoom} onBack={() => setSelectedRoom(null)} onRefreshRooms={fetchRooms} openUserProfile={navigateToProfile} />;
+
+  // If a pre-entry screen is shown
+  if (preEntryRoom) return <PreEntryScreen room={preEntryRoom} onBack={() => setPreEntryRoom(null)} onEnter={(room) => { setSelectedRoom(room); setPreEntryRoom(null); }} openUserProfile={navigateToProfile} onRefreshRooms={fetchRooms} />;
 
   if (loading) return (
     <div className="space-y-3">
@@ -102,7 +124,7 @@ export function RoomsView({ openUserProfile }: { openUserProfile?: (userId: stri
         <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">Oficiais</h3>
         <div className="space-y-1.5">
           {official.map((room) => (
-            <RoomCard key={room.id} room={room} onClick={() => setSelectedRoom(room)} />
+            <RoomCard key={room.id} room={room} onClick={() => setPreEntryRoom(room)} />
           ))}
         </div>
       </div>
@@ -110,7 +132,7 @@ export function RoomsView({ openUserProfile }: { openUserProfile?: (userId: stri
         <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">Comunidades</h3>
         <div className="space-y-1.5">
           {community.map((room) => (
-            <RoomCard key={room.id} room={room} onClick={() => setSelectedRoom(room)} />
+            <RoomCard key={room.id} room={room} onClick={() => setPreEntryRoom(room)} />
           ))}
           {community.length === 0 && (
             <div className="flex flex-col items-center justify-center py-10 text-center">
@@ -132,9 +154,15 @@ export function RoomsView({ openUserProfile }: { openUserProfile?: (userId: stri
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+// RoomCard — Card de sala com indicadores visuais
+// ═══════════════════════════════════════════════════════════
 function RoomCard({ room, onClick }: { room: any; onClick: () => void }) {
   const memberCount = room.memberCount || room.member_count || room._count?.members || 0;
   const isOfficial = room.type === "official";
+  const isClosed = room.is_open === false;
+  const isPrivate = room.has_password;
+
   return (
     <button
       onClick={onClick}
@@ -151,6 +179,8 @@ function RoomCard({ room, onClick }: { room: any; onClick: () => void }) {
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold truncate">{room.name}</span>
           {isOfficial && <Crown className="h-3 w-3 text-primary shrink-0" />}
+          {isPrivate && <Lock className="h-3 w-3 text-amber-500 shrink-0" />}
+          {isClosed && <DoorClosed className="h-3 w-3 text-red-500 shrink-0" />}
         </div>
         {room.description ? (
           <p className="text-xs text-muted-foreground truncate mt-0.5">{room.description}</p>
@@ -158,16 +188,38 @@ function RoomCard({ room, onClick }: { room: any; onClick: () => void }) {
           <p className="text-xs text-muted-foreground/60 mt-0.5">{memberCount} membro{memberCount !== 1 ? "s" : ""}</p>
         )}
       </div>
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted/80">
-          <Users className="h-3 w-3" />
+      <div className="flex flex-col items-end gap-1 shrink-0">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted/80">
+            <Users className="h-3 w-3" />
+          </div>
+          <span className="font-medium tabular-nums">{memberCount}{room.max_members ? `/${room.max_members}` : ""}</span>
         </div>
-        <span className="font-medium tabular-nums">{memberCount}</span>
+        <div className="flex items-center gap-1">
+          {!isClosed && (
+            <Badge variant="secondary" className="text-[8px] px-1.5 py-0 h-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              Aberta
+            </Badge>
+          )}
+          {isClosed && (
+            <Badge variant="secondary" className="text-[8px] px-1.5 py-0 h-4 bg-red-500/10 text-red-600 dark:text-red-400">
+              Fechada
+            </Badge>
+          )}
+          {isPrivate && (
+            <Badge variant="secondary" className="text-[8px] px-1.5 py-0 h-4 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              🔒 Privada
+            </Badge>
+          )}
+        </div>
       </div>
     </button>
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+// CreateRoomDialog — Criar sala com todos os campos
+// ═══════════════════════════════════════════════════════════
 function CreateRoomDialog({
   open,
   onOpenChange,
@@ -180,6 +232,11 @@ function CreateRoomDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [icon, setIcon] = useState("💬");
+  const [rules, setRules] = useState("");
+  const [maxMembers, setMaxMembers] = useState("30");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [loading, setLoading] = useState(false);
 
   const handleCreate = async () => {
@@ -189,10 +246,21 @@ function CreateRoomDialog({
     }
     setLoading(true);
     try {
+      const body: any = {
+        name: name.trim(),
+        description: description.trim() || undefined,
+        icon,
+        max_members: parseInt(maxMembers),
+        rules: rules.trim() || undefined,
+        is_open: isOpen,
+      };
+      if (password.trim()) {
+        body.password = password.trim();
+      }
       const res = await fetch("/api/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), description: description.trim(), icon }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (data.error) {
@@ -205,6 +273,11 @@ function CreateRoomDialog({
       setName("");
       setDescription("");
       setIcon("💬");
+      setRules("");
+      setMaxMembers("30");
+      setPassword("");
+      setShowPassword(false);
+      setIsOpen(true);
     } catch {
       toast.error("Erro ao criar sala");
     } finally {
@@ -214,11 +287,12 @@ function CreateRoomDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-2xl">
+      <DialogContent className="max-w-md rounded-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg">Criar nova sala</DialogTitle>
         </DialogHeader>
         <div className="space-y-5">
+          {/* Icon picker */}
           <div className="space-y-2">
             <Label className="text-xs font-medium text-muted-foreground">Ícone da sala</Label>
             <div className="flex flex-wrap gap-1.5">
@@ -237,22 +311,360 @@ function CreateRoomDialog({
               ))}
             </div>
           </div>
+
+          {/* Name */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">Nome da sala</Label>
+            <Label className="text-xs font-medium text-muted-foreground">Nome da sala *</Label>
             <Input placeholder="Ex: Bate-papo do Centro" value={name} onChange={(e) => setName(e.target.value.slice(0, 50))} maxLength={50} className="h-11 rounded-xl" />
             <span className="text-[10px] text-muted-foreground">{name.length}/50</span>
           </div>
+
+          {/* Description */}
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">Descrição (opcional)</Label>
             <Input placeholder="Do que essa sala é sobre?" value={description} onChange={(e) => setDescription(e.target.value.slice(0, 200))} maxLength={200} className="h-11 rounded-xl" />
             <span className="text-[10px] text-muted-foreground">{description.length}/200</span>
           </div>
+
+          {/* Rules */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">Regras da sala (opcional)</Label>
+            <Textarea
+              placeholder="Ex: Respeite todos, sem spam..."
+              value={rules}
+              onChange={(e) => setRules(e.target.value.slice(0, 500))}
+              maxLength={500}
+              className="rounded-xl min-h-[80px] resize-none"
+              rows={3}
+            />
+            <span className="text-[10px] text-muted-foreground">{rules.length}/500</span>
+          </div>
+
+          {/* Max members */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">Máximo de membros</Label>
+            <Select value={maxMembers} onValueChange={setMaxMembers}>
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[10, 20, 30, 40, 50].map((n) => (
+                  <SelectItem key={n} value={String(n)}>{n} membros</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Password */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">Senha (opcional — sala privada)</Label>
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="Deixe vazio para sala pública"
+                value={password}
+                onChange={(e) => setPassword(e.target.value.slice(0, 30))}
+                maxLength={30}
+                className="h-11 rounded-xl pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Is open switch */}
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/50 p-3">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Sala aberta</Label>
+              <p className="text-xs text-muted-foreground">Permitir que novos membros entrem</p>
+            </div>
+            <Switch checked={isOpen} onCheckedChange={setIsOpen} />
+          </div>
+
           <Button onClick={handleCreate} disabled={loading || !name.trim()} className="w-full h-11 rounded-xl">
-            {loading ? "Criando..." : "Criar sala"}
+            {loading ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Criando...</>
+            ) : "Criar sala"}
           </Button>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// PreEntryScreen — Tela antes de entrar na sala
+// ═══════════════════════════════════════════════════════════
+function PreEntryScreen({
+  room,
+  onBack,
+  onEnter,
+  openUserProfile,
+  onRefreshRooms,
+}: {
+  room: any;
+  onBack: () => void;
+  onEnter: (room: any) => void;
+  openUserProfile?: (userId: string) => void;
+  onRefreshRooms: () => void;
+}) {
+  const { profile } = useStore();
+  const [joining, setJoining] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [creatorProfile, setCreatorProfile] = useState<any>(null);
+
+  const memberCount = room.memberCount || room.member_count || room._count?.members || 0;
+  const isClosed = room.is_open === false;
+  const isPrivate = room.has_password;
+  const isFull = room.max_members && memberCount >= room.max_members;
+
+  useEffect(() => {
+    if (room.created_by) {
+      const fetchCreator = async () => {
+        try {
+          const supabase = createClient();
+          const { data } = await supabase
+            .from("profiles")
+            .select("id, display_name, username, avatar_url")
+            .eq("id", room.created_by)
+            .maybeSingle();
+          if (data) setCreatorProfile(data);
+        } catch { /* silent */ }
+      };
+      fetchCreator();
+    }
+  }, [room.created_by]);
+
+  const handleJoin = async (password?: string) => {
+    if (!profile) {
+      toast.error("Faça login para entrar na sala");
+      return;
+    }
+    setJoining(true);
+    setError(null);
+    try {
+      const body: any = {};
+      if (password) body.password = password;
+      const res = await fetch(`/api/rooms/${room.id}/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
+      });
+      const data = await res.json();
+      if (data.error) {
+        if (data.requiresPassword) {
+          setShowPasswordModal(true);
+        } else {
+          setError(data.error);
+          toast.error(data.error);
+        }
+        setJoining(false);
+        return;
+      }
+      if (data.joined) {
+        toast.success("Você entrou na sala!");
+        onRefreshRooms();
+        onEnter(room);
+      }
+    } catch {
+      setError("Erro ao entrar na sala");
+      toast.error("Erro ao entrar na sala");
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const handlePasswordSubmit = () => {
+    if (!passwordInput.trim()) {
+      toast.error("Digite a senha da sala");
+      return;
+    }
+    setShowPasswordModal(false);
+    handleJoin(passwordInput.trim());
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={onBack} className="h-9 w-9 rounded-full hover:bg-accent">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h2 className="text-lg font-bold">Informações da sala</h2>
+      </div>
+
+      {/* Room Card */}
+      <div className="rounded-2xl bg-card border shadow-sm overflow-hidden">
+        {/* Icon + Name Header */}
+        <div className="p-6 text-center bg-gradient-to-b from-primary/5 to-transparent">
+          <div className={`mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl text-3xl ${
+            room.type === "official" ? "bg-primary/10" : "bg-secondary"
+          }`}>
+            {room.icon}
+          </div>
+          <h3 className="text-xl font-bold">{room.name}</h3>
+          {room.description && (
+            <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">{room.description}</p>
+          )}
+        </div>
+
+        <div className="px-6 pb-6 space-y-4">
+          {/* Status badges */}
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {!isClosed ? (
+              <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/15 border-0 gap-1">
+                <DoorOpen className="h-3 w-3" /> Aberta
+              </Badge>
+            ) : (
+              <Badge className="bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/15 border-0 gap-1">
+                <DoorClosed className="h-3 w-3" /> Fechada
+              </Badge>
+            )}
+            {!isPrivate ? (
+              <Badge variant="secondary" className="gap-1">
+                <Users className="h-3 w-3" /> Pública
+              </Badge>
+            ) : (
+              <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15 border-0 gap-1">
+                <Lock className="h-3 w-3" /> Privada
+              </Badge>
+            )}
+            {room.type === "official" && (
+              <Badge className="bg-primary/10 text-primary hover:bg-primary/15 border-0 gap-1">
+                <Crown className="h-3 w-3" /> Oficial
+              </Badge>
+            )}
+          </div>
+
+          {/* Member count */}
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Users className="h-4 w-4" />
+            <span className="font-medium">{memberCount}{room.max_members ? `/${room.max_members}` : ""} membros</span>
+            {isFull && (
+              <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4">Lotada</Badge>
+            )}
+          </div>
+
+          {/* Rules */}
+          {room.rules && (
+            <div className="rounded-xl bg-muted/50 p-3 space-y-1">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                <Shield className="h-3 w-3" /> Regras da sala
+              </div>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{room.rules}</p>
+            </div>
+          )}
+
+          {/* Creator info */}
+          {creatorProfile && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Criada por</span>
+              <button
+                onClick={() => openUserProfile?.(creatorProfile.id)}
+                className="flex items-center gap-1.5 hover:underline underline-offset-2 transition-all"
+              >
+                <UserAvatar user={{ id: creatorProfile.id, display_name: creatorProfile.display_name, avatar_url: creatorProfile.avatar_url }} className="h-5 w-5" />
+                <span className="font-medium text-foreground">{creatorProfile.display_name}</span>
+              </button>
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Error message */}
+          {error && (
+            <div className="rounded-xl bg-destructive/10 text-destructive text-sm p-3 text-center">
+              {error}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          {isClosed ? (
+            <div className="text-center space-y-2">
+              <div className="rounded-xl bg-muted/50 p-4 text-center">
+                <DoorClosed className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm font-medium text-muted-foreground">Sala fechada</p>
+                <p className="text-xs text-muted-foreground/60 mt-0.5">No momento esta sala não está aceitando novos membros.</p>
+              </div>
+            </div>
+          ) : isFull ? (
+            <div className="rounded-xl bg-muted/50 p-4 text-center">
+              <Users className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm font-medium text-muted-foreground">Sala lotada</p>
+              <p className="text-xs text-muted-foreground/60 mt-0.5">Esta sala atingiu o número máximo de membros.</p>
+            </div>
+          ) : (
+            <Button
+              onClick={() => {
+                if (isPrivate) {
+                  setShowPasswordModal(true);
+                } else {
+                  handleJoin();
+                }
+              }}
+              disabled={joining}
+              className="w-full h-12 rounded-xl text-base gap-2 shadow-sm"
+            >
+              {joining ? (
+                <><Loader2 className="h-5 w-5 animate-spin" /> Entrando...</>
+              ) : (
+                <><UserPlus className="h-5 w-5" /> Entrar na sala</>
+              )}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Password modal */}
+      <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-amber-500" /> Sala privada
+            </DialogTitle>
+            <DialogDescription>
+              Esta sala exige senha para entrar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="Digite a senha"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handlePasswordSubmit()}
+                className="h-11 rounded-xl pr-10"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowPasswordModal(false)} className="flex-1 rounded-xl h-10">
+                Cancelar
+              </Button>
+              <Button onClick={handlePasswordSubmit} disabled={joining || !passwordInput.trim()} className="flex-1 rounded-xl h-10">
+                {joining ? <Loader2 className="h-4 w-4 animate-spin" /> : "Entrar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
@@ -265,7 +677,6 @@ function ChatAudioPlayer({ src, isMine }: { src: string; isMine?: boolean }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  // Função robusta para extrair duração do áudio
   const trySetDuration = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -285,7 +696,6 @@ function ChatAudioPlayer({ src, isMine }: { src: string; isMine?: boolean }) {
       audioRef.current.pause();
     } else {
       audioRef.current.play().catch(() => {});
-      // Ao começar a tocar, tenta pegar a duração novamente
       setTimeout(trySetDuration, 200);
       setTimeout(trySetDuration, 1000);
     }
@@ -299,7 +709,6 @@ function ChatAudioPlayer({ src, isMine }: { src: string; isMine?: boolean }) {
     audioRef.current.currentTime = pct * safeDuration;
   };
 
-  // Seek por toque no mobile
   const seekTouch = (e: React.TouchEvent<HTMLDivElement>) => {
     if (!audioRef.current || !safeDuration) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -311,7 +720,6 @@ function ChatAudioPlayer({ src, isMine }: { src: string; isMine?: boolean }) {
   return (
     <div className="rounded-2xl mt-1 min-w-[240px] overflow-hidden bg-white dark:bg-[#2a2a2a]">
       <div className="flex items-center gap-3 px-3.5 py-3">
-        {/* Botão play/pause */}
         <button
           onClick={toggle}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all shadow-md active:scale-95 bg-[#2EC4B6] text-white hover:bg-[#25b0a3]"
@@ -320,7 +728,6 @@ function ChatAudioPlayer({ src, isMine }: { src: string; isMine?: boolean }) {
         </button>
 
         <div className="flex-1 min-w-0 space-y-1.5">
-          {/* Linha superior: label + equalizer + duração total */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-bold tracking-tight text-[#0A4D5C] dark:text-white/90">Áudio</span>
@@ -338,25 +745,21 @@ function ChatAudioPlayer({ src, isMine }: { src: string; isMine?: boolean }) {
             </span>
           </div>
 
-          {/* Barra de progresso — mais escura para contrastar com fundo branco */}
           <div
             className="relative h-4 rounded-full cursor-pointer bg-[#8fb5ae] dark:bg-white/25"
             onClick={seek}
             onTouchMove={seekTouch}
           >
-            {/* Trilha preenchida */}
             <div
               className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-100 bg-[#2EC4B6]"
               style={{ width: `${progress}%` }}
             />
-            {/* Thumb — sempre visível */}
             <div
               className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full shadow-md border-2 border-white transition-[left] duration-100 bg-[#2EC4B6]"
               style={{ left: `calc(${Math.max(progress, 1)}% - 8px)` }}
             />
           </div>
 
-          {/* Linha inferior: tempo atual */}
           <div className="flex justify-between items-center">
             <span className="text-[11px] tabular-nums font-medium text-[#0A4D5C]/60 dark:text-white/60">
               {formatDuration(safeCurrentTime)}
@@ -376,7 +779,6 @@ function ChatAudioPlayer({ src, isMine }: { src: string; isMine?: boolean }) {
         onTimeUpdate={() => {
           const t = audioRef.current?.currentTime || 0;
           setCurrentTime(isFinite(t) ? t : 0);
-          // Tenta pegar duração a cada timeUpdate se ainda não temos
           if (!safeDuration) trySetDuration();
         }}
         onLoadedMetadata={() => trySetDuration()}
@@ -384,7 +786,6 @@ function ChatAudioPlayer({ src, isMine }: { src: string; isMine?: boolean }) {
         onCanPlay={() => trySetDuration()}
         onEnded={() => { setPlaying(false); setCurrentTime(0); }}
       />
-      {/* CSS para animação do equalizer */}
       <style jsx>{`
         @keyframes eqBar {
           0% { height: 3px; }
@@ -396,7 +797,582 @@ function ChatAudioPlayer({ src, isMine }: { src: string; isMine?: boolean }) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// RoomChat — Redesenhado com overlay de gravação + 💬 + menu para cima
+// BanDialog — Dialog para banir membro com duração
+// ═══════════════════════════════════════════════════════════
+function BanDialog({
+  open,
+  onOpenChange,
+  targetUser,
+  roomId,
+  onBanned,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  targetUser: any;
+  roomId: string;
+  onBanned: () => void;
+}) {
+  const [duration, setDuration] = useState<number | null>(7);
+  const [loading, setLoading] = useState(false);
+
+  const presets = [
+    { label: "1 dia", value: 1 },
+    { label: "3 dias", value: 3 },
+    { label: "7 dias", value: 7 },
+    { label: "15 dias", value: 15 },
+    { label: "30 dias", value: 30 },
+    { label: "Permanente", value: null },
+  ];
+
+  const handleBan = async () => {
+    if (!targetUser) return;
+    setLoading(true);
+    try {
+      const body: any = { user_id: targetUser.id };
+      if (duration !== null) body.duration_days = duration;
+      const res = await fetch(`/api/rooms/${roomId}/ban`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+      toast.success(`${targetUser.display_name} foi banido${duration ? ` por ${duration} dia${duration > 1 ? "s" : ""}` : " permanentemente"}`);
+      onBanned();
+      onOpenChange(false);
+    } catch {
+      toast.error("Erro ao banir membro");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Ban className="h-5 w-5 text-destructive" /> Banir membro
+          </DialogTitle>
+          <DialogDescription>
+            Banir <strong>{targetUser?.display_name}</strong> da sala
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground">Duração do ban</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {presets.map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => setDuration(p.value)}
+                  className={`rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+                    duration === p.value
+                      ? "bg-destructive text-destructive-foreground shadow-sm"
+                      : "bg-muted hover:bg-accent text-foreground"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 rounded-xl h-10">
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleBan} disabled={loading} className="flex-1 rounded-xl h-10">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Banir"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// InviteDialog — Dialog para convidar usuários
+// ═══════════════════════════════════════════════════════════
+function InviteDialog({
+  open,
+  onOpenChange,
+  roomId,
+  existingMemberIds,
+  maxMembers,
+  currentMemberCount,
+  onInvited,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  roomId: string;
+  existingMemberIds: string[];
+  maxMembers?: number | null;
+  currentMemberCount: number;
+  onInvited: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [results, setResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [inviting, setInviting] = useState<string | null>(null);
+  const isFull = maxMembers ? currentMemberCount >= maxMembers : false;
+
+  const handleSearch = useCallback(async (query: string) => {
+    setSearch(query);
+    if (query.trim().length < 2) {
+      setResults([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, display_name, username, avatar_url, neighborhood")
+        .or(`display_name.ilike.%${query.trim()}%,username.ilike.%${query.trim()}%`)
+        .limit(20);
+      const filtered = (data || []).filter((p: any) => !existingMemberIds.includes(p.id));
+      setResults(filtered);
+    } catch { /* silent */ }
+    setSearching(false);
+  }, [existingMemberIds]);
+
+  const handleInvite = async (userId: string) => {
+    setInviting(userId);
+    try {
+      const res = await fetch(`/api/rooms/${roomId}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+      toast.success("Convite enviado!");
+      onInvited();
+      setResults((prev) => prev.filter((p) => p.id !== userId));
+    } catch {
+      toast.error("Erro ao enviar convite");
+    } finally {
+      setInviting(null);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md rounded-2xl max-h-[80vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" /> Convidar para a sala
+          </DialogTitle>
+          <DialogDescription>
+            Busque pelo nome ou @username
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          {isFull && (
+            <div className="rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm p-3 text-center">
+              Sala lotada — não é possível convidar mais membros
+            </div>
+          )}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar pessoa..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="h-11 rounded-xl pl-9"
+              disabled={isFull}
+            />
+          </div>
+          <ScrollArea className="max-h-60">
+            {searching && (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              </div>
+            )}
+            {!searching && search.trim().length >= 2 && results.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">Nenhum resultado encontrado</p>
+            )}
+            <div className="space-y-1">
+              {results.map((user) => (
+                <div key={user.id} className="flex items-center gap-3 rounded-xl p-2 hover:bg-accent/50 transition-colors">
+                  <UserAvatar user={{ id: user.id, display_name: user.display_name, avatar_url: user.avatar_url }} className="h-9 w-9" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{user.display_name}</p>
+                    <p className="text-xs text-muted-foreground">@{user.username}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleInvite(user.id)}
+                    disabled={inviting === user.id || isFull}
+                    className="rounded-full px-3 h-8 text-xs"
+                  >
+                    {inviting === user.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Convidar"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// AdminPanel — Painel administrativo para criador/moderador
+// ═══════════════════════════════════════════════════════════
+function AdminPanel({
+  open,
+  onOpenChange,
+  room,
+  members,
+  onRefresh,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  room: any;
+  members: any[];
+  onRefresh: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(room.is_open !== false);
+  const [bannedMembers, setBannedMembers] = useState<any[]>([]);
+  const [loadingBanned, setLoadingBanned] = useState(false);
+  const [toggling, setToggling] = useState(false);
+
+  const fetchBanned = useCallback(async () => {
+    setLoadingBanned(true);
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("room_bans")
+        .select("id, user_id, banned_until, created_at, profiles:user_id(id, display_name, username, avatar_url)")
+        .eq("room_id", room.id);
+      setBannedMembers(data || []);
+    } catch { /* silent */ }
+    setLoadingBanned(false);
+  }, [room.id]);
+
+  useEffect(() => {
+    if (open) fetchBanned();
+  }, [open, fetchBanned]);
+
+  const handleToggleOpen = async () => {
+    setToggling(true);
+    try {
+      const res = await fetch(`/api/rooms/${room.id}/toggle-open`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_open: !isOpen }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+      setIsOpen(data.is_open);
+      toast.success(data.is_open ? "Sala aberta" : "Sala fechada");
+      onRefresh();
+    } catch {
+      toast.error("Erro ao alterar status da sala");
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const handleUnban = async (userId: string) => {
+    try {
+      const res = await fetch(`/api/rooms/${room.id}/ban`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+      toast.success("Membro desbanido");
+      fetchBanned();
+    } catch {
+      toast.error("Erro ao desbanir");
+    }
+  };
+
+  const moderators = members.filter((m: any) => m.role === "moderator");
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md rounded-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" /> Painel de administração
+          </DialogTitle>
+          <DialogDescription>
+            Gerencie a sala {room.name}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-5">
+          {/* Toggle open/closed */}
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/50 p-4">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                {isOpen ? <DoorOpen className="h-4 w-4 text-emerald-500" /> : <DoorClosed className="h-4 w-4 text-red-500" />}
+                {isOpen ? "Sala aberta" : "Sala fechada"}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {isOpen ? "Novos membros podem entrar" : "Ninguém pode entrar na sala"}
+              </p>
+            </div>
+            <Switch checked={isOpen} onCheckedChange={handleToggleOpen} disabled={toggling} />
+          </div>
+
+          <Separator />
+
+          {/* Moderators list */}
+          <div className="space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70">Moderadores</Label>
+            {moderators.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-2">Nenhum moderador</p>
+            ) : (
+              <div className="space-y-1">
+                {moderators.map((m: any) => (
+                  <div key={m.id} className="flex items-center gap-2.5 rounded-xl p-2 bg-muted/30">
+                    <UserAvatar user={{ id: m.profile?.id || m.user_id, display_name: m.profile?.display_name || "?", avatar_url: m.profile?.avatar_url }} className="h-8 w-8" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{m.profile?.display_name || "Usuário"}</p>
+                    </div>
+                    <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-0 text-[9px] px-1.5">
+                      <Shield className="h-2.5 w-2.5 mr-0.5" /> Mod
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Banned members */}
+          <div className="space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+              <Ban className="h-3 w-3" /> Membros banidos
+            </Label>
+            {loadingBanned ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              </div>
+            ) : bannedMembers.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-2">Nenhum membro banido</p>
+            ) : (
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {bannedMembers.map((ban: any) => {
+                  const prof = ban.profiles;
+                  const isPermanent = !ban.banned_until;
+                  return (
+                    <div key={ban.id} className="flex items-center gap-2.5 rounded-xl p-2 bg-muted/30">
+                      <UserAvatar user={{ id: prof?.id || ban.user_id, display_name: prof?.display_name || "?", avatar_url: prof?.avatar_url }} className="h-8 w-8" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{prof?.display_name || "Usuário"}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {isPermanent ? "Banimento permanente" : `Até ${new Date(ban.banned_until).toLocaleDateString("pt-BR")}`}
+                        </p>
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => handleUnban(ban.user_id)} className="text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 h-7 px-2 rounded-lg">
+                        Desbanir
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// MemberActionMenu — Dropdown de ações do membro
+// ═══════════════════════════════════════════════════════════
+function MemberActionMenu({
+  member,
+  currentMember,
+  roomId,
+  onRefresh,
+  openUserProfile,
+  onInviteOpen,
+}: {
+  member: any;
+  currentMember: any;
+  roomId: string;
+  onRefresh: () => void;
+  openUserProfile?: (userId: string) => void;
+  onInviteOpen: () => void;
+}) {
+  const [banDialogOpen, setBanDialogOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const targetRole = member.role;
+  const myRole = currentMember?.role;
+  const isSelf = member.user_id === currentMember?.user_id;
+
+  // Determine what actions are available
+  const canModerate = myRole === "creator" || myRole === "moderator";
+  const canPromote = myRole === "creator";
+  const canKick = canModerate && targetRole === "member" && !isSelf;
+  const canBan = canModerate && targetRole === "member" && !isSelf;
+  const canDemote = myRole === "creator" && targetRole === "moderator";
+  const canPromoteToMod = myRole === "creator" && targetRole === "member";
+
+  const handleKick = async () => {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/rooms/${roomId}/kick`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: member.user_id }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+      toast.success(`${member.profile?.display_name || "Membro"} foi expulso`);
+      onRefresh();
+    } catch {
+      toast.error("Erro ao expulsar membro");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handlePromote = async (role: "moderator" | "member") => {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/rooms/${roomId}/promote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: member.user_id, role }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+      toast.success(role === "moderator"
+        ? `${member.profile?.display_name || "Membro"} agora é moderador`
+        : `${member.profile?.display_name || "Membro"} voltou a ser membro`
+      );
+      onRefresh();
+    } catch {
+      toast.error("Erro ao alterar cargo");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const mp = member.profile;
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex items-center gap-2 w-full rounded-xl px-2 py-1.5 hover:bg-accent/50 transition-colors text-left">
+            <UserAvatar user={{ id: mp?.id || member.user_id, display_name: mp?.display_name || "?", avatar_url: mp?.avatar_url }} className="h-8 w-8" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-medium truncate">{mp?.display_name || "Usuário"}</span>
+                {isSelf && (
+                  <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5 shrink-0">Você</Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {member.role === "creator" && (
+                  <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
+                    <Crown className="h-2.5 w-2.5" /> Criador
+                  </span>
+                )}
+                {member.role === "moderator" && (
+                  <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-0.5">
+                    <Shield className="h-2.5 w-2.5" /> Moderador
+                  </span>
+                )}
+                {member.role === "member" && (
+                  <span className="text-[10px] text-muted-foreground">Membro</span>
+                )}
+              </div>
+            </div>
+            {!isSelf && (
+              <MoreVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+            )}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          {/* View profile */}
+          <DropdownMenuItem onClick={() => openUserProfile?.(mp?.id || member.user_id)} className="gap-2">
+            <Users className="h-4 w-4" /> Ver perfil
+          </DropdownMenuItem>
+
+          {/* Invite to room */}
+          <DropdownMenuItem onClick={onInviteOpen} className="gap-2">
+            <UserPlus className="h-4 w-4" /> Convidar para sala
+          </DropdownMenuItem>
+
+          {/* Creator/moderator actions */}
+          {canPromoteToMod && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handlePromote("moderator")} disabled={actionLoading} className="gap-2 text-blue-600 dark:text-blue-400 focus:text-blue-600">
+                <Shield className="h-4 w-4" /> Promover a moderador
+              </DropdownMenuItem>
+            </>
+          )}
+
+          {canDemote && (
+            <DropdownMenuItem onClick={() => handlePromote("member")} disabled={actionLoading} className="gap-2 text-amber-600 dark:text-amber-400 focus:text-amber-600">
+              <ShieldAlert className="h-4 w-4" /> Rebaixar para membro
+            </DropdownMenuItem>
+          )}
+
+          {canKick && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleKick} disabled={actionLoading} className="gap-2 text-destructive focus:text-destructive">
+                <LogOut className="h-4 w-4" /> Expulsar da sala
+              </DropdownMenuItem>
+            </>
+          )}
+
+          {canBan && (
+            <DropdownMenuItem onClick={() => setBanDialogOpen(true)} disabled={actionLoading} className="gap-2 text-destructive focus:text-destructive">
+              <Ban className="h-4 w-4" /> Banir
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <BanDialog
+        open={banDialogOpen}
+        onOpenChange={setBanDialogOpen}
+        targetUser={mp}
+        roomId={roomId}
+        onBanned={onRefresh}
+      />
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// RoomChat — Chat principal com sidebar de membros
 // ═══════════════════════════════════════════════════════════
 function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any; onBack: () => void; onRefreshRooms: () => void; openUserProfile?: (userId: string) => void }) {
   const { profile } = useStore();
@@ -407,6 +1383,8 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
   const [members, setMembers] = useState<any[]>([]);
   const [showMembers, setShowMembers] = useState(false);
   const [membersLoading, setMembersLoading] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ── Mídia no chat ──
@@ -438,6 +1416,11 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
   const videoRecTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoStreamRef = useRef<MediaStream | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
+
+  // Determine current user's role in the room
+  const currentMember = members.find((m: any) => m.user_id === profile?.id);
+  const myRole = currentMember?.role || "member";
+  const isAdmin = myRole === "creator" || myRole === "moderator";
 
   // Fechar menu ao clicar fora
   useEffect(() => {
@@ -482,7 +1465,7 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
       const supabase = createClient();
       const { data: rawMembers, error: rmErr } = await supabase
         .from("room_members")
-        .select("id, user_id, created_at")
+        .select("id, user_id, created_at, role")
         .eq("room_id", room.id);
 
       if (!rmErr && rawMembers && rawMembers.length > 0) {
@@ -497,6 +1480,7 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
           id: m.id,
           user_id: m.user_id,
           joined_at: m.created_at,
+          role: m.role || "member",
           profile: profileMap.get(m.user_id) || null,
         }));
 
@@ -512,6 +1496,7 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
             id: "self",
             user_id: profile.id,
             joined_at: new Date().toISOString(),
+            role: "member",
             profile: { id: profile.id, display_name: profile.display_name, username: profile.username, avatar_url: profile.avatar_url, neighborhood: profile.neighborhood }
           }]);
         }
@@ -522,6 +1507,7 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
           id: "self",
           user_id: profile.id,
           joined_at: new Date().toISOString(),
+          role: "member",
           profile: { id: profile.id, display_name: profile.display_name, username: profile.username, avatar_url: profile.avatar_url, neighborhood: profile.neighborhood }
         }]);
       }
@@ -551,7 +1537,7 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
       const supabase = createClient();
       const { data } = await supabase
         .from("room_members")
-        .select("id")
+        .select("id, role")
         .eq("room_id", room.id)
         .eq("user_id", profile.id)
         .maybeSingle();
@@ -595,7 +1581,7 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
       if (prof) {
         setMembers((prev) => {
           if (prev.some((m) => m.user_id === payload.user_id)) return prev;
-          return [...prev, { id: payload.id, user_id: payload.user_id, joined_at: payload.created_at, profile: prof }];
+          return [...prev, { id: payload.id, user_id: payload.user_id, joined_at: payload.created_at, role: payload.role || "member", profile: prof }];
         });
       }
     };
@@ -606,11 +1592,16 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
     setMembers((prev) => prev.filter((m) => m.user_id !== payload.user_id));
   }, []);
 
+  const handleMemberUpdate = useCallback((payload: any) => {
+    setMembers((prev) => prev.map((m) => m.user_id === payload.user_id ? { ...m, role: payload.role || m.role } : m));
+  }, []);
+
   useRealtimeMessages({
     table: "room_members",
     filter: `room_id=eq.${room.id}`,
     onInsert: handleMemberJoin,
     onDelete: handleMemberLeave,
+    onUpdate: handleMemberUpdate,
     enabled: !!profile,
   });
 
@@ -794,7 +1785,7 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
     if (audioFileRef.current) audioFileRef.current.value = "";
   };
 
-  // ═══════ Gravação de áudio com overlay (igual ao feed) ═══════
+  // ═══════ Gravação de áudio com overlay ═══════
   const startAudioRecording = async () => {
     setAttachMenuOpen(false);
     try {
@@ -919,7 +1910,6 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true });
       videoStreamRef.current = stream;
 
-      // Conecta o stream ao preview de vídeo para a pessoa se ver
       if (videoPreviewRef.current) {
         videoPreviewRef.current.srcObject = stream;
       }
@@ -1011,8 +2001,17 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
     return { ...msg, isGrouped };
   });
 
+  // Sort members by hierarchy: creator > moderator > member
+  const sortedMembers = [...members].sort((a: any, b: any) => {
+    const roleOrder: Record<string, number> = { creator: 0, moderator: 1, member: 2 };
+    return (roleOrder[a.role] ?? 2) - (roleOrder[b.role] ?? 2);
+  });
+
+  const existingMemberIds = members.map((m: any) => m.user_id);
+
   return (
     <div className="flex h-full flex-col -mx-4 -mt-4 md:-mx-0 md:-mt-0">
+      {/* Header */}
       <div className="flex items-center gap-3 border-b px-4 py-3 bg-card/80 backdrop-blur-md sticky top-0 z-10">
         <Button variant="ghost" size="icon" onClick={onBack} className="h-9 w-9 rounded-full hover:bg-accent">
           <ArrowLeft className="h-5 w-5" />
@@ -1024,6 +2023,8 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
           <div className="flex items-center gap-1.5">
             <h3 className="text-sm font-bold truncate">{room.name}</h3>
             {room.type === "official" && <Crown className="h-3 w-3 text-primary shrink-0" />}
+            {room.has_password && <Lock className="h-3 w-3 text-amber-500 shrink-0" />}
+            {room.is_open === false && <DoorClosed className="h-3 w-3 text-red-500 shrink-0" />}
           </div>
           <p className="text-[11px] text-muted-foreground">
             {memberCount} membro{memberCount !== 1 ? "s" : ""}
@@ -1048,6 +2049,15 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => setShowAdminPanel(true)} className="gap-2">
+                    <Settings className="h-4 w-4" /> Administração
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => setShowInvite(true)} className="gap-2">
+                  <UserPlus className="h-4 w-4" /> Convidar pessoa
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLeave} className="text-destructive focus:text-destructive gap-2">
                   <LogOut className="h-4 w-4" /> Sair da sala
                 </DropdownMenuItem>
@@ -1057,8 +2067,9 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
         </div>
       </div>
 
+      {/* ═══════ Member Sidebar ═══════ */}
       {showMembers && (
-        <div className="border-b bg-card/50 backdrop-blur-md px-4 py-3 max-h-56 overflow-y-auto custom-scrollbar">
+        <div className="border-b bg-card/50 backdrop-blur-md px-4 py-3 max-h-72 overflow-y-auto custom-scrollbar">
           <div className="flex items-center justify-between mb-2.5">
             <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">
               Membros · {members.length}
@@ -1074,30 +2085,29 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
           ) : members.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-3">Nenhum membro ainda</p>
           ) : (
-            <div className="grid grid-cols-2 gap-1">
-              {members.map((m: any) => {
+            <div className="space-y-0.5">
+              {sortedMembers.map((m: any) => {
                 const mp = m.profile;
                 if (!mp) {
                   return (
-                    <div key={m.id || m.user_id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent/50 transition-colors">
-                      <UserAvatar user={{ id: m.user_id || "unknown", display_name: "?" }} className="h-7 w-7" />
-                      <span className="text-xs font-medium text-muted-foreground truncate">Usuário</span>
+                    <div key={m.id || m.user_id} className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-accent/50 transition-colors">
+                      <UserAvatar user={{ id: m.user_id || "unknown", display_name: "?" }} className="h-8 w-8" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-medium text-muted-foreground truncate">Usuário</span>
+                      </div>
                     </div>
                   );
                 }
                 return (
-                  <div key={m.id || m.user_id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent/50 transition-colors cursor-pointer" onClick={() => openUserProfile?.(mp.id)}>
-                    <UserAvatar user={{ id: mp.id, display_name: mp.display_name, avatar_url: mp.avatar_url }} className="h-7 w-7" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs font-medium truncate">{mp.display_name}</span>
-                        {m.user_id === profile?.id && (
-                          <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5 shrink-0">Você</Badge>
-                        )}
-                      </div>
-                      {mp.neighborhood && <span className="text-[10px] text-muted-foreground truncate block">{mp.neighborhood}</span>}
-                    </div>
-                  </div>
+                  <MemberActionMenu
+                    key={m.id || m.user_id}
+                    member={m}
+                    currentMember={currentMember}
+                    roomId={room.id}
+                    onRefresh={fetchMembers}
+                    openUserProfile={openUserProfile}
+                    onInviteOpen={() => setShowInvite(true)}
+                  />
                 );
               })}
             </div>
@@ -1105,6 +2115,7 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
         </div>
       )}
 
+      {/* ═══════ Join prompt ═══════ */}
       {!isMember && (
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="text-center max-w-xs">
@@ -1121,6 +2132,7 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
         </div>
       )}
 
+      {/* ═══════ Messages ═══════ */}
       {isMember && (
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-1" style={{ maxHeight: "calc(100vh - 320px)" }}>
           {loading && (
@@ -1150,6 +2162,10 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
             const hasAudio = !!msg.media_url && msg.media_type === "audio";
             const hasMedia = !!msg.media_url;
 
+            // Find member role for this message's sender
+            const senderMember = members.find((m: any) => m.user_id === msg.sender_id);
+            const senderRole = senderMember?.role;
+
             return (
               <div key={msg.id} className={`flex gap-2.5 ${msg.isGrouped ? (isMine ? "pl-0 pr-0" : "pl-[38px]") : ""} ${isMine ? "justify-end" : ""}`}>
                 {!isMine && showAvatar && (
@@ -1163,12 +2179,20 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
 
                 <div className={`max-w-[80%] ${isMine ? "items-end" : "items-start"}`}>
                   {showName && (
-                    <button
-                      onClick={() => openUserProfile?.(sender.id || msg.sender_id)}
-                      className="text-[11px] font-semibold text-muted-foreground mb-0.5 block hover:underline underline-offset-2 transition-all"
-                    >
-                      {sender.display_name || "Usuário"}
-                    </button>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <button
+                        onClick={() => openUserProfile?.(sender.id || msg.sender_id)}
+                        className="text-[11px] font-semibold text-muted-foreground hover:underline underline-offset-2 transition-all"
+                      >
+                        {sender.display_name || "Usuário"}
+                      </button>
+                      {senderRole === "creator" && (
+                        <Crown className="h-3 w-3 text-amber-500" />
+                      )}
+                      {senderRole === "moderator" && (
+                        <Shield className="h-3 w-3 text-blue-500" />
+                      )}
+                    </div>
                   )}
 
                   <div className="flex items-end gap-1.5">
@@ -1332,7 +2356,7 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
         )}
       </div>
 
-      {/* ═══════ Overlay de gravação de áudio (igual ao feed) ═══════ */}
+      {/* ═══════ Overlay de gravação de áudio ═══════ */}
       {isRecordingAudio && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#000305]/80 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-6 p-8">
@@ -1393,6 +2417,26 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
           </div>
         </div>
       )}
+
+      {/* ═══════ Admin Panel Dialog ═══════ */}
+      <AdminPanel
+        open={showAdminPanel}
+        onOpenChange={setShowAdminPanel}
+        room={room}
+        members={members}
+        onRefresh={fetchMembers}
+      />
+
+      {/* ═══════ Invite Dialog ═══════ */}
+      <InviteDialog
+        open={showInvite}
+        onOpenChange={setShowInvite}
+        roomId={room.id}
+        existingMemberIds={existingMemberIds}
+        maxMembers={room.max_members}
+        currentMemberCount={memberCount}
+        onInvited={fetchMembers}
+      />
     </div>
   );
 }
