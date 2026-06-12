@@ -25,7 +25,7 @@ export interface Profile {
 }
 
 // ─── ROOM ────────────────────────────────────────────────────
-// Espelha: public.rooms (mig 001)
+// Espelha: public.rooms (mig 001) — estendido com campos avançados
 export interface Room {
   id: string;
   name: string;
@@ -34,6 +34,10 @@ export interface Room {
   icon: string;
   type: "official" | "community";
   is_active: boolean;
+  is_open: boolean;
+  max_members: number;
+  rules: string | null;
+  has_password?: boolean;
   created_by: string | null;
   member_count: number;
   created_at: string;
@@ -44,12 +48,14 @@ export interface Room {
 }
 
 // ─── ROOM MEMBER ─────────────────────────────────────────────
-// Espelha: public.room_members (mig 001)
+// Espelha: public.room_members (mig 001) — estendido com roles e ban
 export interface RoomMember {
   id: string;
   room_id: string;
   user_id: string;
-  role: "member" | "moderator" | "admin";
+  role: "creator" | "member" | "moderator";
+  is_banned?: boolean;
+  banned_until?: string | null;
   joined_at: string;
   // Relação
   profile?: Profile;
