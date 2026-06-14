@@ -1856,8 +1856,21 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
   }, []);
 
   const handleMemberUpdate = useCallback((payload: any) => {
-    setMembers((prev) => prev.map((m) => m.user_id === payload.user_id ? { ...m, role: payload.role || m.role } : m));
-  }, []);
+    if (payload.is_banned) {
+      // Membro foi banido — remove da lista de membros ativos em tempo real
+      setMembers((prev) => prev.filter((m) => m.user_id !== payload.user_id));
+      return;
+    }
+    setMembers((prev) => {
+      const exists = prev.some((m) => m.user_id === payload.user_id);
+      if (!exists) {
+        // Membro foi desbanido e não está na lista local — recarrega para obter o perfil
+        fetchMembers();
+        return prev;
+      }
+      return prev.map((m) => m.user_id === payload.user_id ? { ...m, role: payload.role || m.role } : m);
+    });
+  }, [fetchMembers]);
 
   useRealtimeMessages({
     table: "room_members",
