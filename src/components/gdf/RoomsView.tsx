@@ -24,7 +24,7 @@ import {
   Camera, Video, Mic, StopCircle, ImagePlus, Music,
   Play, Pause, Volume2, Loader2, Send, Lock, Ban,
   Eye, EyeOff, ShieldAlert, Settings, Search, UserX,
-  DoorOpen, DoorClosed, KeyRound,
+  DoorOpen, DoorClosed, KeyRound, Trash2, AlertTriangle,
 } from "lucide-react";
 import { getInitials, getAvatarColor, timeAgo } from "@/lib/constants";
 import { UserAvatar } from "./UserAvatar";
@@ -1027,6 +1027,175 @@ function InviteDialog({
 }
 
 // ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// DeleteRoomDialog — Modal de exclusão com confirmação por texto
+// ═══════════════════════════════════════════════════════════
+function DeleteRoomDialog({
+  open,
+  onOpenChange,
+  room,
+  onDeleted,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  room: any;
+  onDeleted: () => void;
+}) {
+  const { setSelectedRoom } = useStore();
+  const [confirmText, setConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const roomName = room?.name || "";
+  const isMatch = confirmText.trim() === roomName;
+
+  const handleDelete = async () => {
+    if (!isMatch) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/rooms/${room.id}`, { method: "DELETE" });
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || "Erro ao excluir sala");
+        // Se houve erros parciais, informar
+        if (data.deletionErrors && data.deletionErrors.length > 0) {
+          console.warn("Erros parciais na exclusão:", data.deletionErrors);
+        }
+        setDeleting(false);
+        return;
+      }
+
+      // Emitir evento broadcast em tempo real para todos os usuários da sala
+      try {
+        const supabase = createClient();
+        const channel = supabase.channel(`room-events:${room.id}`);
+        await channel.send({
+          type: "broadcast",
+          event: "room_deleted",
+          payload: {
+            roomId: room.id,
+            roomName: roomName,
+            deletedBy: "creator",
+            deletedAt: new Date().toISOString(),
+          },
+        });
+        // Aguardar um momento para o broadcast ser enviado antes de remover o canal
+        await new Promise((r) => setTimeout(r, 300));
+        supabase.removeAllChannels();
+      } catch { /* silent — broadcast é best-effort */ }
+
+      toast.success(`Sala "${roomName}" excluída com sucesso`);
+
+      // Limpar estado e redirecionar
+      setConfirmText("");
+      setDeleting(false);
+      onOpenChange(false);
+      setSelectedRoom(null);
+      onDeleted();
+    } catch (err: any) {
+      toast.error(err.message || "Erro de conexão ao excluir sala");
+      setDeleting(false);
+    }
+  };
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      setConfirmText("");
+      setDeleting(false);
+    }
+    onOpenChange(newOpen);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-md rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+            Excluir sala
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground pt-1">
+            Esta ação é <strong className="text-destructive">irreversível</strong> e não poderá ser desfeita.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* Aviso detalhado */}
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-2">
+            <p className="text-sm font-medium text-destructive">
+              Todos os dados da sala serão permanentemente removidos:
+            </p>
+            <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
+              <li>Todas as mensagens da sala</li>
+              <li>Todos os membros e moderadores</li>
+              <li>Registros de banimento</li>
+              <li>Convites pendentes</li>
+              <li>Configurações e regras da comunidade</li>
+            </ul>
+          </div>
+
+          {/* Identificação da sala */}
+          <div className="rounded-xl bg-muted/50 p-3 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-lg shrink-0">
+              {room?.icon || "💬"}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate">{roomName}</p>
+              <p className="text-xs text-muted-foreground">
+                {room?.member_count || room?.memberCount || 0} membro{(room?.member_count || room?.memberCount || 0) !== 1 ? "s" : ""}
+              </p>
+            </div>
+          </div>
+
+          {/* Campo de confirmação */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground">
+              Digite <strong className="text-foreground">{roomName}</strong> para confirmar a exclusão
+            </Label>
+            <Input
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={roomName}
+              className="h-11 rounded-xl border-destructive/30 focus-visible:ring-destructive/30"
+              autoComplete="off"
+              autoFocus
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            disabled={deleting}
+            className="rounded-xl"
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={!isMatch || deleting}
+            className="rounded-xl gap-2"
+          >
+            {deleting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Excluindo...
+              </>
+            ) : (
+              <>
+                <Trash2 className="h-4 w-4" />
+                Excluir definitivamente
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
 // AdminPanel — Painel administrativo para criador/moderador
 // ═══════════════════════════════════════════════════════════
 function AdminPanel({
@@ -1035,12 +1204,16 @@ function AdminPanel({
   room,
   members,
   onRefresh,
+  currentProfile,
+  onDeleteRoom,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   room: any;
   members: any[];
   onRefresh: () => void;
+  currentProfile: any;
+  onDeleteRoom: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(room.is_open !== false);
   const [bannedMembers, setBannedMembers] = useState<any[]>([]);
@@ -1107,6 +1280,7 @@ function AdminPanel({
   };
 
   const moderators = members.filter((m: any) => m.role === "moderator");
+  const isCreator = room.created_by === currentProfile?.id || members.some((m: any) => m.user_id === currentProfile?.id && m.role === "creator");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1194,6 +1368,57 @@ function AdminPanel({
               </div>
             )}
           </div>
+
+          {/* ═══ Configurações da Sala (somente criador) ═══ */}
+          {isCreator && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                  <Settings className="h-3 w-3" /> Configurações da Sala
+                </Label>
+
+                {/* Info da sala */}
+                <div className="rounded-xl bg-muted/50 p-3 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{room.icon || "💬"}</span>
+                    <span className="text-sm font-semibold">{room.name}</span>
+                  </div>
+                  {room.description && (
+                    <p className="text-xs text-muted-foreground">{room.description}</p>
+                  )}
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-0.5"><Users className="h-3 w-3" />{room.member_count || room.memberCount || 0} membros</span>
+                    {room.has_password && <span className="flex items-center gap-0.5"><Lock className="h-3 w-3" />Protegida</span>}
+                    <span>{room.is_open ? "Aberta" : "Fechada"}</span>
+                  </div>
+                </div>
+
+                {/* Zona de perigo */}
+                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <span className="text-xs font-semibold text-destructive">Zona de perigo</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    A exclusão da sala é permanente e não pode ser desfeita. Todos os dados serão removidos.
+                  </p>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="w-full rounded-xl gap-2 text-xs"
+                    onClick={() => {
+                      onOpenChange(false);
+                      onDeleteRoom();
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Excluir esta sala
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -1375,7 +1600,7 @@ function MemberActionMenu({
 // RoomChat — Chat principal com sidebar de membros
 // ═══════════════════════════════════════════════════════════
 function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any; onBack: () => void; onRefreshRooms: () => void; openUserProfile?: (userId: string) => void }) {
-  const { profile } = useStore();
+  const { profile, setSelectedRoom } = useStore();
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -1385,6 +1610,7 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
   const [membersLoading, setMembersLoading] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  const [showDeleteRoom, setShowDeleteRoom] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ── Mídia no chat ──
@@ -1421,6 +1647,7 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
   const currentMember = members.find((m: any) => m.user_id === profile?.id);
   const myRole = currentMember?.role || "member";
   const isAdmin = myRole === "creator" || myRole === "moderator";
+  const isCreator = myRole === "creator";
 
   // Fechar menu ao clicar fora
   useEffect(() => {
@@ -1450,6 +1677,34 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
       videoPreviewRef.current.srcObject = videoStreamRef.current;
     }
   }, [isRecordingVideo]);
+
+  // ── Escutar evento broadcast de exclusão da sala em tempo real ──
+  useEffect(() => {
+    if (!profile || !room?.id) return;
+    const supabase = createClient();
+    const channel = supabase.channel(`room-events:${room.id}`);
+
+    channel.on("broadcast", { event: "room_deleted" }, (payload) => {
+      // A sala foi excluída pelo criador — redirecionar imediatamente
+      toast.error(`Esta sala foi excluída pelo criador`, {
+        duration: 5000,
+      });
+      // Limpar canais e estado
+      supabase.removeAllChannels();
+      setSelectedRoom(null);
+      onRefreshRooms();
+    });
+
+    channel.subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile, room?.id, setSelectedRoom, onRefreshRooms]);
+
+  // ── Detectar sala inexistente via erro 404 ao carregar mensagens ──
+  // Se a sala foi excluída e o broadcast falhou, detectar via API
+  const [roomDeletedDetected, setRoomDeletedDetected] = useState(false);
 
   const fetchMembers = useCallback(async () => {
     setMembersLoading(true);
@@ -1523,11 +1778,19 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
     try {
       const res = await fetch(`/api/rooms/${room.id}/messages?limit=50`);
       const data = await res.json();
+      if (res.status === 404 || data.error === "Sala não encontrada") {
+        // Sala foi excluída — redirecionar
+        setRoomDeletedDetected(true);
+        toast.error("Esta sala foi excluída", { duration: 5000 });
+        setSelectedRoom(null);
+        onRefreshRooms();
+        return;
+      }
       if (data.error) return;
       setMessages(data.messages || []);
     } catch { /* silent */ }
     setLoading(false);
-  }, [room.id]);
+  }, [room.id, setSelectedRoom, onRefreshRooms]);
 
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
@@ -2057,6 +2320,14 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
                 <DropdownMenuItem onClick={() => setShowInvite(true)} className="gap-2">
                   <UserPlus className="h-4 w-4" /> Convidar pessoa
                 </DropdownMenuItem>
+                {isCreator && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setShowDeleteRoom(true)} className="text-destructive focus:text-destructive gap-2">
+                      <Trash2 className="h-4 w-4" /> Excluir sala
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLeave} className="text-destructive focus:text-destructive gap-2">
                   <LogOut className="h-4 w-4" /> Sair da sala
@@ -2425,6 +2696,8 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
         room={room}
         members={members}
         onRefresh={fetchMembers}
+        currentProfile={profile}
+        onDeleteRoom={() => setShowDeleteRoom(true)}
       />
 
       {/* ═══════ Invite Dialog ═══════ */}
@@ -2436,6 +2709,17 @@ function RoomChat({ room, onBack, onRefreshRooms, openUserProfile }: { room: any
         maxMembers={room.max_members}
         currentMemberCount={memberCount}
         onInvited={fetchMembers}
+      />
+
+      {/* ═══════ Delete Room Dialog ═══════ */}
+      <DeleteRoomDialog
+        open={showDeleteRoom}
+        onOpenChange={setShowDeleteRoom}
+        room={room}
+        onDeleted={() => {
+          setSelectedRoom(null);
+          onRefreshRooms();
+        }}
       />
     </div>
   );
