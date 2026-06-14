@@ -66,7 +66,8 @@ export async function GET(
 }
 
 // DELETE /api/rooms/[id] — Excluir sala (somente creator)
-// Exclusão em cascata: messages → room_bans → room_members → room
+// Exclusão em cascata: messages → room_members → room
+// (room_bans é uma VIEW sobre room_members; convites foram removidos do schema)
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -126,60 +127,20 @@ export async function DELETE(
     };
 
     // 2. Excluir em cascata na ordem correta para evitar erros de FK
-    // Ordem: messages → room_bans → room_members → room
+    // Ordem: messages → room_members → room
+    // Observação: "room_bans" é uma VIEW derivada de room_members (não é mais
+    // uma tabela própria), então é esvaziada automaticamente ao excluir os
+    // registros de room_members abaixo — não requer exclusão separada.
+    // A tabela "room_invites" foi removida do schema por estar órfã (nunca era
+    // populada pelas APIs de convite, que inserem direto em room_members).
 
     // 2a. Excluir mensagens da sala
     await deleteWithFallback("messages", "room_id", roomId, "mensagens");
 
-    // 2b. Excluir bans da sala (tabela room_bans, se existir)
-    // Primeiro tenta a tabela room_bans; se não existir, ignora silenciosamente
-    try {
-      const { error: bansErr } = await supabase
-        .from("room_bans")
-        .delete()
-        .eq("room_id", roomId);
-      if (bansErr) {
-        // Tenta com admin
-        try {
-          const admin = createAdminClient();
-          await admin.from("room_bans").delete().eq("room_id", roomId);
-          deletionLog.push("room_bans: excluído via admin");
-        } catch {
-          // Tabela pode não existir — não é erro crítico
-          deletionLog.push("room_bans: tabela não encontrada ou já limpa");
-        }
-      } else {
-        deletionLog.push("room_bans: excluído");
-      }
-    } catch {
-      deletionLog.push("room_bans: tabela não encontrada (ignorado)");
-    }
-
-    // 2c. Excluir membros da sala (inclui bans inline, moderadores, etc.)
+    // 2b. Excluir membros da sala (inclui banidos, moderadores, etc.)
     await deleteWithFallback("room_members", "room_id", roomId, "membros");
 
-    // 2d. Excluir convites pendentes (tabela room_invites, se existir)
-    try {
-      const { error: invitesErr } = await supabase
-        .from("room_invites")
-        .delete()
-        .eq("room_id", roomId);
-      if (invitesErr) {
-        try {
-          const admin = createAdminClient();
-          await admin.from("room_invites").delete().eq("room_id", roomId);
-          deletionLog.push("room_invites: excluído via admin");
-        } catch {
-          deletionLog.push("room_invites: tabela não encontrada ou já limpa");
-        }
-      } else {
-        deletionLog.push("room_invites: excluído");
-      }
-    } catch {
-      deletionLog.push("room_invites: tabela não encontrada (ignorado)");
-    }
-
-    // 2e. Excluir a sala propriamente dita
+    // 2c. Excluir a sala propriamente dita
     const { error: deleteErr } = await supabase
       .from("rooms")
       .delete()
